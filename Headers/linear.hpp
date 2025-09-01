@@ -1,24 +1,31 @@
 #pragma once
 
 #include "value.hpp"
+#include <stdexcept>
 
-struct Linear
+struct Component {
+    virtual std::vector<Value_ptr> forward(std::vector<Value_ptr> input) {
+        throw std::runtime_error("forward not implemented");
+    }
+};
+
+struct Linear : Component
 {
-    Value** weights;
-    Value* biases;
+    std::vector<Value_ptr> biases;
+    std::vector<std::vector<Value_ptr>> weights;
 
     int in_size, out_size;
 
     Linear(int in_size, int out_size);
-    ~Linear();
-    Value* forward(Value* input);
+    ~Linear() {}
+    std::vector<Value_ptr> forward(std::vector<Value_ptr> input) override;
 };
 
-struct Softmax
+struct Softmax : Component
 {
     int size;
     Value val_sum;
 
     Softmax(int size) : size(size) {}
-    Value* forward(Value* input);
+    std::vector<Value_ptr> forward(std::vector<Value_ptr> input) override;
 };
