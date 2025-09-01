@@ -3,51 +3,53 @@
 
 Linear::Linear(int in_size, int out_size) : in_size(in_size), out_size(out_size)
 {
-    biases = new Value[out_size];
-    weights = new Value *[out_size];
-
-    for (int x = 0; x < out_size; ++x)
+    biases.reserve(out_size);
+    for (int i = 0; i < out_size; ++i)
     {
-        weights[x] = new Value[in_size];
+        biases.push_back(std::make_shared<Value>(0.0));
+    }
+
+    weights.resize(out_size);
+    for (int i = 0; i < out_size; ++i)
+    {
+        weights[i].reserve(in_size);
+        for (int j = 0; j < in_size; ++j)
+        {
+            weights[i].push_back(std::make_shared<Value>(0.0)); // or random init
+        }
     }
 }
 
-Linear::~Linear()
+std::vector<Value_ptr> Linear::forward(std::vector<Value_ptr> input)
 {
-    for (int x = 0; x < out_size; ++x)
+    std::vector<Value_ptr> output;
+    output.reserve(out_size);
+    for (int i = 0; i < out_size; ++i)
     {
-        delete[] weights[x];
+        output.push_back(std::make_shared<Value>(0.0));
     }
 
-    delete[] weights;
-}
-
-Value *Linear::forward(Value *input)
-{
-    Value *output = new Value[out_size];
-
     for (int x = 0; x < out_size; ++x)
     {
-        output[x] = biases[x];
         for (int y = 0; y < in_size; ++y)
         {
-            Value temp = input[y] * weights[x][y];
-            output[x] = output[x] + temp;
+            output[x] = output[x] + input[y] * weights[x][y];
         }
+        output[x] = output[x] + biases[x];
     }
 
     return output;
 }
 
-Value *Softmax::forward(Value *input)
+std::vector<Value_ptr> Softmax::forward(std::vector<Value_ptr> input)
 {
-    val_sum = Value();
-    Value *output = new Value[size];
+    std::vector<Value_ptr> output;
+    output.reserve(size);
+    Value_ptr val_sum = std::make_shared<Value>(0.0);
     for (int x = 0; x < size; ++x)
     {
-        output[x] = input[x].exp();
+        output[x] = input[x]->exp();
         val_sum = val_sum + output[x];
-        printf("%p %p\n", val_sum.parents.first, val_sum.parents.second);
     }
 
     for (int x = 0; x < size; ++x)

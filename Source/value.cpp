@@ -6,21 +6,21 @@
 
 #include "value.hpp"
 
-Value Value::operator+(Value_ptr& other)
+Value_ptr operator+(Value_ptr self, Value_ptr other)
 {
-    Value_ptr out = std::make_shared<Value>(data + other->data, std::pair{shared_from_this(), other});
+    Value_ptr out = std::make_shared<Value>(self->data + other->data, std::pair{self, other});
     out->backward_fn = [](Value *self)
     {
         self->parents.first->grad += self->grad;
         self->parents.second->grad += self->grad;
     };
-    return *out;
+    return out;
 }
 
-Value Value::operator*(Value &other)
+Value_ptr operator*(Value_ptr self, Value_ptr other)
 {
-    Value out(data * other.data, std::pair{this, &other});
-    out.backward_fn = [](Value *self)
+    Value_ptr out = std::make_shared<Value>(self->data * other->data, std::pair{self, other});
+    out->backward_fn = [](Value *self)
     {
         self->parents.first->grad += self->grad * self->parents.second->data;
         self->parents.second->grad += self->grad * self->parents.first->data;
@@ -28,10 +28,10 @@ Value Value::operator*(Value &other)
     return out;
 }
 
-Value Value::operator/(Value &other)
+Value_ptr operator/(Value_ptr self, Value_ptr other)
 {
-    Value out(data / other.data, std::pair{this, &other});
-    out.backward_fn = [](Value *self)
+    Value_ptr out = std::make_shared<Value>(self->data / other->data, std::pair{self, other});
+    out->backward_fn = [](Value *self)
     {
         self->parents.first->grad += self->grad * (1 / self->parents.second->data);
         self->parents.second->grad += self->grad * -(self->parents.first->data / (self->parents.second->data * self->parents.second->data));
@@ -39,20 +39,20 @@ Value Value::operator/(Value &other)
     return out;
 }
 
-Value Value::relu()
+Value_ptr Value::relu()
 {
-    Value out(data > 0 ? data : 0, std::pair{this, nullptr});
-    out.backward_fn = [](Value *self)
+    Value_ptr out = std::make_shared<Value>(data > 0 ? data : 0, std::pair{shared_from_this(), nullptr});
+    out->backward_fn = [](Value *self)
     {
         self->parents.first->grad += (self->data > 0 ? 1 : 0) * self->grad;
     };
     return out;
 }
 
-Value Value::exp()
+Value_ptr Value::exp()
 {
-    Value out(std::exp(data), std::pair{this, nullptr});
-    out.backward_fn = [](Value *self)
+    Value_ptr out = std::make_shared<Value>(std::exp(data), std::pair{shared_from_this(), nullptr});
+    out->backward_fn = [](Value *self)
     {
         self->parents.first->grad += self->grad * self->data;
     };
@@ -65,9 +65,9 @@ void Value::toposort(Value *v, std::vector<Value *> &visited, std::vector<Value 
     {
         visited.push_back(v);
         if (v->parents.first)
-            toposort(v->parents.first, visited, res);
+            toposort(v->parents.first.get(), visited, res);
         if (v->parents.second)
-            toposort(v->parents.second, visited, res);
+            toposort(v->parents.second.get(), visited, res);
         res.push_back(v);
     }
 }
@@ -93,6 +93,6 @@ void Value::backward()
 void Value::zero_grad()
 {
     grad = 0;
-    if (parents.first && parents.first != this)   parents.first->zero_grad();
-    if (parents.second && parents.second != this) parents.second->zero_grad();
+    if (parents.first && parents.first.get() != this)   parents.first->zero_grad();
+    if (parents.second && parents.second.get() != this) parents.second->zero_grad();
 }
