@@ -1,6 +1,7 @@
 #pragma once
 
 #include "value.hpp"
+#include "tensor.hpp"
 #include <stdexcept>
 
 struct Component {

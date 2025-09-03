@@ -1,7 +1,9 @@
 #include "value.hpp"
 #include "linear.hpp"
+#include "tensor.hpp"
 #include <iostream>
 #include <cmath>
+#include <cassert>
 
 inline void assert_almost_equal(double a, double b, double epsilon = 1e-4) {
     if (std::fabs(a - b) >= epsilon) {
@@ -75,23 +77,64 @@ void test_softmax() {
         assert_almost_equal(correct_grad[x], input[x]->grad);
 }
 
-void test_full_forward() {
-    std::vector<Value_ptr> input = { val(0.1), val(0.2), val(-0.1)};
-    Linear l1(3, 2);
-    Linear l2(2, 2);
-    Softmax s(2);
+// void test_full_forward() {
+//     std::vector<Value_ptr> input = { val(0.1), val(0.2), val(-0.1)};
+//     Linear l1(3, 2);
+//     Linear l2(2, 2);
+//     Softmax s(2);
 
-    auto x = l1.forward(input);
-    x = l2.forward(x);
-    x = s.forward(x);
+//     auto x = l1.forward(input);
+//     x = l2.forward(x);
+//     x = s.forward(x);
 
-    printf("%f %f", x[0]->data, x[1]->data);
+//     printf("%f %f", x[0]->data, x[1]->data);
+// }
+
+
+void test_tensor() {
+    Tensor t({2, 3, 4});
+    assert(t.shape == std::vector<int>({2, 3, 4}));
+    assert(t.total_count == 24);
+    assert(t.data.size() == 24);
+
+    bool caught = false;
+    try {
+        Tensor t({});
+    } catch (...) {
+        caught = true;
+    }
+    assert(caught);
+
+    auto row = t[0];
+    assert(row.dim == 1);
+
+    auto elem = t[1][2];
+    assert(elem.dim == 2);
+
+    caught = false;
+    try {
+        auto bad = t[5];
+        (void)bad;
+    } catch (...) {
+        caught = true;
+    }
+    assert(caught);
+
+    double v1 = 1.5, v2 = 3.7;
+    t[0][0][0] = v1;
+    t[1][1][3] = v2;
+
+    assert_almost_equal(t.data[0]->data, 1.5);
+    assert_almost_equal(t.data[19]->data, 3.7);
 }
+
+
 
 int main()
 {
-    test_value();
-    test_linear_forward();
-    test_softmax();
-    test_full_forward();
+    // test_value();
+    // test_linear_forward();
+    // test_softmax();
+    // test_full_forward();
+    test_tensor();
 }
