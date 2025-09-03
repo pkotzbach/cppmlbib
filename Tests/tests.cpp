@@ -14,8 +14,11 @@ inline void assert_almost_equal(double a, double b, double epsilon = 1e-4) {
     }
 }
 
-inline Value_ptr val(double x) {
-    return std::make_shared<Value>(x);
+inline Tensor make_1d_tensor(std::vector<double> data) {
+    Tensor input({data.size()});
+    for (int i = 0; i < data.size(); ++i)
+        input[i] = data[i];
+    return input;
 }
 
 
@@ -52,10 +55,7 @@ void test_linear_forward() {
             l1.weights[x][y]->data = 0.1 * x + 0.01 * y;
     }
 
-    Tensor input({in_size});
-    std::vector<double> data = {0.1, 0.2, 0.3, 0.4, 0.5};
-    for (int i = 0; i < in_size; ++i)
-        input[i] = data[i];
+    Tensor input = make_1d_tensor({0.1, 0.2, 0.3, 0.4, 0.5});
 
     Tensor output = l1.forward(input);
     double correct_output[5] = {0.14, 0.29, 0.44, 0.59, 0.74};
@@ -66,10 +66,7 @@ void test_linear_forward() {
 
 void test_softmax() {
     const int size = 3;
-    Tensor input({size});
-    std::vector<double> data = {0.1, 0.2, -0.1};
-    for (int i = 0; i < size; ++i)
-        input[i] = data[i];
+    Tensor input = make_1d_tensor({0.1, 0.2, -0.1});
 
     Softmax softmax(size);
     Tensor output = softmax.forward(input);
@@ -85,18 +82,33 @@ void test_softmax() {
         assert_almost_equal(correct_grad[x], input[x]->grad);
 }
 
-// void test_full_forward() {
-//     std::vector<Value_ptr> input = { val(0.1), val(0.2), val(-0.1)};
-//     Linear l1(3, 2);
-//     Linear l2(2, 2);
-//     Softmax s(2);
+void test_mse() {
+    Tensor input = make_1d_tensor({0.1, 0.2, -0.1});
+    Tensor correct = make_1d_tensor({1, 0, -1});
+    Value_ptr loss = MSELoss(input, correct);
+    assert_almost_equal(loss->data, 0.5533);
+    loss->backward();
+    assert_almost_equal(input.data[0]->grad, -0.6);
+    assert_almost_equal(input.data[1]->grad, 0.1333);
+    assert_almost_equal(input.data[2]->grad, 0.6);
+}
 
-//     auto x = l1.forward(input);
-//     x = l2.forward(x);
-//     x = s.forward(x);
+void test_full_forward() {
+    Tensor input({3});
+    std::vector<double> data = {0.1, 0.2, -0.1};
+    for (int i = 0; i < 3; ++i)
+        input[i] = data[i];
 
-//     printf("%f %f", x[0]->data, x[1]->data);
-// }
+    Linear l1(3, 2);
+    Linear l2(2, 2);
+    Softmax s(2);
+
+    auto x = l1.forward(input);
+    x = l2.forward(x);
+    x = s.forward(x);
+
+    // printf("%f %f", x[0]->data, x[1]->data);
+}
 
 
 void test_tensor() {
@@ -139,8 +151,9 @@ void test_tensor() {
 int main()
 {
     test_value();
+    test_tensor();
     test_linear_forward();
     test_softmax();
-    // test_full_forward();
-    test_tensor();
+    test_full_forward();
+    test_mse();
 }

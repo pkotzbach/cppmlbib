@@ -29,6 +29,6 @@ struct Value : std::enable_shared_from_this<Value>
 
 // operators
 Value_ptr operator+(Value_ptr self, Value_ptr other);
-// Value operator-(Value& other);
+Value_ptr operator-(Value_ptr self, Value_ptr other);
 Value_ptr operator*(Value_ptr self, Value_ptr other);
 Value_ptr operator/(Value_ptr self, Value_ptr other);

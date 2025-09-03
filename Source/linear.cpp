@@ -3,7 +3,7 @@
 
 Linear::Linear(int in_size, int out_size) : in_size(in_size), out_size(out_size)
 {
-    weights = Tensor({in_size, out_size});
+    weights = Tensor({out_size, in_size});
     biases = Tensor({out_size});
 }
 
@@ -42,4 +42,22 @@ Tensor Softmax::forward(Tensor input)
         output[x] = output[x].get() / val_sum;
     }
     return output;
+}
+
+Value_ptr MSELoss(Tensor input, Tensor target)
+{
+    if (input.shape != target.shape) throw std::invalid_argument("input and target must have same shape");
+    if (input.shape.size() != 1) throw std::invalid_argument("shape must have dim 1");
+    Tensor temp(input.shape);
+    temp = input - target;
+    temp = temp * temp;
+
+    Value_ptr result = std::make_shared<Value>(0);
+    for (int i = 0; i < temp.data.size(); ++i)
+        result = result + temp.data[i];
+
+    Value_ptr div = std::make_shared<Value>(temp.data.size());
+    result = result / div;
+
+    return result;
 }

@@ -5,15 +5,13 @@
 
 Tensor &Tensor::init(std::vector<int> shape)
 {
-    if (shape.size() == 0)
-        throw std::runtime_error("shape 0");
+    if (shape.size() == 0) throw std::runtime_error("shape 0");
     this->shape = shape;
 
     total_count = shape[0];
     for (size_t i = 1; i < shape.size(); ++i)
     {
-        if (shape[i] <= 0)
-            throw std::runtime_error("shape <= 0");
+        if (shape[i] <= 0) throw std::runtime_error("shape <= 0");
         total_count *= shape[i];
     }
 
@@ -25,34 +23,45 @@ Tensor &Tensor::init(std::vector<int> shape)
     return *this;
 }
 
+Tensor Tensor::operator-(Tensor tensor)
+{
+    if (shape != tensor.shape) throw std::invalid_argument("Shape must be the same");
+    Tensor result(shape);
+    for (int i = 0; i < data.size(); ++i) {
+        result[i] = data[i] - tensor.data[i];
+    }
+    return result;
+}
+
+Tensor Tensor::operator*(Tensor tensor)
+{
+    if (shape != tensor.shape) throw std::invalid_argument("Shape must be the same");
+    Tensor result(shape);
+    for (int i = 0; i < data.size(); ++i) {
+        result[i] = data[i] * tensor.data[i];
+    }
+    return result;
+}
+
 //------------------ proxy
 
 TensorProxy Tensor::operator[](int idx)
 {
-    if (idx < 0 || idx >= shape[0])
-    {
-        throw std::out_of_range("index out of range");
-    }
+    if (idx < 0 || idx >= shape[0]) throw std::out_of_range("index out of range");
     int offset = idx * total_count / shape[0];
     return TensorProxy(*this, offset, total_count / shape[0], 1);
 }
 
 TensorProxy TensorProxy::operator[](int idx)
 {
-    if (idx < 0 || idx >= tensor.shape[dim])
-    {
-        throw std::out_of_range("index out of range");
-    }
+    if (idx < 0 || idx >= tensor.shape[dim]) throw std::out_of_range("index out of range");
     int new_offset = offset + idx * proxy_count / tensor.shape[dim];
     return TensorProxy(tensor, new_offset, proxy_count / tensor.shape[dim], dim + 1);
 }
 
 Value_ptr TensorProxy::get()
 {
-    if (dim != tensor.shape.size())
-    {
-        throw std::invalid_argument("get only allowed at the last dimension");
-    }
+    if (dim != tensor.shape.size()) throw std::invalid_argument("get only allowed at the last dimension");
     return tensor.data[offset];
 }
 
@@ -67,10 +76,7 @@ TensorProxy::operator Value_ptr &()
 
 TensorProxy &TensorProxy::operator=(const double &value)
 {
-    if (dim != tensor.shape.size())
-    {
-        throw std::invalid_argument("Assignment only allowed at the last dimension");
-    }
+    if (dim != tensor.shape.size()) throw std::invalid_argument("Assignment only allowed at the last dimension");
     Value_ptr new_val = std::make_shared<Value>(value);
     tensor.data[offset] = new_val;
     return *this;
@@ -78,10 +84,7 @@ TensorProxy &TensorProxy::operator=(const double &value)
 
 TensorProxy &TensorProxy::operator=(Value_ptr value)
 {
-    if (dim != tensor.shape.size())
-    {
-        throw std::invalid_argument("Assignment only allowed at the last dimension");
-    }
+    if (dim != tensor.shape.size()) throw std::invalid_argument("Assignment only allowed at the last dimension");
     tensor.data[offset] = value;
     return *this;
 }

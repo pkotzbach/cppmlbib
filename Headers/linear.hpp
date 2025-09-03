@@ -30,3 +30,5 @@ struct Softmax : Component
     Softmax(int size);
     Tensor forward(Tensor input) override;
 };
+
+Value_ptr MSELoss(Tensor input, Tensor target);

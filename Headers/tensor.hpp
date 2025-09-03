@@ -14,6 +14,8 @@ struct Tensor
     int total_count;
 
     TensorProxy operator[](int idx);
+    Tensor operator-(Tensor tensor);
+    Tensor operator*(Tensor tensor);
 };
 
 struct TensorProxy

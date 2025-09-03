@@ -17,6 +17,17 @@ Value_ptr operator+(Value_ptr self, Value_ptr other)
     return out;
 }
 
+Value_ptr operator-(Value_ptr self, Value_ptr other)
+{
+    Value_ptr out = std::make_shared<Value>(self->data - other->data, std::pair{self, other});
+    out->backward_fn = [](Value *self)
+    {
+        self->parents.first->grad += self->grad;
+        self->parents.second->grad -= self->grad;
+    };
+    return out;
+}
+
 Value_ptr operator*(Value_ptr self, Value_ptr other)
 {
     Value_ptr out = std::make_shared<Value>(self->data * other->data, std::pair{self, other});
