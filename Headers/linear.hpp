@@ -5,28 +5,28 @@
 #include <stdexcept>
 
 struct Component {
-    virtual std::vector<Value_ptr> forward(std::vector<Value_ptr> input) {
+    virtual Tensor forward(Tensor input) {
         throw std::runtime_error("forward not implemented");
     }
 };
 
 struct Linear : Component
 {
-    std::vector<Value_ptr> biases;
-    std::vector<std::vector<Value_ptr>> weights;
+    Tensor biases;
+    Tensor weights;
 
     int in_size, out_size;
 
     Linear(int in_size, int out_size);
     ~Linear() {}
-    std::vector<Value_ptr> forward(std::vector<Value_ptr> input) override;
+    Tensor forward(Tensor input) override;
 };
 
 struct Softmax : Component
 {
     int size;
-    Value val_sum;
+    Value_ptr val_sum;
 
-    Softmax(int size) : size(size) {}
-    std::vector<Value_ptr> forward(std::vector<Value_ptr> input) override;
+    Softmax(int size);
+    Tensor forward(Tensor input) override;
 };

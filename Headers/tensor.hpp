@@ -5,7 +5,9 @@
 struct TensorProxy;
 struct Tensor
 {
-    Tensor(std::vector<int> shape);
+    Tensor& init(std::vector<int> shape);
+    Tensor(std::vector<int> shape) {init(shape);}
+    Tensor() {}
 
     std::vector<Value_ptr> data;
     std::vector<int> shape;
@@ -16,16 +18,16 @@ struct Tensor
 
 struct TensorProxy
 {
-    TensorProxy(Tensor& tensor, int offset, int proxy_count, int dim) : tensor(tensor), offset(offset), proxy_count(proxy_count), dim(dim) {}
+    TensorProxy(Tensor& tensor, int offset, int proxy_count, size_t dim) : tensor(tensor), offset(offset), proxy_count(proxy_count), dim(dim) {}
     Tensor& tensor;
     int offset;
     int proxy_count;
-    int dim;
+    size_t dim;
 
+    Value_ptr operator->();
+    Value_ptr get();
     TensorProxy operator[](int idx);
-
-    operator Value_ptr&() {
-        return tensor.data[offset];
-    }
+    operator Value_ptr&();
     TensorProxy& operator=(const double& value);
+    TensorProxy& operator=(Value_ptr value);
 };

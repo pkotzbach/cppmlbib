@@ -44,27 +44,35 @@ void test_value() {
 }
 
 void test_linear_forward() {
-    Linear l1(5, 5);
+    int in_size = 5, out_size = 5;
+    Linear l1(in_size, out_size);
     for (int x = 0; x < l1.out_size; ++x) {
         l1.biases[x]->data = 0.1;
         for (int y = 0; y < l1.in_size; ++y)
             l1.weights[x][y]->data = 0.1 * x + 0.01 * y;
     }
 
-    std::vector<Value_ptr> input = { val(0.1), val(0.2), val(0.3), val(0.4), val(0.5) };
-    auto output = l1.forward(input);
+    Tensor input({in_size});
+    std::vector<double> data = {0.1, 0.2, 0.3, 0.4, 0.5};
+    for (int i = 0; i < in_size; ++i)
+        input[i] = data[i];
+
+    Tensor output = l1.forward(input);
     double correct_output[5] = {0.14, 0.29, 0.44, 0.59, 0.74};
 
     for (int x = 0; x < 5; ++x)
         assert_almost_equal(correct_output[x], output[x]->data);
-
 }
 
 void test_softmax() {
     const int size = 3;
-    std::vector<Value_ptr> input = { val(0.1), val(0.2), val(-0.1)};
+    Tensor input({size});
+    std::vector<double> data = {0.1, 0.2, -0.1};
+    for (int i = 0; i < size; ++i)
+        input[i] = data[i];
+
     Softmax softmax(size);
-    std::vector<Value_ptr> output = softmax.forward(input);
+    Tensor output = softmax.forward(input);
     double correct_output[size] = {0.3420, 0.3780, 0.2800};
 
     for (int x = 0; x < size; ++x)
@@ -99,7 +107,7 @@ void test_tensor() {
 
     bool caught = false;
     try {
-        Tensor t({});
+        Tensor t(std::vector<int>({}));
     } catch (...) {
         caught = true;
     }
@@ -128,13 +136,11 @@ void test_tensor() {
     assert_almost_equal(t.data[19]->data, 3.7);
 }
 
-
-
 int main()
 {
-    // test_value();
-    // test_linear_forward();
-    // test_softmax();
+    test_value();
+    test_linear_forward();
+    test_softmax();
     // test_full_forward();
     test_tensor();
 }
