@@ -10,13 +10,12 @@ struct Value : std::enable_shared_from_this<Value>
 {
     double data;
     double grad;
-    char name;
+    char op;
     std::pair<Value_ptr, Value_ptr> parents;
     std::function<void(Value*)> backward_fn;
 
-    Value(double data=0, std::pair<Value_ptr, Value_ptr> parents = std::pair{nullptr, nullptr}, char name='0') : data(data), parents(parents) {
+    Value(double data=0, std::pair<Value_ptr, Value_ptr> parents = std::pair{nullptr, nullptr}, char op='x') : data(data), parents(parents), op(op) {
         grad = 0.0f;
-        name = name;
     }
 
     Value_ptr relu();

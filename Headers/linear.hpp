@@ -20,15 +20,11 @@ struct Linear : Component
     Linear(int in_size, int out_size);
     ~Linear() {}
     Tensor forward(Tensor input) override;
+    std::vector<Tensor*> params() {return {&weights, &biases};}
 };
 
 struct Softmax : Component
 {
-    int size;
-    Value_ptr val_sum;
-
-    Softmax(int size);
+    Softmax() {};
     Tensor forward(Tensor input) override;
 };
-
-Value_ptr MSELoss(Tensor input, Tensor target);

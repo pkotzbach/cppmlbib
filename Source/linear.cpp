@@ -1,5 +1,6 @@
 #include "linear.hpp"
 #include <cstdio>
+#include <stdexcept>
 
 Linear::Linear(int in_size, int out_size) : in_size(in_size), out_size(out_size)
 {
@@ -9,55 +10,49 @@ Linear::Linear(int in_size, int out_size) : in_size(in_size), out_size(out_size)
 
 Tensor Linear::forward(Tensor input)
 {
-    Tensor output({out_size});
+    if (input.shape.size() != 2 && input.shape[1] != in_size) throw std::invalid_argument("Invalid input size");
+    const int batch_size = input.shape[0];
+    Tensor output({batch_size, out_size}, true);
 
-    for (int x = 0; x < out_size; ++x)
-    {
-        for (int y = 0; y < in_size; ++y)
+    auto& val_input = input.values;
+    auto& val_weights = weights.values;
+    auto& val_biases = biases.values;
+    auto& val_output = output.values;
+
+    for (int i = 0; i < batch_size; ++i) {
+        for (int x = 0; x < out_size; ++x)
         {
-            output[x] = output[x].get() + input[y].get() * weights[x][y].get();
+            for (int y = 0; y < in_size; ++y)
+            {
+                val_output[i * out_size + x] = val_output[i * out_size + x] + val_input[i * in_size + y] * val_weights[x * in_size + y];
+            }
+            val_output[i * out_size + x] = val_output[i * out_size + x] + val_biases[x];
         }
-        output[x] = output[x].get() + biases[x].get();
     }
 
     return output;
-}
-
-Softmax::Softmax(int size) : size(size)
-{
-    val_sum = std::make_shared<Value>(0);
 }
 
 Tensor Softmax::forward(Tensor input)
 {
-    Tensor output({size});
-    for (int x = 0; x < size; ++x)
-    {
-        output[x] = input[x].get()->exp();
-        val_sum = val_sum + output[x].get();
-    }
+    if (input.shape.size() != 2) throw std::invalid_argument("Invalid input size");
+    int size = input.shape[1];
+    int entries = input.shape[0];
+    Tensor output(input.shape, true);
+    auto& val_output = output.values;
+    auto& val_input = input.values;
+    for (int i = 0; i < entries; ++i) {
+        Value_ptr val_sum = std::make_shared<Value>(0);
+        for (int x = 0; x < size; ++x)
+        {
+            val_output[i * size + x] = val_input[i * size + x]->exp();
+            val_sum = val_sum + val_output[i * size + x];
+        }
 
-    for (int x = 0; x < size; ++x)
-    {
-        output[x] = output[x].get() / val_sum;
+        for (int x = 0; x < size; ++x)
+        {
+            val_output[i * size + x] = val_output[i * size + x] / val_sum;
+        }
     }
     return output;
-}
-
-Value_ptr MSELoss(Tensor input, Tensor target)
-{
-    if (input.shape != target.shape) throw std::invalid_argument("input and target must have same shape");
-    if (input.shape.size() != 1) throw std::invalid_argument("shape must have dim 1");
-    Tensor temp(input.shape);
-    temp = input - target;
-    temp = temp * temp;
-
-    Value_ptr result = std::make_shared<Value>(0);
-    for (int i = 0; i < temp.data.size(); ++i)
-        result = result + temp.data[i];
-
-    Value_ptr div = std::make_shared<Value>(temp.data.size());
-    result = result / div;
-
-    return result;
 }

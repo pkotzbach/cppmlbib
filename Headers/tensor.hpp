@@ -5,17 +5,22 @@
 struct TensorProxy;
 struct Tensor
 {
-    Tensor& init(std::vector<int> shape);
-    Tensor(std::vector<int> shape) {init(shape);}
+    Tensor& init(std::vector<int> shape, bool init_zero = false);
+    Tensor(std::vector<int> shape, bool init_zero = false) {init(shape, init_zero);}
     Tensor() {}
 
-    std::vector<Value_ptr> data;
+    std::vector<Value_ptr> values;
     std::vector<int> shape;
     int total_count;
 
+    Tensor relu();
+    Tensor& flatten();
+
     TensorProxy operator[](int idx);
+    Tensor operator+(Tensor tensor);
     Tensor operator-(Tensor tensor);
     Tensor operator*(Tensor tensor);
+    Tensor& operator=(Tensor tensor);
 };
 
 struct TensorProxy

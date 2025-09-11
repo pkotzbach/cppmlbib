@@ -2,8 +2,16 @@
 
 #include <stdexcept>
 #include <cassert>
+#include <random>
 
-Tensor &Tensor::init(std::vector<int> shape)
+double sample_kaiming(double n)
+{
+    std::mt19937 gen(std::random_device{}());
+    std::normal_distribution<double> dist(0.0, std::sqrt(2/n));
+    return dist(gen);
+}
+
+Tensor &Tensor::init(std::vector<int> shape, bool init_zero)
 {
     if (shape.size() == 0) throw std::runtime_error("shape 0");
     this->shape = shape;
@@ -15,20 +23,46 @@ Tensor &Tensor::init(std::vector<int> shape)
         total_count *= shape[i];
     }
 
-    data.resize(total_count);
+    values.resize(total_count);
     for (int i = 0; i < total_count; ++i)
     {
-        data[i] = std::make_shared<Value>(0.0); // init val?
+        values[i] = std::make_shared<Value>(init_zero? 0: sample_kaiming(total_count)); // init val?
     }
     return *this;
+}
+
+Tensor Tensor::relu()
+{
+    Tensor result(shape);
+    for (int i = 0; i < total_count; ++i) {
+        result[i] = values[i]->relu();
+    }
+    return result;
+}
+
+Tensor &Tensor::flatten()
+{
+    shape = {total_count};
+    return *this;
+}
+
+//tensor operators
+Tensor Tensor::operator+(Tensor tensor)
+{
+    if (shape != tensor.shape) throw std::invalid_argument("Shape must be the same");
+    Tensor result(shape, true);
+    for (int i = 0; i < total_count; ++i) {
+        result.values[i] = values[i] + tensor.values[i];
+    }
+    return result;
 }
 
 Tensor Tensor::operator-(Tensor tensor)
 {
     if (shape != tensor.shape) throw std::invalid_argument("Shape must be the same");
-    Tensor result(shape);
-    for (int i = 0; i < data.size(); ++i) {
-        result[i] = data[i] - tensor.data[i];
+    Tensor result(shape, true);
+    for (int i = 0; i < total_count; ++i) {
+        result.values[i] = values[i] - tensor.values[i];
     }
     return result;
 }
@@ -36,11 +70,19 @@ Tensor Tensor::operator-(Tensor tensor)
 Tensor Tensor::operator*(Tensor tensor)
 {
     if (shape != tensor.shape) throw std::invalid_argument("Shape must be the same");
-    Tensor result(shape);
-    for (int i = 0; i < data.size(); ++i) {
-        result[i] = data[i] * tensor.data[i];
+    Tensor result(shape, true);
+    for (int i = 0; i < total_count; ++i) {
+        result.values[i] = values[i] * tensor.values[i];
     }
     return result;
+}
+
+Tensor &Tensor::operator=(Tensor tensor)
+{
+    values = tensor.values;
+    shape = tensor.shape;
+    total_count = tensor.total_count;
+    return *this;
 }
 
 //------------------ proxy
@@ -62,7 +104,7 @@ TensorProxy TensorProxy::operator[](int idx)
 Value_ptr TensorProxy::get()
 {
     if (dim != tensor.shape.size()) throw std::invalid_argument("get only allowed at the last dimension");
-    return tensor.data[offset];
+    return tensor.values[offset];
 }
 
 Value_ptr TensorProxy::operator->() {
@@ -71,20 +113,20 @@ Value_ptr TensorProxy::operator->() {
 
 TensorProxy::operator Value_ptr &()
 {
-    return tensor.data[offset];
+    return tensor.values[offset];
 }
 
 TensorProxy &TensorProxy::operator=(const double &value)
 {
     if (dim != tensor.shape.size()) throw std::invalid_argument("Assignment only allowed at the last dimension");
     Value_ptr new_val = std::make_shared<Value>(value);
-    tensor.data[offset] = new_val;
+    tensor.values[offset] = new_val;
     return *this;
 }
 
 TensorProxy &TensorProxy::operator=(Value_ptr value)
 {
     if (dim != tensor.shape.size()) throw std::invalid_argument("Assignment only allowed at the last dimension");
-    tensor.data[offset] = value;
+    tensor.values[offset] = value;
     return *this;
 }
