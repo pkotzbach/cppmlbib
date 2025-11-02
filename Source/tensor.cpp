@@ -35,7 +35,7 @@ Tensor Tensor::relu()
 {
     Tensor result(shape);
     for (int i = 0; i < total_count; ++i) {
-        result[i] = values[i]->relu();
+        result.values[i] = values[i]->relu();
     }
     return result;
 }
