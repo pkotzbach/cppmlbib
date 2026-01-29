@@ -1,6 +1,7 @@
 #pragma once
 #include <functional>
 #include <memory>
+#include <unordered_set>
 
 struct Value;
 
@@ -9,9 +10,9 @@ typedef std::shared_ptr<Value> Value_ptr;
 struct Value : std::enable_shared_from_this<Value>
 {
     double data;
-    double grad;
-    char op;
     std::pair<Value_ptr, Value_ptr> parents;
+    char op;
+    double grad;
     std::function<void(Value*)> backward_fn;
 
     Value(double data=0, std::pair<Value_ptr, Value_ptr> parents = std::pair{nullptr, nullptr}, char op='x') : data(data), parents(parents), op(op) {
@@ -23,7 +24,7 @@ struct Value : std::enable_shared_from_this<Value>
 
     void backward();
     void zero_grad();
-    void toposort(Value* v, std::vector<Value*>& visited, std::vector<Value*>& res);
+    void toposort(Value* v, std::unordered_set<Value*>& visited, std::vector<Value*>& res);
 };
 
 // operators

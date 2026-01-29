@@ -70,11 +70,11 @@ Value_ptr Value::exp()
     return out;
 }
 
-void Value::toposort(Value *v, std::vector<Value *> &visited, std::vector<Value *> &res)
+void Value::toposort(Value *v, std::unordered_set<Value *> &visited, std::vector<Value *> &res)
 {
-    if (std::find(visited.begin(), visited.end(), v) == visited.end())
+    if (visited.find(v) == visited.end())
     {
-        visited.push_back(v);
+        visited.insert(v);
         if (v->parents.first)
             toposort(v->parents.first.get(), visited, res);
         if (v->parents.second)
@@ -85,7 +85,7 @@ void Value::toposort(Value *v, std::vector<Value *> &visited, std::vector<Value 
 
 void Value::backward()
 {
-    std::vector<Value *> visited{};
+    std::unordered_set<Value *> visited{};
     std::vector<Value *> topo{};
     toposort(this, visited, topo);
     std::reverse(topo.begin(), topo.end());
