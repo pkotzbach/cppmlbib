@@ -14,8 +14,11 @@ struct Tensor
     int total_count;
 
     Tensor relu();
+    Tensor argmax(int dim);
+
     Tensor& flatten();
 
+    // operators
     TensorProxy operator[](int idx);
     Tensor operator+(Tensor tensor);
     Tensor operator-(Tensor tensor);

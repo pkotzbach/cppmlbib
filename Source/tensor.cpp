@@ -40,6 +40,36 @@ Tensor Tensor::relu()
     return result;
 }
 
+Tensor Tensor::argmax(int dim)
+{
+    // assume 2d matrix
+    if (dim != 1) throw std::invalid_argument("Only for dim 1 now");
+    if (shape.size() != 2) throw std::invalid_argument("Only for 2d matrix now");
+
+    std::vector<int> result_shape;
+    for (int i = 0; i < shape.size(); ++i) {
+        result_shape.push_back(i == dim ? 1 : shape[i]);
+    }
+    Tensor result(result_shape);
+
+    int idx = -1;
+    double max, data;
+    for (int i = 0; i < shape[0]; ++i) {
+        max = -INFINITY;
+        idx = -1;
+        for (int j = 0; j < shape[dim]; ++j) {
+            data = (*this)[i][j].get()->data;
+            if (data > max) {
+                max = data;
+                idx = j;
+            }
+        }
+        result[i][0] = idx;
+    }
+    
+    return result;
+}
+
 Tensor &Tensor::flatten()
 {
     shape = {total_count};

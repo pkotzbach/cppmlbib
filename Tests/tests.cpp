@@ -173,14 +173,25 @@ void test_tensor_operations()
     assert_flatten_tensor_almost_equal(t5, {0.03, 0.12, 0.023, -1, -4, -9});
 }
 
+void test_tensor_argmax_2d_last()
+{
+    Tensor input = make_tensor({{0.1, 0.2, -0.1}, {1, 1, 5}});
+    Tensor result = input.argmax(1);
+    assert_flatten_tensor_almost_equal(result, {1, 2});
+}
+
 int main()
 {
+    printf("Running tests...\n");
     test_value();
-    test_tensor();
-    test_tensor_operations();
     test_linear_forward();
     test_softmax();
     test_mse();
     test_sgd();
+    // tensor
+    test_tensor();
+    test_tensor_operations();
+    test_tensor_argmax_2d_last();
     // test_full_step();
+    printf("Tests complete!\n");
 }

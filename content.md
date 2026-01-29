@@ -3,5 +3,6 @@
 ## components
 - linear
 - softmax
+- argmax (2d with last dim)
 ## optimizers
 - sgd
