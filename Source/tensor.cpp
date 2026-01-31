@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <cassert>
 #include <random>
+#include <string>
 
 double sample_kaiming(double n)
 {
@@ -11,10 +12,14 @@ double sample_kaiming(double n)
     return dist(gen);
 }
 
-Tensor &Tensor::init(std::vector<int> shape, bool init_zero)
+Tensor &Tensor::init(std::vector<int> shape, bool init_zero, std::string device)
 {
     if (shape.size() == 0) throw std::runtime_error("shape 0");
     this->shape = shape;
+    if (device.compare("cuda") != 0 && device.compare("cpu") != 0) {
+        throw std::runtime_error("invalid device!");
+    }
+    this->device = device;
 
     total_count = shape[0];
     for (size_t i = 1; i < shape.size(); ++i)
@@ -112,6 +117,7 @@ Tensor &Tensor::operator=(Tensor tensor)
     values = tensor.values;
     shape = tensor.shape;
     total_count = tensor.total_count;
+    device = tensor.device;
     return *this;
 }
 

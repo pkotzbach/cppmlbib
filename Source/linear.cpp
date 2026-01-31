@@ -1,12 +1,9 @@
 #include "linear.hpp"
 #include <cstdio>
 #include <stdexcept>
-
-Linear::Linear(int in_size, int out_size) : in_size(in_size), out_size(out_size)
-{
-    weights = Tensor({out_size, in_size});
-    biases = Tensor({out_size});
-}
+// #include "linear_forward.h"
+// #include <cuda_runtime.h>
+#include <string>
 
 Tensor Linear::forward(Tensor input)
 {
@@ -14,19 +11,22 @@ Tensor Linear::forward(Tensor input)
     const int batch_size = input.shape[0];
     Tensor output({batch_size, out_size}, true);
 
-    auto& val_input = input.values;
-    auto& val_weights = weights.values;
-    auto& val_biases = biases.values;
-    auto& val_output = output.values;
+    if (input.device.compare("cpu") == 0 && weights.device.compare("cpu") == 0) {
+        auto& val_input = input.values;
+        auto& val_weights = weights.values;
+        auto& val_biases = biases.values;
+        auto& val_output = output.values;
 
-    for (int i = 0; i < batch_size; ++i) {
-        for (int x = 0; x < out_size; ++x)
-        {
-            for (int y = 0; y < in_size; ++y)
+        // matmul
+        for (int i = 0; i < batch_size; ++i) {
+            for (int x = 0; x < out_size; ++x)
             {
-                val_output[i * out_size + x] = val_output[i * out_size + x] + val_input[i * in_size + y] * val_weights[x * in_size + y];
+                for (int y = 0; y < in_size; ++y)
+                {
+                    val_output[i * out_size + x] = val_output[i * out_size + x] + val_input[i * in_size + y] * val_weights[x * in_size + y];
+                }
+                val_output[i * out_size + x] = val_output[i * out_size + x] + val_biases[x];
             }
-            val_output[i * out_size + x] = val_output[i * out_size + x] + val_biases[x];
         }
     }
 

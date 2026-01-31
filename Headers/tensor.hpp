@@ -1,17 +1,19 @@
 #pragma once
 
 #include "value.hpp"
+#include <string>
 
 struct TensorProxy;
 struct Tensor
 {
-    Tensor& init(std::vector<int> shape, bool init_zero = false);
-    Tensor(std::vector<int> shape, bool init_zero = false) {init(shape, init_zero);}
+    Tensor& init(std::vector<int> shape, bool init_zero, std::string device);
+    Tensor(std::vector<int> shape, bool init_zero = false, std::string device = "cpu") {init(shape, init_zero, device);}
     Tensor() {}
 
     std::vector<Value_ptr> values;
     std::vector<int> shape;
     int total_count;
+    std::string device;
 
     Tensor relu();
     Tensor argmax(int dim);

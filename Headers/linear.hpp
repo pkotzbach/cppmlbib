@@ -12,12 +12,12 @@ struct Component {
 
 struct Linear : Component
 {
-    Tensor biases;
-    Tensor weights;
-
     int in_size, out_size;
 
-    Linear(int in_size, int out_size);
+    Tensor weights;
+    Tensor biases;
+
+    Linear(int in_size, int out_size) : in_size(in_size), out_size(out_size), weights({out_size, in_size}), biases({out_size}) {}
     ~Linear() {}
     Tensor forward(Tensor input) override;
     std::vector<Tensor*> params() {return {&weights, &biases};}
