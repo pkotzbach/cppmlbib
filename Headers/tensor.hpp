@@ -15,6 +15,7 @@ struct Tensor
     int total_count;
     std::string device;
 
+    std::vector<double> raw_values();
     Tensor relu();
     Tensor argmax(int dim);
 

@@ -36,6 +36,15 @@ Tensor &Tensor::init(std::vector<int> shape, bool init_zero, std::string device)
     return *this;
 }
 
+std::vector<double> Tensor::raw_values()
+{
+    std::vector<double> raw_values;
+    for (auto& val : values) {
+        raw_values.push_back(val->data);
+    }
+    return raw_values;
+}
+
 Tensor Tensor::relu()
 {
     Tensor result(shape);
