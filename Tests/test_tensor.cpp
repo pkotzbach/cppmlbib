@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include "tensor.hpp"
-#include "helpers.hpp"
+#include "test_helpers.hpp"
 
 TEST(TensorTest, ConstructionAndIndexing) {
     Tensor t({2, 3, 4});

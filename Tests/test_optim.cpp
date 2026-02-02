@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include "optim.hpp"
-#include "helpers.hpp"
+#include "test_helpers.hpp"
 
 TEST(SGDTest, Step) {
     Tensor input = make_tensor({{0.1, 0.2, -0.1}});
