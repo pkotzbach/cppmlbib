@@ -6,8 +6,9 @@
 struct TensorProxy;
 struct Tensor
 {
-    Tensor& init(std::vector<int> shape, bool init_zero, std::string device);
-    Tensor(std::vector<int> shape, bool init_zero = false, std::string device = "cpu") {init(shape, init_zero, device);}
+    Tensor& init(std::vector<int> shape, std::vector<double> init_values, bool init_zero, std::string device);
+    Tensor(std::vector<int> shape, bool init_zero = false, std::string device = "cpu") {init(shape, {}, init_zero, device);}
+    Tensor(std::vector<int> shape, std::vector<double> values, std::string device = "cpu") {init(shape, values, false, device);}
     Tensor() {}
 
     std::vector<Value_ptr> values;

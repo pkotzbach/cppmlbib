@@ -12,13 +12,11 @@ double sample_kaiming(double n)
     return dist(gen);
 }
 
-Tensor &Tensor::init(std::vector<int> shape, bool init_zero, std::string device)
+Tensor &Tensor::init(std::vector<int> shape, std::vector<double> init_values, bool init_zero, std::string device)
 {
     if (shape.size() == 0) throw std::runtime_error("shape 0");
+    if (device.compare("cuda") != 0 && device.compare("cpu") != 0) throw std::runtime_error("invalid device!");
     this->shape = shape;
-    if (device.compare("cuda") != 0 && device.compare("cpu") != 0) {
-        throw std::runtime_error("invalid device!");
-    }
     this->device = device;
 
     total_count = shape[0];
@@ -28,11 +26,15 @@ Tensor &Tensor::init(std::vector<int> shape, bool init_zero, std::string device)
         total_count *= shape[i];
     }
 
+    if (init_values.size() > 0 && init_values.size() != total_count) throw std::runtime_error("init values doesnt match shape");
+
     values.resize(total_count);
     for (int i = 0; i < total_count; ++i)
     {
-        values[i] = std::make_shared<Value>(init_zero? 0: sample_kaiming(total_count)); // init val?
+        if (init_values.size() > 0) values[i] = std::make_shared<Value>(init_values[i]);
+        else values[i] = std::make_shared<Value>(init_zero? 0: sample_kaiming(total_count));
     }
+    
     return *this;
 }
 
