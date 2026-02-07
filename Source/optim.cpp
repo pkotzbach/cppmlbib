@@ -3,14 +3,14 @@
 
 void Optimizer::zero_grad()
 {
-    for (Tensor *tensor : parameters)
+    for (Tensor_ptr tensor : parameters)
     {
         for (int i = 0; i < tensor->total_count; ++i)
-            tensor->values[i]->grad = 0;
+            tensor->grads[i] = 0;
     }
 }
 
-Optimizer::Optimizer(std::vector<std::vector<Tensor *>> params, double lr) : lr(lr)
+Optimizer::Optimizer(std::vector<std::vector<Tensor_ptr>> params, double lr) : lr(lr)
 {
     // flatten
     size_t total_size = 0;
@@ -28,10 +28,10 @@ Optimizer::Optimizer(std::vector<std::vector<Tensor *>> params, double lr) : lr(
 
 void SGD::step()
 {
-    for (Tensor *tensor : parameters)
+    for (Tensor_ptr tensor : parameters)
     {
         for (int i = 0; i < tensor->total_count; ++i) {
-            tensor->values[i]->data -= lr * tensor->values[i]->grad;
+            tensor->values[i] -= lr * tensor->grads[i];
         }
     }
 }

@@ -16,7 +16,7 @@ int main()
     std::cout << "Current time: " << std::ctime(&currentTime);
     
     // make df
-    std::vector<std::vector<std::string>> csv = loadCSV("Examples/Datasets/Iris.csv");
+    std::vector<std::vector<std::string>> csv = loadCSV("../Examples/Datasets/Iris.csv");
     std::random_device rd;
     std::mt19937 gen(rd());
     std::shuffle(csv.begin(), csv.end(), gen);
@@ -30,78 +30,88 @@ int main()
     int rows = csv.size();
     int classes = 3;
 
-    Tensor df({rows, features});
-    Tensor target({rows, classes});
+    Tensor_ptr df = Tensor::init({rows, features});
+    Tensor_ptr target = Tensor::init({rows, classes});
     for (int i = 0; i < csv.size(); ++i) {
         for (int j = 1; j < features; ++j) {
-            df[i][j-1] = std::stod(csv[i][j]); // ignore id
+            df->at({i, j-1}) = std::stod(csv[i][j]); // ignore id
         }
         std::vector<int> onehot = class_onehot[csv[i][features+1]];
         for (int j = 0; j < onehot.size(); ++j) {
-            target[i][j] = onehot[j];
+            target->at({i,j}) = onehot[j];
         }
     }
 
     // split train test
     int train = rows * 0.8, test = rows - train;
-    Tensor df_train({train, features});
-    Tensor target_train({train, classes});
-    Tensor df_test({test, features});
-    Tensor target_test({test, classes});
+    Tensor_ptr df_train = Tensor::init({train, features});
+    Tensor_ptr target_train = Tensor::init({train, classes});
+    Tensor_ptr df_test = Tensor::init({test, features});
+    Tensor_ptr target_test = Tensor::init({test, classes});
 
     for (int i = 0; i < train; ++i) {
         for (int j = 0; j < features; ++j) {
-            df_train[i][j] = df[i][j]->data;
+            df_train->at({i, j}) = df->at({i, j});
         }
         for (int j = 0; j < classes; ++j) {
-            target_train[i][j] = target[i][j]->data;
+            target_train->at({i,j}) = target->at({i,j});
         }
     }
 
     for (int i = 0; i < test; ++i) {
         for (int j = 0; j < features; ++j) {
-            df_test[i][j] = df[i + train][j]->data;
+            df_test->at({i,j}) = df->at({i + train, j});
         }
         for (int j = 0; j < classes; ++j) {
-            target_test[i][j] = target[i + train][j]->data;
+            target_test->at({i,j}) = target->at({i + train, j});
         }
     }
 
-    printf("train size: %i, test size: %i\n", df_train.shape[0], df_test.shape[0]);
+    printf("train size: %i, test size: %i\n", df_train->shape[0], df_test->shape[0]);
 
     // model
-    Linear l1(4, 16);
-    Linear l2(16, 3);
+    Linear l1(4, 4);
+    Linear l2(4, 3);
     SGD optim({l1.params(), l2.params()}, 0.01);
 
     // train
     printf("TRAIN\n");
-    int epochs = 300;
+    int epochs = 100;
     for (int i = 0; i < epochs; ++i)
     {
         optim.zero_grad();
-        Tensor x = l1.forward(df_train).relu();
-        x = l2.forward(x);
-        Value_ptr loss = MSELoss(x, target_train);
+        Tensor_ptr x = l1.forward(df_train)->relu();
+        Tensor_ptr x2 = l2.forward(x);
+        Tensor_ptr loss = MSELoss(x2, target_train);
         loss->backward();
         optim.step();
-        printf("epoch: %i, loss: %f\n", i, loss->data);
+        printf("epoch: %i, loss: %f\n", i, loss->values[0]);
+        // for (int i = 0; i < l1.weights->total_count; ++i)
+        //     printf("(%f %f) ", l1.weights->values[i], l1.weights->grads[i]);
+        // for (int i = 0; i < l1.biases->total_count; ++i)
+        //     printf("(%f %f) ", l1.biases->values[i], l1.biases->grads[i]);
+        // printf("\n\n");
+        // for (int i = 0; i < l2.weights->total_count; ++i)
+        //     printf("(%f %f) ", l2.weights->values[i], l2.weights->grads[i]);
+        // for (int i = 0; i < l2.biases->total_count; ++i)
+        //         printf("(%f %f) ", l2.biases->values[i], l2.biases->grads[i]);
+        // printf("\n");
     }
 
     // test
     printf("TEST\n");
-    Tensor result = l1.forward(df_test).relu();
+    Tensor_ptr result = l1.forward(df_test)->relu();
     result = l2.forward(result);
-    result = result.argmax(1);
+    result = result->argmax(1);
 
     int correct = 0;
-    for (int i = 0; i < target_test.shape[0]; ++i)
+    for (int i = 0; i < target_test->shape[0]; ++i)
     {
-        int result_idx = result[i][0].get()->data, target_idx = -1;
+        int result_idx = result->at({i, 0}), target_idx = -1;
         printf("pred: %i, ", result_idx);
         for (int j = 0; j < classes; ++j)
         {
-            if (target_test[i][j].get()->data == 1.0) {
+            if (target_test->at({i,j}) == 1.0) {
                 target_idx = j;
                 printf("target: %i", j);
             }

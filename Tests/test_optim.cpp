@@ -1,17 +1,20 @@
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 #include "optim.hpp"
-#include "test_helpers.hpp"
+
+using ::testing::DoubleNear;
+using ::testing::Pointwise;
 
 TEST(SGDTest, Step) {
-    Tensor input = make_tensor({{0.1, 0.2, -0.1}});
-    input.values[0]->grad = 0.1;
-    input.values[1]->grad = -0.1;
-    input.values[2]->grad = 0.5;
+    Tensor_ptr input = Tensor::init({3}, {0.1, 0.2, -0.1});
+    input->grads[0] = 0.1;
+    input->grads[1] = -0.1;
+    input->grads[2] = 0.5;
 
-    SGD optim({&input}, 0.01);
+    SGD optim({input}, 0.01);
     optim.step();
 
-    expect_flatten_tensor_near(
-        input, {0.099, 0.201, -0.105}
-    );
+    EXPECT_THAT(input->values,
+            Pointwise(DoubleNear(1e-6),
+                      std::vector<double>({0.099, 0.201, -0.105})));
 }

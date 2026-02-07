@@ -1,6 +1,5 @@
 #pragma once
 
-#include "value.hpp"
 #include "tensor.hpp"
 
-Value_ptr MSELoss(Tensor input, Tensor target);
+Tensor_ptr MSELoss(Tensor_ptr input, Tensor_ptr target);

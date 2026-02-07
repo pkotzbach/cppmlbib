@@ -1,58 +1,87 @@
 #include "linear.hpp"
 #include <cstdio>
 #include <stdexcept>
-// #include "linear_forward.h"
-// #include <cuda_runtime.h>
+#include "linear_forward.h"
+#include <cuda_runtime.h>
 #include <string>
 
-Tensor Linear::forward(Tensor input)
+#define CUDA_CHECK(x) do { \
+    cudaError_t err = x; \
+    if (err != cudaSuccess) { \
+        printf("CUDA error %s at %s:%d\n", \
+               cudaGetErrorString(err), __FILE__, __LINE__); \
+        exit(1); \
+    } \
+} while (0)
+
+Tensor_ptr Linear::forward(Tensor_ptr input)
 {
-    if (input.shape.size() != 2 && input.shape[1] != in_size) throw std::invalid_argument("Invalid input size");
-    const int batch_size = input.shape[0];
-    Tensor output({batch_size, out_size}, true);
+    if (input->shape.size() != 2 && input->shape[1] != in_size) throw std::invalid_argument("Invalid input size");
+    Tensor_ptr matmul_res = input->matmul(weights->transpose());
+    for (int n = 0; n < matmul_res->shape[0]; ++n)
+        for (int c = 0; c < matmul_res->shape[1]; ++c)
+            matmul_res->at({n, c}) 
+    return input->matmul(weights->transpose()) + biases; // TODO: fix
+    // Tensor_ptr output = Tensor::init({batch_size, out_size}, true);
+    // if (input->device.compare("cpu") == 0 && weights->device.compare("cpu") == 0) {
+    //     return input->matmul(weights) + biases;
+    // }
+    // // TODO: streams?
+    // else if (input->device.compare("cuda") == 0 && weights->device.compare("cuda") == 0) {
+    //     // double *d_input, *d_weights, *d_bias, *d_output;
+    //     // std::vector<double> raw_output, raw_input = input->raw_values(), raw_weights = weights->raw_values(), raw_biases = biases->raw_values();
+    //     // raw_output->resize(batch_size * out_size);
 
-    if (input.device.compare("cpu") == 0 && weights.device.compare("cpu") == 0) {
-        auto& val_input = input.values;
-        auto& val_weights = weights.values;
-        auto& val_biases = biases.values;
-        auto& val_output = output.values;
+    //     // // for (auto i: raw_weights) printf("%f ", i);
 
-        // matmul
-        for (int i = 0; i < batch_size; ++i) {
-            for (int x = 0; x < out_size; ++x)
-            {
-                for (int y = 0; y < in_size; ++y)
-                {
-                    val_output[i * out_size + x] = val_output[i * out_size + x] + val_input[i * in_size + y] * val_weights[x * in_size + y];
-                }
-                val_output[i * out_size + x] = val_output[i * out_size + x] + val_biases[x];
-            }
-        }
-    }
+    //     // size_t input_bytes = batch_size * in_size * sizeof(double);
+    //     // size_t weight_bytes = out_size * in_size * sizeof(double);
+    //     // size_t bias_bytes = out_size * sizeof(double);
+    //     // size_t output_bytes = batch_size * out_size * sizeof(double);
 
-    return output;
+    //     // CUDA_CHECK(cudaMalloc(&d_input, input_bytes));
+    //     // CUDA_CHECK(cudaMalloc(&d_weights, weight_bytes));
+    //     // CUDA_CHECK(cudaMalloc(&d_bias, bias_bytes));
+    //     // CUDA_CHECK(cudaMalloc(&d_output, output_bytes));
+    //     // CUDA_CHECK(cudaMemcpy(d_input, raw_input->data(), input_bytes, cudaMemcpyHostToDevice));
+    //     // CUDA_CHECK(cudaMemcpy(d_weights, raw_weights->data(), weight_bytes, cudaMemcpyHostToDevice));
+    //     // CUDA_CHECK(cudaMemcpy(d_bias, raw_biases->data(), bias_bytes, cudaMemcpyHostToDevice));
+
+    //     // launch_linear_forward(
+    //     //     d_input, d_weights, d_bias, d_output,
+    //     //     batch_size, in_size, out_size
+    //     // );
+
+    //     // CUDA_CHECK(cudaGetLastError());
+    //     // CUDA_CHECK(cudaDeviceSynchronize());
+
+    //     // CUDA_CHECK(cudaMemcpy(raw_output->data(), d_output, output_bytes, cudaMemcpyDeviceToHost));
+
+    //     // for (int i = 0; i < batch_size; i++) {
+    //     //     for (int j = 0; j < out_size; j++) {
+    //     //         printf("output[%d,%d] = %f\n", i, j, raw_output[i * out_size + j]);
+    //     //     }
+    //     // }
+
+    //     // CUDA_CHECK(cudaFree(d_input));
+    //     // CUDA_CHECK(cudaFree(d_weights));
+    //     // CUDA_CHECK(cudaFree(d_bias));
+    //     // CUDA_CHECK(cudaFree(d_output));
+    // }
+
+    // return output;
 }
 
-Tensor Softmax::forward(Tensor input)
+Tensor_ptr Softmax::forward(Tensor_ptr input)
 {
-    if (input.shape.size() != 2) throw std::invalid_argument("Invalid input size");
-    int size = input.shape[1];
-    int entries = input.shape[0];
-    Tensor output(input.shape, true);
-    auto& val_output = output.values;
-    auto& val_input = input.values;
-    for (int i = 0; i < entries; ++i) {
-        Value_ptr val_sum = std::make_shared<Value>(0);
-        for (int x = 0; x < size; ++x)
-        {
-            val_output[i * size + x] = val_input[i * size + x]->exp();
-            val_sum = val_sum + val_output[i * size + x];
-        }
+    if (input->shape.size() != 2) throw std::invalid_argument("Invalid input size");
+    Tensor_ptr exps = input->exp();
+    Tensor_ptr sums = exps->sum(1);
 
-        for (int x = 0; x < size; ++x)
-        {
-            val_output[i * size + x] = val_output[i * size + x] / val_sum;
-        }
-    }
-    return output;
+    Tensor_ptr result = Tensor::init(input->shape);
+    for (int n = 0; n < input->shape[0]; ++n)
+        for (int c = 0; c < input->shape[1]; ++c)
+            result->at({n, c}) = exps->at({n, c}) / sums->at({n});
+    
+    return result;
 }

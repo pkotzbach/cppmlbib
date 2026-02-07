@@ -1,17 +1,15 @@
 #include <gtest/gtest.h>
 #include "loss.hpp"
-#include "test_helpers.hpp"
 
 TEST(LossTest, MSE) {
-    Tensor input = make_tensor({{0.1, 0.2, -0.1}});
-    Tensor target = make_tensor({{1, 0, -1}});
+    Tensor_ptr input = Tensor::init({2, 3}, {0.1, 0.2, -0.1, 0.3, 1, 0.2});
+    Tensor_ptr target = Tensor::init({2, 3}, {1, 0, -1, 1, 1, 1});
 
-    Value_ptr loss = MSELoss(input, target);
+    Tensor_ptr loss = MSELoss(input, target);
 
-    EXPECT_NEAR(loss->data, 0.5533, 1e-4);
+    EXPECT_NEAR(loss->values[0], 1.3950, 1e-4);
 
     loss->backward();
-    expect_flatten_tensor_near(
-        input, {-0.6, 0.1333, 0.6}, true
-    );
+    EXPECT_EQ(input->grads, std::vector<double>({-0.9, 0.2, 0.9, -0.7, 0, -0.8}));
+    EXPECT_EQ(target->grads, std::vector<double>({0.9, -0.2, -0.9, 0.7, 0, 0.8})); // TODO: target shouldnt have grad 
 }
