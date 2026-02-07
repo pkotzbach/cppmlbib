@@ -85,7 +85,7 @@ int main()
         Tensor_ptr loss = MSELoss(x2, target_train);
         loss->backward();
         optim.step();
-        printf("epoch: %i, loss: %f\n", i, loss->values[0]);
+        printf("epoch: %i, loss: %f\n", i, loss->at(0));
         // for (int i = 0; i < l1.weights->total_count; ++i)
         //     printf("(%f %f) ", l1.weights->values[i], l1.weights->grads[i]);
         // for (int i = 0; i < l1.biases->total_count; ++i)

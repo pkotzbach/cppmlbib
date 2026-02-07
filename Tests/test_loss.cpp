@@ -7,9 +7,9 @@ TEST(LossTest, MSE) {
 
     Tensor_ptr loss = MSELoss(input, target);
 
-    EXPECT_NEAR(loss->values[0], 1.3950, 1e-4);
+    EXPECT_NEAR(loss->at(0), 1.3950, 1e-4);
 
     loss->backward();
-    EXPECT_EQ(input->grads, std::vector<double>({-0.9, 0.2, 0.9, -0.7, 0, -0.8}));
-    EXPECT_EQ(target->grads, std::vector<double>({0.9, -0.2, -0.9, 0.7, 0, 0.8})); // TODO: target shouldnt have grad 
+    EXPECT_EQ(input->grads_vec(), std::vector<double>({-0.9, 0.2, 0.9, -0.7, 0, -0.8}));
+    EXPECT_EQ(target->grads_vec(), std::vector<double>({0.9, -0.2, -0.9, 0.7, 0, 0.8})); // TODO: target shouldnt have grad 
 }

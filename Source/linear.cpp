@@ -18,9 +18,9 @@ Tensor_ptr Linear::forward(Tensor_ptr input)
 {
     if (input->shape.size() != 2 && input->shape[1] != in_size) throw std::invalid_argument("Invalid input size");
     Tensor_ptr matmul_res = input->matmul(weights->transpose());
-    for (int n = 0; n < matmul_res->shape[0]; ++n)
-        for (int c = 0; c < matmul_res->shape[1]; ++c)
-            matmul_res->at({n, c}) 
+    // for (int n = 0; n < matmul_res->shape[0]; ++n)
+    //     for (int c = 0; c < matmul_res->shape[1]; ++c)
+    //         matmul_res->at({n, c});
     return input->matmul(weights->transpose()) + biases; // TODO: fix
     // Tensor_ptr output = Tensor::init({batch_size, out_size}, true);
     // if (input->device.compare("cpu") == 0 && weights->device.compare("cpu") == 0) {

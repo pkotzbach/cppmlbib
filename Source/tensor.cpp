@@ -28,11 +28,12 @@ Tensor &Tensor::init_internal(std::vector<int> shape, std::vector<double> init_v
     }
 
     // calc strides
-    // strides.push_back(1);
-    // for (int i = 1; i < shape.size(); ++i) {
-    //     strides.push_back(strides[i-1] * shape[i]);
-    // }
-    // std::reverse(strides.begin(), strides.end());
+    strides.resize(shape.size());
+    strides.back() = 1;
+
+    for (int i = shape.size() - 2; i >= 0; --i) {
+        strides[i] = strides[i + 1] * shape[i + 1];
+    }
 
     // init values
     if (init_values.size() > 0 && init_values.size() != total_count) throw std::runtime_error("init values doesnt match shape");
@@ -59,6 +60,23 @@ Tensor::~Tensor()
 {
     delete[] values;
     delete[] grads;
+}
+
+// TODO: dont copy code
+std::vector<double> Tensor::values_vec()
+{
+    std::vector<double> vec;
+    vec.resize(total_count);
+    for (int i = 0; i < total_count; ++i) vec[i] = values[i];
+    return vec;
+}
+
+std::vector<double> Tensor::grads_vec()
+{
+    std::vector<double> vec;
+    vec.resize(total_count);
+    for (int i = 0; i < total_count; ++i) vec[i] = grads[i];
+    return vec;
 }
 
 Tensor_ptr Tensor::init(std::vector<int> shape, bool init_zero, std::string device)
@@ -113,13 +131,13 @@ Tensor_ptr Tensor::relu()
     result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){
         if(auto r = res.lock()){
             for (int i = 0; i < r->total_count; ++i) {
-                r->parents.first->grads[i] += (r->values[i] > 0 ? 1 : 0) * r->grads[i];
+                r->parents.first->grad_at(i) += (r->at(i) > 0 ? 1 : 0) * r->grad_at(i);
             }
         }
     };
 
     for (int i = 0; i < total_count; ++i) {
-        result->values[i] = values[i] > 0? values[i]: 0;
+        result->at(i) = at(i) > 0? at(i): 0;
     }
 
     return result;
@@ -168,13 +186,13 @@ Tensor_ptr Tensor::sum()
     result->op = "sum";
 
     for (int i = 0; i < total_count; ++i) {
-        result->values[0] += values[i];
+        result->values[0] += at(i);
     }
 
     result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){
         if(auto r = res.lock()){
             for (int i = 0; i < r->parents.first->total_count; ++i) {
-                r->parents.first->grads[i] += r->grads[0];
+                r->parents.first->grad_at(i) += r->grads[0];
             }
         }
     };
@@ -221,30 +239,18 @@ Tensor_ptr Tensor::exp()
     result->op = "exp";
 
     for (int i = 0; i < total_count; ++i) {
-        result->values[i] = std::exp(values[i]);
+        result->at(i) = std::exp(at(i));
     }
 
     result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){
         if(auto r = res.lock()){
             for (int i = 0; i < r->total_count; ++i) {
-                r->parents.first->grads[i] += r->grads[i] * r->values[i];
+                r->parents.first->grad_at(i) += r->grad_at(i) * r->at(i);
             }
         }
     };
 
     return result;
-}
-
-int Tensor::calc_strided_idx(int flat_idx)
-{
-    int strided_idx = 0, temp;
-    for (int i = shape.size() - 1; i >= 0; --i)
-    {
-        temp = flat_idx % shape[i];
-        flat_idx = flat_idx / shape[i];
-        strided_idx += temp * strides[i];
-    }
-    return strided_idx;
 }
 
 //tensor operators
@@ -258,14 +264,14 @@ Tensor_ptr operator+(Tensor_ptr self, Tensor_ptr other)
 
     for (int i = 0; i < self->total_count; ++i) {
 
-        result->values[i] += self->values[self->calc_strided_idx(i)] + other->values[other->calc_strided_idx(i)];
+        result->at(i) += self->at(i) + other->at(i);
     }
 
     result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){
         if(auto r = res.lock()){
             for (int i = 0; i < r->total_count; ++i) {
-                r->parents.first->grads[r->parents.first->calc_strided_idx(i)] += r->grads[i];
-                r->parents.second->grads[i] += r->grads[i];
+                r->parents.first->grad_at(i) += r->grad_at(i);
+                r->parents.second->grad_at(i) += r->grad_at(i);
             }
         }
     };
@@ -280,14 +286,14 @@ Tensor_ptr operator-(Tensor_ptr self, Tensor_ptr other)
     result->op = "sub";
 
     for (int i = 0; i < self->total_count; ++i) {
-        result->values[i] = self->values[i] - other->values[i];
+        result->at(i) = self->at(i) - other->at(i);
     }
     
     result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){
         if(auto r = res.lock()){
             for (int i = 0; i < r->total_count; ++i) {
-                r->parents.first->grads[i] += r->grads[i];
-                r->parents.second->grads[i] -= r->grads[i];
+                r->parents.first->grad_at(i) += r->grad_at(i);
+                r->parents.second->grad_at(i) -= r->grad_at(i);
             }
         }
     };
@@ -302,14 +308,14 @@ Tensor_ptr operator*(Tensor_ptr self, Tensor_ptr other)
     result->op = "mul";
 
     for (int i = 0; i < self->total_count; ++i) {
-        result->values[i] = self->values[i] * other->values[i];
+        result->at(i) = self->at(i) * other->at(i);
     }
     
     result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){
         if(auto r = res.lock()){
             for (int i = 0; i < r->total_count; ++i) {
-                r->parents.first->grads[i] += r->grads[i] * r->parents.second->values[i];
-                r->parents.second->grads[i] += r->grads[i] * r->parents.first->values[i];
+                r->parents.first->grad_at(i) += r->grad_at(i) * r->parents.second->at(i);
+                r->parents.second->grad_at(i) += r->grad_at(i) * r->parents.first->at(i);
             }
         }
     };
@@ -326,15 +332,15 @@ Tensor_ptr operator/(Tensor_ptr self, Tensor_ptr other)
     result->op = "div";
 
     for (int i = 0; i < self->total_count; ++i) {
-        result->values[i] = self->values[i] / other->values[scalar_div? 0: i];
+        result->at(i) = self->at(i) / other->at(scalar_div? 0: i);
     }
     
     result->backward_fn = [res = std::weak_ptr<Tensor>(result), scalar_div](){
         if(auto r = res.lock()){
             for (int i = 0; i < r->total_count; ++i) {
-                r->parents.first->grads[i] += r->grads[i] * (1.0f / r->parents.second->values[scalar_div? 0: i]);
-                r->parents.second->grads[scalar_div? 0: i] += r->grads[i] * 
-                    -(r->parents.first->values[i] / (r->parents.second->values[scalar_div? 0: i] * r->parents.second->values[scalar_div? 0: i]));
+                r->parents.first->grad_at(i) += r->grad_at(i) * (1.0f / r->parents.second->at(scalar_div? 0: i));
+                r->parents.second->grad_at(scalar_div? 0: i) += r->grad_at(i) * 
+                    -(r->parents.first->at(i) / (r->parents.second->at(scalar_div? 0: i) * r->parents.second->at(scalar_div? 0: i)));
             }
         }
     };
@@ -381,10 +387,10 @@ Tensor_ptr Tensor::matmul(Tensor_ptr tensor)
             std::vector<double> grad_first = _matmul(r->grads, secondT->values, r->shape[1], secondT->shape[1], r->shape[0]);
             std::vector<double> grad_second = _matmul(firstT->values, r->grads, firstT->shape[1], r->shape[1], firstT->shape[0]);
             for (int i = 0; i < r->parents.first->total_count; ++i) {
-                r->parents.first->grads[i] += grad_first[i];
+                r->parents.first->grad_at(i) += grad_first[i];
             }
             for (int i = 0; i < r->parents.second->total_count; ++i) {
-                r->parents.second->grads[i] += grad_second[i];
+                r->parents.second->grad_at(i) += grad_second[i];
             }
         }
     };
@@ -414,9 +420,9 @@ void Tensor::backward()
     {
         if (t->backward_fn)
         {
-            printf("grad %c before %f\n", t->op, t->grads[0]);
+            // printf("grad %s before %f\n", t->op.c_str(), t->grads[0]);
             t->backward_fn();
-            printf("grad %c after %f\n", t->op, t->grads[0]);
+            // printf("grad %s after %f\n", t->op.c_str(), t->grads[0]);
         }
     }
 }
@@ -436,7 +442,7 @@ void Tensor::toposort(Tensor_ptr t, std::unordered_set<Tensor_ptr> &visited, std
 
 void Tensor::zero_grad()
 {
-    for (int i = 0; i < total_count; ++i) grads[i] = 0;
+    for (int i = 0; i < total_count; ++i) grad_at(i) = 0;
     if (parents.first && parents.first.get() != this)   parents.first->zero_grad();
     if (parents.second && parents.second.get() != this) parents.second->zero_grad();
 }

@@ -23,3 +23,4 @@
     result = result / div;
 - no grad
 - broadcasting
+- faster at

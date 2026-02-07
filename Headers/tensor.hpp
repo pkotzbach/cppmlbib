@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <span>
 #include <unordered_set>
 
 struct Tensor;
@@ -23,6 +24,9 @@ private:
     double* values;
     double* grads;
 public:
+    std::vector<double> values_vec();
+    std::vector<double> grads_vec();
+
     std::vector<int> strides;
     std::vector<int> shape;
     int total_count;
@@ -32,13 +36,16 @@ public:
     std::string op;
     std::string device;
 
-// public:
-    double& _at(std::vector<int> idx);
-    double& _at(int flat_idx);
-    double& at(std::vector<int> idx);
-    double& at(int flat_idx);
-    double& grad_at(std::vector<int> idx);
-    double& grad_at(int flat_idx);
+    // TODO: smaller API, span?
+    double& _at(std::vector<int> idx, double* source);
+    double& _at(int flat_idx, double* source);
+
+    double& at(std::vector<int> idx) { return _at(idx, values); }
+    double& at(int flat_idx)       { return _at(flat_idx, values); }
+
+    double& grad_at(std::vector<int> idx) { return _at(idx, grads); }
+    double& grad_at(int flat_idx)       { return _at(flat_idx, grads); }
+
 
     Tensor_ptr sum();
     Tensor_ptr sum(int axis);
