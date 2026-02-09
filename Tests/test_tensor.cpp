@@ -12,7 +12,7 @@ TEST(TensorTest, ConstructionAndIndexing)
     EXPECT_EQ(t->shape, std::vector<int>({2, 3, 4}));
     EXPECT_EQ(t->total_count, 24);
 
-    EXPECT_THROW(t->at({5}), std::exception);
+    EXPECT_THROW(t->at(std::vector<int>{5}), std::exception);
 
     t->at({0, 0, 0}) = 1.5;
     t->at({1, 1, 3}) = 3.7;
@@ -255,11 +255,25 @@ TEST(TensorTest, Transpose)
 {
     Tensor_ptr x = Tensor::init({3, 2}, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0});
     Tensor_ptr xT = x->transpose();
-
+    
     EXPECT_EQ(xT->shape, std::vector<int>({2, 3}));
     EXPECT_THAT(xT->values_vec(),
                 Pointwise(DoubleNear(1e-4),
                           std::vector<double>{1.0, 3.0, 5.0, 2.0, 4.0, 6.0}));
+    
+    xT->zero_grad();
+    xT->grad_at({0, 0}) = 1;
+    xT->grad_at({0, 1}) = 2;
+    xT->grad_at({0, 2}) = 3;
+    xT->grad_at({1, 0}) = 4;
+    xT->grad_at({1, 1}) = 5;
+    xT->grad_at({1, 2}) = 6;
+    xT->sum()->backward();
+    
+    // TODO: not sure if this test is correct
+    EXPECT_THAT(x->grads_vec(),
+                Pointwise(DoubleNear(1e-4),
+                          std::vector<double>{2, 5, 3, 6, 4, 7}));
 }
 
 TEST(TensorTest, MatmulOperator)
