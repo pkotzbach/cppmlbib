@@ -39,14 +39,15 @@ Tensor &Tensor::init_internal(std::vector<int> shape, std::vector<double> init_v
     if (init_values.size() > 0 && init_values.size() != total_count) throw std::runtime_error("init values doesnt match shape");
     if (init_grads.size() > 0 && init_grads.size() != total_count) throw std::runtime_error("init grads doesnt match shape");
 
-    values = new double[total_count];
+    values = std::shared_ptr<double[]>(new double[total_count], std::default_delete<double[]>());
+    grads  = std::shared_ptr<double[]>(new double[total_count], std::default_delete<double[]>());
+
     for (int i = 0; i < total_count; ++i)
     {
         if (init_values.size() > 0) values[i] = init_values[i];
         else values[i] = init_zero? 0: sample_kaiming(total_count);
     }
 
-    grads = new double[total_count];
     for (int i = 0; i < total_count; ++i)
     {
         if (init_grads.size() > 0) grads[i] = init_grads[i];
@@ -56,18 +57,12 @@ Tensor &Tensor::init_internal(std::vector<int> shape, std::vector<double> init_v
     return *this;
 }
 
-Tensor::~Tensor()
-{
-    delete[] values;
-    delete[] grads;
-}
-
 // TODO: dont copy code
 std::vector<double> Tensor::values_vec()
 {
     std::vector<double> vec;
     vec.resize(total_count);
-    for (int i = 0; i < total_count; ++i) vec[i] = values[i];
+    for (int i = 0; i < total_count; ++i) vec[i] = at(i);
     return vec;
 }
 
@@ -75,7 +70,7 @@ std::vector<double> Tensor::grads_vec()
 {
     std::vector<double> vec;
     vec.resize(total_count);
-    for (int i = 0; i < total_count; ++i) vec[i] = grads[i];
+    for (int i = 0; i < total_count; ++i) vec[i] = grad_at(i);
     return vec;
 }
 
@@ -100,34 +95,42 @@ Tensor_ptr Tensor::init(std::vector<int> shape, std::vector<double> values, std:
 //     return t;
 // }
 
-double& Tensor::_at(std::vector<int> indices, double* source)
+int Tensor::strided_idx(std::vector<int> indices)
 {
-    if (indices.size() < shape.size()) throw std::runtime_error("wrong indices vector");
+    if (indices.size() != shape.size()) throw std::runtime_error("wrong indices vector");
 
-    int idx = 0;
+    int strided_idx = 0;
     for (int i = shape.size() - 1; i >= 0; --i) {
-        idx += indices[i] * strides[i];
+        if (indices[i] >= shape[i]) throw std::runtime_error("wrong indices vector");
+        strided_idx += indices[i] * strides[i];
     }
 
-    return source[idx];
+    return strided_idx;
 }
 
-double& Tensor::_at(int flat_idx, double* source)
+int Tensor::strided_idx(int shape_idx)
 {
+    if (shape_idx >= total_count) throw std::runtime_error("wrong indices");
+
     int strided_idx = 0, temp;
     for (int i = shape.size() - 1; i >= 0; --i)
     {
-        temp = flat_idx % shape[i];
-        flat_idx = flat_idx / shape[i];
+        temp = shape_idx % shape[i];
+        shape_idx = shape_idx / shape[i];
         strided_idx += temp * strides[i];
     }
-    return source[strided_idx];
+    return strided_idx;
 }
 
 Tensor_ptr Tensor::relu()
 {
     auto result = Tensor::init(shape, true);
     result->parents = std::pair{shared_from_this(), nullptr};
+    
+    for (int i = 0; i < total_count; ++i) {
+        result->at(i) = at(i) > 0? at(i): 0;
+    }
+    
     result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){
         if(auto r = res.lock()){
             for (int i = 0; i < r->total_count; ++i) {
@@ -135,10 +138,6 @@ Tensor_ptr Tensor::relu()
             }
         }
     };
-
-    for (int i = 0; i < total_count; ++i) {
-        result->at(i) = at(i) > 0? at(i): 0;
-    }
 
     return result;
 }
@@ -171,12 +170,6 @@ Tensor_ptr Tensor::argmax(int axis)
     }
     
     return result;
-}
-
-Tensor &Tensor::flatten()
-{
-    shape = {total_count};
-    return *this;
 }
 
 Tensor_ptr Tensor::sum()
@@ -380,31 +373,39 @@ Tensor_ptr Tensor::matmul(Tensor_ptr tensor)
     
     // result->values = _matmul(values, tensor->values, shape[1], tensor->shape[1], shape[0]); //memory leak
     
-    result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){
-        if(auto r = res.lock()){
-            Tensor_ptr firstT = r->parents.first->transpose();
-            Tensor_ptr secondT = r->parents.second->transpose();
-            std::vector<double> grad_first = _matmul(r->grads, secondT->values, r->shape[1], secondT->shape[1], r->shape[0]);
-            std::vector<double> grad_second = _matmul(firstT->values, r->grads, firstT->shape[1], r->shape[1], firstT->shape[0]);
-            for (int i = 0; i < r->parents.first->total_count; ++i) {
-                r->parents.first->grad_at(i) += grad_first[i];
-            }
-            for (int i = 0; i < r->parents.second->total_count; ++i) {
-                r->parents.second->grad_at(i) += grad_second[i];
-            }
-        }
-    };
+    // result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){
+    //     if(auto r = res.lock()){
+    //         r->parents.first->transpose();
+    //         r->parents.second->transpose();
+    //         std::vector<double> grad_first = _matmul(r->grads, r->parents.second->values, r->shape[1], r->parents.second->shape[1], r->shape[0]);
+    //         std::vector<double> grad_second = _matmul(r->parents.first->values, r->grads, r->parents.first->shape[1], r->shape[1], r->parents.first->shape[0]);
+    //         r->parents.first->transpose();
+    //         r->parents.second->transpose();
+    //         for (int i = 0; i < r->parents.first->total_count; ++i) {
+    //             r->parents.first->grad_at(i) += grad_first[i];
+    //         }
+    //         for (int i = 0; i < r->parents.second->total_count; ++i) {
+    //             r->parents.second->grad_at(i) += grad_second[i];
+    //         }
+    //     }
+    // };
 
     return result;
 }
 
 Tensor_ptr Tensor::transpose()
 {
-    if (shape.size() != 2) throw std::invalid_argument("transpose defined only for 2d tensors");
-    Tensor_ptr result = Tensor::init({shape[1], shape[0]}, false);
-    for (int x = 0; x < shape[0]; ++x)
-        for (int y = 0; y < shape[1]; ++y)
-            result->at({y, x}) = at({x, y});
+    // TODO: i dont like that
+    Tensor_ptr result = std::make_shared<Tensor>();
+    result->values = values;
+    result->grads = grads; // shouldnt it be separate buffer?
+    result->total_count = total_count;
+    result->shape = shape;
+    result->strides = strides;
+    result->parents = std::pair{shared_from_this(), nullptr};
+    result->op = "transpose";
+    std::reverse(result->shape.begin(), result->shape.end());
+    std::reverse(result->strides.begin(), result->strides.end());
     return result;
 }
 

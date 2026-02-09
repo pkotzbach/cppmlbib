@@ -6,7 +6,7 @@ void Optimizer::zero_grad()
     for (Tensor_ptr tensor : parameters)
     {
         for (int i = 0; i < tensor->total_count; ++i)
-            tensor->grads[i] = 0;
+            tensor->grad_at(i) = 0;
     }
 }
 
@@ -31,7 +31,7 @@ void SGD::step()
     for (Tensor_ptr tensor : parameters)
     {
         for (int i = 0; i < tensor->total_count; ++i) {
-            tensor->values[i] -= lr * tensor->grads[i];
+            tensor->at(i) -= lr * tensor->grad_at(i);
         }
     }
 }
