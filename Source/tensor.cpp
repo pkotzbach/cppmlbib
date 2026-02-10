@@ -349,7 +349,7 @@ Tensor_ptr operator/(Tensor_ptr self, Tensor_ptr other)
 //     return shared_from_this();
 // }
 
-std::vector<double> _matmul(double* A, double* B, int K, int X, int Y)
+std::vector<double> _matmul(std::vector<double> A, std::vector<double> B, int K, int X, int Y)
 {
     std::vector<double> output;
     output.resize(X*Y);
@@ -371,24 +371,24 @@ Tensor_ptr Tensor::matmul(Tensor_ptr tensor)
     result->parents = std::pair{shared_from_this(), tensor};
     result->op = "matmul";
     
-    // result->values = _matmul(values, tensor->values, shape[1], tensor->shape[1], shape[0]); //memory leak
+    auto matmul_output = _matmul(values_vec(), tensor->values_vec(), shape[1], tensor->shape[1], shape[0]);
+    for (int i = 0; i < matmul_output.size(); ++i)
+        result->values[i] = matmul_output[i];
     
-    // result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){
-    //     if(auto r = res.lock()){
-    //         r->parents.first->transpose();
-    //         r->parents.second->transpose();
-    //         std::vector<double> grad_first = _matmul(r->grads, r->parents.second->values, r->shape[1], r->parents.second->shape[1], r->shape[0]);
-    //         std::vector<double> grad_second = _matmul(r->parents.first->values, r->grads, r->parents.first->shape[1], r->shape[1], r->parents.first->shape[0]);
-    //         r->parents.first->transpose();
-    //         r->parents.second->transpose();
-    //         for (int i = 0; i < r->parents.first->total_count; ++i) {
-    //             r->parents.first->grad_at(i) += grad_first[i];
-    //         }
-    //         for (int i = 0; i < r->parents.second->total_count; ++i) {
-    //             r->parents.second->grad_at(i) += grad_second[i];
-    //         }
-    //     }
-    // };
+    result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){
+        if(auto r = res.lock()){
+            Tensor_ptr firstT = r->parents.first->transpose();
+            Tensor_ptr secondT = r->parents.second->transpose();
+            std::vector<double> grad_first = _matmul(r->grads_vec(), secondT->values_vec(), r->shape[1], secondT->shape[1], r->shape[0]);
+            std::vector<double> grad_second = _matmul(firstT->values_vec(), r->grads_vec(), firstT->shape[1], r->shape[1], firstT->shape[0]);
+            for (int i = 0; i < r->parents.first->total_count; ++i) {
+                r->parents.first->grad_at(i) += grad_first[i];
+            }
+            for (int i = 0; i < r->parents.second->total_count; ++i) {
+                r->parents.second->grad_at(i) += grad_second[i];
+            }
+        }
+    };
 
     return result;
 }
