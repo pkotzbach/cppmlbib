@@ -70,13 +70,13 @@ int main()
     printf("train size: %i, test size: %i\n", df_train->shape[0], df_test->shape[0]);
 
     // model
-    Linear l1(4, 4);
-    Linear l2(4, 3);
+    Linear l1(4, 16);
+    Linear l2(16, 3);
     SGD optim({l1.params(), l2.params()}, 0.01);
 
     // train
     printf("TRAIN\n");
-    int epochs = 100;
+    int epochs = 1000;
     for (int i = 0; i < epochs; ++i)
     {
         optim.zero_grad();
@@ -86,16 +86,6 @@ int main()
         loss->backward();
         optim.step();
         printf("epoch: %i, loss: %f\n", i, loss->at(0));
-        // for (int i = 0; i < l1.weights->total_count; ++i)
-        //     printf("(%f %f) ", l1.weights->values[i], l1.weights->grads[i]);
-        // for (int i = 0; i < l1.biases->total_count; ++i)
-        //     printf("(%f %f) ", l1.biases->values[i], l1.biases->grads[i]);
-        // printf("\n\n");
-        // for (int i = 0; i < l2.weights->total_count; ++i)
-        //     printf("(%f %f) ", l2.weights->values[i], l2.weights->grads[i]);
-        // for (int i = 0; i < l2.biases->total_count; ++i)
-        //         printf("(%f %f) ", l2.biases->values[i], l2.biases->grads[i]);
-        // printf("\n");
     }
 
     // test
