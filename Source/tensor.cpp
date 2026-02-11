@@ -1,4 +1,5 @@
 #include "tensor.hpp"
+#include "matmul.hpp"
 
 #include <stdexcept>
 #include <cassert>
@@ -379,19 +380,6 @@ Tensor_ptr operator/(Tensor_ptr self, Tensor_ptr other)
 //     device = tensor->device;
 //     return shared_from_this();
 // }
-
-std::vector<double> _matmul(std::vector<double> A, std::vector<double> B, int K, int X, int Y)
-{
-    std::vector<double> output;
-    output.resize(X*Y);
-
-    for (int y = 0; y < Y; ++y)
-        for (int x = 0; x < X; ++x)
-            for (int k = 0; k < K; ++k) 
-                output[y * X + x] = output[y * X + x] + A[y * K + k] * B[k * X + x];
-
-    return output;
-}
 
 Tensor_ptr Tensor::matmul(Tensor_ptr tensor)
 {
