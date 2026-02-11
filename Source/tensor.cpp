@@ -108,10 +108,8 @@ int Tensor::strided_idx(std::vector<int> indices)
     return strided_idx;
 }
 
-int Tensor::strided_idx(int shape_idx)
+int Tensor::strided_idx(int shape_idx, std::vector<int>& strides, std::vector<int>& shape)
 {
-    if (shape_idx >= total_count) throw std::runtime_error("wrong indices");
-
     int strided_idx = 0, temp;
     for (int i = shape.size() - 1; i >= 0; --i)
     {
@@ -169,6 +167,36 @@ Tensor_ptr Tensor::argmax(int axis)
         result->at({i, 0}) = idx;
     }
     
+    return result;
+}
+
+std::vector<int> broadcast_shape(std::vector<int> &a, std::vector<int> &b)
+{
+    int ndim = std::max(a.size(), b.size());
+    std::vector<int> result(ndim);
+
+    for (int i = 0; i < ndim; ++i) {
+            int ai = i < a.size() ? a[a.size() - 1 - i] : 1;
+            int bi = i < b.size() ? b[b.size() - 1 - i] : 1;
+
+            if (ai != bi && ai != 1 && bi != 1) throw std::invalid_argument("Incompatible broadcast shapes");
+
+            result[ndim - 1 - i] = std::max(ai, bi);
+        }
+
+    return result;
+}
+
+std::vector<int> Tensor::broadcast_strides(int ndim)
+{
+    std::vector<int> result(ndim, 0);
+    int offset = ndim - shape.size();
+
+    for (int i = 0; i < shape.size(); ++i)
+    {
+        if (shape[i] != 1) result[offset + i] = strides[i];
+    }
+
     return result;
 }
 
@@ -249,25 +277,28 @@ Tensor_ptr Tensor::exp()
 //tensor operators
 Tensor_ptr operator+(Tensor_ptr self, Tensor_ptr other)
 {
-    bool broadcast = (self->shape != other->shape) && self->shape[self->shape.size() - 1] == other->shape[0] && other->shape.size() == 1;
-    if (!broadcast && self->shape != other->shape) throw std::invalid_argument("Shape must be the same or broadcast");
-    auto result = Tensor::init(self->shape, true);
+    std::vector<int> out_shape = broadcast_shape(self->shape, other->shape);
+    int ndim = out_shape.size();
+    auto self_strides = self->broadcast_strides(ndim);
+    auto other_strides = other->broadcast_strides(ndim);
+
+    auto result = Tensor::init(out_shape, true);
     result->parents = std::pair{self, other};
     result->op = "add";
 
-    for (int i = 0; i < self->total_count; ++i) {
-
-        result->at(i) += self->at(i) + other->at(i);
+    for (int i = 0; i < result->total_count; ++i) {
+        result->at(i) += self->at(i, self_strides, out_shape) + other->at(i, other_strides, out_shape);
     }
 
-    result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){
+    result->backward_fn = [res = std::weak_ptr<Tensor>(result), first_str = self_strides, second_str = other_strides, out_shape](){
         if(auto r = res.lock()){
             for (int i = 0; i < r->total_count; ++i) {
-                r->parents.first->grad_at(i) += r->grad_at(i);
-                r->parents.second->grad_at(i) += r->grad_at(i);
+                r->parents.first->grad_at(i, first_str, out_shape) += r->grad_at(i);
+                r->parents.second->grad_at(i, second_str, out_shape) += r->grad_at(i);
             }
         }
     };
+    
     return result;
 }
 

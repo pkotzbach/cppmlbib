@@ -37,14 +37,20 @@ public:
     std::string device;
 
     // TODO: smaller API, span?
+    int strided_idx(int shape_idx, std::vector<int>& strides, std::vector<int>& shape);
     int strided_idx(std::vector<int> idx);
-    int strided_idx(int flat_idx);
 
     double& at(std::vector<int> shape_idx) { return values[strided_idx(shape_idx)]; }
-    double& at(int shape_idx)              { return values[strided_idx(shape_idx)]; }
+    double& at(int shape_idx)              { return values[strided_idx(shape_idx, strides, shape)]; }
+    double& at(int shape_idx, std::vector<int>& strides, std::vector<int>& shape) {
+        return values[strided_idx(shape_idx, strides, shape)]; }
 
     double& grad_at(std::vector<int> shape_idx) { return grads[strided_idx(shape_idx)]; }
-    double& grad_at(int shape_idx)              { return grads[strided_idx(shape_idx)]; }
+    double& grad_at(int shape_idx)              { return grads[strided_idx(shape_idx, strides, shape)]; }
+    double& grad_at(int shape_idx, std::vector<int> strides, std::vector<int> shape) {
+        return grads[strided_idx(shape_idx, strides, shape)]; }
+
+    std::vector<int> broadcast_strides(int ndim);
 
     // operators (grad)
     Tensor_ptr sum();
@@ -67,6 +73,8 @@ public:
 
     // Tensor_ptr operator=(Tensor_ptr tensor);
 };
+
+std::vector<int> broadcast_shape(std::vector<int>& a, std::vector<int>& b);
 
 // TODO: put it inside struct
 Tensor_ptr operator+(Tensor_ptr self, Tensor_ptr other);
