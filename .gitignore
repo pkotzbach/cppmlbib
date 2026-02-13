@@ -3,3 +3,6 @@ build/
 tests
 iris
 todo.txt
+.python-version
+*.ipynb
+debug.cpp

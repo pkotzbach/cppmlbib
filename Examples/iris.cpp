@@ -67,7 +67,7 @@ int main()
         }
     }
 
-    printf("train size: %i, test size: %i\n", df_train->shape[0], df_test->shape[0]);
+    printf("train size: %i, test size: %i\n", df_train->get_shape(0), df_test->get_shape(0));
 
     // model
     Linear l1(4, 16);
@@ -95,7 +95,7 @@ int main()
     result = result->argmax(1);
 
     int correct = 0;
-    for (int i = 0; i < target_test->shape[0]; ++i)
+    for (int i = 0; i < target_test->get_shape(0); ++i)
     {
         int result_idx = result->at({i, 0}), target_idx = -1;
         printf("pred: %i, ", result_idx);

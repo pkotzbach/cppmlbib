@@ -9,10 +9,10 @@ using ::testing::Pointwise;
 TEST(LinearTest, Forward) {
     Linear l1(5, 5);
 
-    for (int o = 0; o < l1.out_size; ++o) {
-        l1.biases->at(o) = 0.1;
-        for (int i = 0; i < l1.in_size; ++i)
-            l1.weights->at({i, o}) = 0.1 * o + 0.01 * i;
+    for (int o = 0; o < l1.get_out_size(); ++o) {
+        l1.get_biases()->at(o) = 0.1;
+        for (int i = 0; i < l1.get_in_size(); ++i)
+            l1.get_weights()->at({i, o}) = 0.1 * o + 0.01 * i;
     }
 
     Tensor_ptr input = Tensor::init({2, 5}, {0.1, 0.2, 0.3, 0.4, 0.5, 

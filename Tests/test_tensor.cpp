@@ -11,8 +11,8 @@ TEST(TensorTest, ConstructionAndIndexing)
 {
     Tensor_ptr t = Tensor::init({2, 3, 4});
 
-    EXPECT_EQ(t->shape, std::vector<int>({2, 3, 4}));
-    EXPECT_EQ(t->total_count, 24);
+    EXPECT_EQ(t->get_shape(), std::vector<int>({2, 3, 4}));
+    EXPECT_EQ(t->get_total_count(), 24);
 
     EXPECT_THROW(t->at(std::vector<int>{5}), std::exception);
 
@@ -105,7 +105,7 @@ TEST(TensorTest, AssignmentOperator)
     Tensor_ptr b = a;  // operator=
 
     EXPECT_EQ(a.get(), b.get());
-    EXPECT_EQ(b->shape, std::vector<int>({2, 2}));
+    EXPECT_EQ(b->get_shape(), std::vector<int>({2, 2}));
 
     b->at({0, 0}) = 42.0;
 
@@ -154,7 +154,7 @@ TEST(TensorTest, SumAlongAxis0)
     Tensor_ptr t = Tensor::init({3, 2}, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0});
 
     auto sum = t->sum(0);
-    EXPECT_EQ(sum->shape.size(), 1);
+    EXPECT_EQ(sum->get_shape().size(), 1);
 
     EXPECT_THAT(sum->values_vec(),
                 Pointwise(DoubleNear(1e-6),
@@ -172,7 +172,7 @@ TEST(TensorTest, SumAlongAxis1)
     Tensor_ptr t = Tensor::init({3, 2}, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0});
 
     auto sum = t->sum(1);
-    EXPECT_EQ(sum->shape.size(), 1);
+    EXPECT_EQ(sum->get_shape().size(), 1);
 
     EXPECT_THAT(sum->values_vec(),
                 Pointwise(DoubleNear(1e-6),
@@ -258,7 +258,7 @@ TEST(TensorTest, Transpose)
     Tensor_ptr x = Tensor::init({3, 2}, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0});
     Tensor_ptr xT = x->transpose();
     
-    EXPECT_EQ(xT->shape, std::vector<int>({2, 3}));
+    EXPECT_EQ(xT->get_shape(), std::vector<int>({2, 3}));
     EXPECT_THAT(xT->values_vec(),
                 Pointwise(DoubleNear(1e-4),
                           std::vector<double>{1.0, 3.0, 5.0, 2.0, 4.0, 6.0}));
@@ -285,8 +285,8 @@ TEST(TensorMatmulTest, CPU)
 
     auto result = a->matmul(b);
     
-    EXPECT_EQ(result->device, "cpu");
-    EXPECT_EQ(result->shape, std::vector<int>({2, 2}));
+    EXPECT_EQ(result->get_device(), "cpu");
+    EXPECT_EQ(result->get_shape(), std::vector<int>({2, 2}));
     EXPECT_THAT(result->values_vec(),
                 Pointwise(DoubleNear(1e-6),
                           std::vector<double>{18.0, 32.8, 22.1, 47.5}));
@@ -315,8 +315,8 @@ TEST(TensorMatmulTest, CUDA)
     auto result = a->matmul(b);
 
     EXPECT_EQ(g_cuda_kernel_launches, 1); 
-    EXPECT_EQ(result->device, "cuda");
-    EXPECT_EQ(result->shape, std::vector<int>({2, 2}));
+    EXPECT_EQ(result->get_device(), "cuda");
+    EXPECT_EQ(result->get_shape(), std::vector<int>({2, 2}));
     EXPECT_THAT(result->values_vec(),
                 Pointwise(DoubleNear(1e-6),
                           std::vector<double>{18.0, 32.8, 22.1, 47.5}));

@@ -1,5 +1,6 @@
 ## autograd engine
 ## tensor module
+- broadcasting (only at add)
 ## components
 - linear
 - softmax
@@ -10,7 +11,7 @@
 - iris with ~90% accuracy
 
 ## TODO
-- classes
+- warnings
 - cuda
 - use new C++ features
 - throw to static_assert
@@ -22,5 +23,7 @@
     Tensor_ptr div = Tensor::init({1}, std::vector<double>{static_cast<double>(input->shape[0])});
     result = result / div;
 - no grad
-- broadcasting
-- faster at
+- more broadcasting
+- faster at()
+- move
+- consts

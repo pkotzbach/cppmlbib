@@ -4,10 +4,10 @@ project(cppmlbib
     LANGUAGES CXX CUDA
 )
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CUDA_STANDARD 20)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 # GTEST
@@ -41,12 +41,15 @@ set(CUDA_HEADER_DIR ${HEADER_DIR}/cuda)
 file(GLOB COMMON_SRCS ${SRC_DIR}/*.cpp)
 file(GLOB CUDA_SRCS ${CUDA_SRC_DIR}/*.cu)
 file(GLOB TEST_SRCS ${TEST_DIR}/*.cpp)
+set(DEBUG_SRC ${CMAKE_SOURCE_DIR}/debug.cpp)
 
 # Common object library
 add_library(common_objs OBJECT
     ${COMMON_SRCS}
     ${CUDA_SRCS}
 )
+
+target_compile_definitions(common_objs PRIVATE CUDA_TEST) # TODO: lib for tests
 
 target_include_directories(common_objs PUBLIC
     ${HEADER_DIR}
@@ -67,11 +70,32 @@ set_target_properties(common_objs PROPERTIES
 )
 
 #### Executables
+# Debug
+add_executable(debug
+    $<TARGET_OBJECTS:common_objs>
+    ${DEBUG_SRC}
+)
+
+target_include_directories(debug PRIVATE
+    ${HEADER_DIR}
+    ${CUDA_HEADER_DIR}
+)
+
+target_link_libraries(debug PRIVATE
+    CUDA::cudart
+)
+
+set_target_properties(debug PROPERTIES
+    CUDA_SEPARABLE_COMPILATION ON
+)
+
 # Tests
 add_executable(tests
     $<TARGET_OBJECTS:common_objs>
     ${TEST_SRCS}
 )
+
+target_compile_definitions(tests PRIVATE CUDA_TEST)
 
 target_include_directories(tests PRIVATE
     ${HEADER_DIR}
@@ -81,6 +105,8 @@ target_include_directories(tests PRIVATE
 target_link_libraries(tests PRIVATE
     GTest::gtest
     GTest::gtest_main
+    GTest::gmock
+    GTest::gmock_main
     CUDA::cudart
 )
 
