@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include "tensor.hpp"
+#include <cuda_runtime.h>
+#include "cuda_debug.h"
 
 using ::testing::DoubleNear;
 using ::testing::Pointwise;
@@ -276,13 +278,14 @@ TEST(TensorTest, Transpose)
                           std::vector<double>{2, 5, 3, 6, 4, 7}));
 }
 
-TEST(TensorTest, MatmulOperator)
+TEST(TensorMatmulTest, CPU)
 {
     Tensor_ptr a = Tensor::init({2, 3}, {4.0, 8.0, 2.0, 6.0, 12.1, -2});
     Tensor_ptr b = Tensor::init({3, 2}, {2.0, 2.0, 1.0, 3.0, 1.0, 0.4});
 
     auto result = a->matmul(b);
-
+    
+    EXPECT_EQ(result->device, "cpu");
     EXPECT_EQ(result->shape, std::vector<int>({2, 2}));
     EXPECT_THAT(result->values_vec(),
                 Pointwise(DoubleNear(1e-6),
@@ -297,4 +300,36 @@ TEST(TensorTest, MatmulOperator)
     EXPECT_THAT(b->grads_vec(),
                 Pointwise(DoubleNear(1e-5),
                           std::vector<double>{10.0, 10.0, 20.1, 20.1, 0.0, 0.0}));
+}
+
+TEST(TensorMatmulTest, CUDA)
+{
+#ifndef CUDA_TEST
+    GTEST_SKIP() << "CUDA TEST not set";
+#else
+    g_cuda_kernel_launches = 0;
+
+    Tensor_ptr a = Tensor::init({2, 3}, {4.0, 8.0, 2.0, 6.0, 12.1, -2}, "cuda");
+    Tensor_ptr b = Tensor::init({3, 2}, {2.0, 2.0, 1.0, 3.0, 1.0, 0.4}, "cuda");
+
+    auto result = a->matmul(b);
+
+    EXPECT_EQ(g_cuda_kernel_launches, 1); 
+    EXPECT_EQ(result->device, "cuda");
+    EXPECT_EQ(result->shape, std::vector<int>({2, 2}));
+    EXPECT_THAT(result->values_vec(),
+                Pointwise(DoubleNear(1e-6),
+                          std::vector<double>{18.0, 32.8, 22.1, 47.5}));
+
+    result->sum()->backward();
+
+    EXPECT_GT(g_cuda_kernel_launches, 1); // check if cuda was used in backward
+    EXPECT_THAT(a->grads_vec(),
+                Pointwise(DoubleNear(1e-5),
+                          std::vector<double>{4.0, 4.0, 1.4, 4.0, 4.0, 1.4}));
+
+    EXPECT_THAT(b->grads_vec(),
+                Pointwise(DoubleNear(1e-5),
+                          std::vector<double>{10.0, 10.0, 20.1, 20.1, 0.0, 0.0}));
+#endif
 }

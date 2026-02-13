@@ -385,12 +385,13 @@ Tensor_ptr Tensor::matmul(Tensor_ptr tensor)
 {
     if (shape.size() != 2 || tensor->shape.size() != 2) throw std::invalid_argument("Matmul defined only for 2d tensors");
     if (shape[1] != tensor->shape[0]) throw std::invalid_argument("Invalid shapes for matmul");
+    if (device != tensor->device) throw std::invalid_argument("different devices");
 
-    Tensor_ptr result = Tensor::init({shape[0], tensor->shape[1]}, true);
+    Tensor_ptr result = Tensor::init({shape[0], tensor->shape[1]}, true, device);
     result->parents = std::pair{shared_from_this(), tensor};
     result->op = "matmul";
     
-    auto matmul_output = _matmul(values_vec(), tensor->values_vec(), shape[1], tensor->shape[1], shape[0]);
+    auto matmul_output = _matmul(values_vec(), tensor->values_vec(), shape[1], tensor->shape[1], shape[0], device);
     for (int i = 0; i < matmul_output.size(); ++i)
         result->values[i] = matmul_output[i];
     
@@ -398,8 +399,8 @@ Tensor_ptr Tensor::matmul(Tensor_ptr tensor)
         if(auto r = res.lock()){
             Tensor_ptr firstT = r->parents.first->transpose();
             Tensor_ptr secondT = r->parents.second->transpose();
-            std::vector<double> grad_first = _matmul(r->grads_vec(), secondT->values_vec(), r->shape[1], secondT->shape[1], r->shape[0]);
-            std::vector<double> grad_second = _matmul(firstT->values_vec(), r->grads_vec(), firstT->shape[1], r->shape[1], firstT->shape[0]);
+            std::vector<double> grad_first = _matmul(r->grads_vec(), secondT->values_vec(), r->shape[1], secondT->shape[1], r->shape[0], r->device);
+            std::vector<double> grad_second = _matmul(firstT->values_vec(), r->grads_vec(), firstT->shape[1], r->shape[1], firstT->shape[0], r->device);
             for (int i = 0; i < r->parents.first->total_count; ++i) {
                 r->parents.first->grad_at(i) += grad_first[i];
             }

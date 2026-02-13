@@ -27,23 +27,6 @@ TEST(LinearTest, Forward) {
                 })));
 }
 
-// TEST(LinearTest, CudaForward) {
-//     Linear l1(5, 5, "cuda");
-
-//     for (int o = 0; o < l1.out_size; ++o) {
-//         l1.biases[o]->data = 0.1;
-//         for (int i = 0; i < l1.in_size; ++i)
-//             l1.weights[o][i]->data = 0.1 * o + 0.01 * i;
-//     }
-
-//     Tensor input = make_tensor({{0.1, 0.2, 0.3, 0.4, 0.5}});
-//     Tensor output = l1.forward(input);
-
-//     expect_flatten_tensor_near(
-//         output, {0.14, 0.29, 0.44, 0.59, 0.74}
-//     );
-// }
-
 TEST(SoftmaxTest, Forward) {
     Tensor_ptr input = Tensor::init({1, 3}, {0.1, 0.2, -0.1});
     Softmax s;
