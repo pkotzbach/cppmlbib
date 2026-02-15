@@ -111,6 +111,8 @@ int Tensor::strided_idx(std::vector<int> indices)
 
 int Tensor::strided_idx(int shape_idx, std::vector<int>& strides, std::vector<int>& shape)
 {
+    if (strides == shape) return shape_idx;
+    
     int strided_idx = 0, temp;
     for (int i = shape.size() - 1; i >= 0; --i)
     {

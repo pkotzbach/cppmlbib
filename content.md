@@ -11,8 +11,8 @@
 - iris with ~90% accuracy
 
 ## TODO
-- warnings
 - cuda
+- TODOs
 - use new C++ features
 - throw to static_assert
 - constexpr
@@ -27,3 +27,4 @@
 - faster at()
 - move
 - consts
+- warnings - changing int to size_t increases memory

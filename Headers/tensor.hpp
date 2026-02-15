@@ -83,8 +83,6 @@ public:
     void toposort(Tensor_ptr t, std::unordered_set<Tensor_ptr>& visited, std::vector<Tensor_ptr>& res);
 
     // Tensor_ptr operator=(Tensor_ptr tensor);
-
-
 };
 
 // TODO: not here
