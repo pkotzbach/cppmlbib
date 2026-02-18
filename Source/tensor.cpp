@@ -251,10 +251,6 @@ Tensor_ptr Tensor::sum(int axis)
     return result;
 }
 
-// Tensor_ptr Tensor::max(int axis)
-// {
-
-// }
 
 Tensor_ptr Tensor::exp()
 {
@@ -262,6 +258,7 @@ Tensor_ptr Tensor::exp()
     result->parents = std::pair{shared_from_this(), nullptr};
     result->op = "exp";
 
+    // TODO: at not needed here i think, could use buffer explicitly
     for (int i = 0; i < total_count; ++i) {
         result->at(i) = std::exp(at(i));
     }
@@ -408,6 +405,52 @@ Tensor_ptr Tensor::matmul(Tensor_ptr tensor)
             }
             for (int i = 0; i < r->parents.second->total_count; ++i) {
                 r->parents.second->grad_at(i) += grad_second[i];
+            }
+        }
+    };
+
+    return result;
+}
+
+Tensor_ptr Tensor::softmax()
+{
+    if (shape.size() != 2) throw std::invalid_argument("Softmax defined only for 2d tensors");
+    
+    int N = shape[0];
+    int C = shape[1];
+
+    auto result = Tensor::init(shape, true);
+    result->parents = std::pair{shared_from_this(), nullptr};
+    result->op = "softmax";
+
+    std::vector<double> exps(total_count);
+    std::vector<double> sum_exps(N);
+
+    for (int n = 0; n < N; ++n) {
+        for (int c = 0; c < C; ++c) {
+            exps[n * C + c] = std::exp(at({n, c}));
+            sum_exps[n] += exps[n * C + c];
+        }
+    }
+
+    for (int n = 0; n < N; ++n) {
+        for (int c = 0; c < C; ++c) {
+            result->at({n, c}) = exps[n * C + c] / sum_exps[n];
+        }
+    }
+
+    // TODO: could be O(N*C)
+    result->backward_fn = [res = std::weak_ptr<Tensor>(result), exps, sum_exps, N, C](){
+        if(auto r = res.lock()){
+            for (int n = 0; n < N; ++n) {
+                for (int c = 0; c < C; ++c) {
+                    r->parents.first->grad_at({n, c}) += r->grad_at({n, c}) * r->at({n, c}) * (1 - r->at({n, c}));
+
+                    for (int c1 = 0; c1 < C; ++c1) {
+                        if (c1 == c) continue;
+                        r->parents.first->grad_at({n, c1}) += r->grad_at({n, c}) * -r->at({n, c}) * r->at({n, c1});
+                    }
+                }
             }
         }
     };

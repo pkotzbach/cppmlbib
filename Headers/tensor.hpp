@@ -64,8 +64,9 @@ public:
     Tensor_ptr sum(int axis);
     Tensor_ptr relu();
     Tensor_ptr exp();
-    Tensor_ptr max(int axis);
+    // Tensor_ptr max(int axis);
     Tensor_ptr matmul(Tensor_ptr tensor);
+    Tensor_ptr softmax();
     friend Tensor_ptr operator+(Tensor_ptr self, Tensor_ptr other);
     friend Tensor_ptr operator-(Tensor_ptr self, Tensor_ptr other);
     friend Tensor_ptr operator*(Tensor_ptr self, Tensor_ptr other);

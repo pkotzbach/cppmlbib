@@ -202,6 +202,26 @@ TEST(TensorTest, ReLUOperation)
                           std::vector<double>{1.0, 0.0, 1.0}));
 }
 
+TEST(TensorTest, SoftmaxOperation)
+{
+    Tensor_ptr a = Tensor::init({1, 3}, {0.1, 0.1, -0.1});
+    Tensor_ptr b = Tensor::init({1, 3}, {0.1, 1.4, 0.82});
+    Tensor_ptr softmax_result = a->softmax();
+
+    EXPECT_THAT(softmax_result->values_vec(),
+                Pointwise(DoubleNear(1e-4),
+                          std::vector<double>{0.3548, 0.3548, 0.2905}));
+
+    (softmax_result * b)->sum()->backward();
+
+    EXPECT_THAT(a->grads_vec(),
+                Pointwise(DoubleNear(1e-4),
+                          std::vector<double>{-0.2378, 0.2234, 0.0144}));
+    EXPECT_THAT(b->grads_vec(),
+                Pointwise(DoubleNear(1e-4),
+                          std::vector<double>{0.3548, 0.3548, 0.2905}));
+}
+
 TEST(TensorTest, ExpOperation)
 {
     Tensor_ptr t = Tensor::init({2}, {0.0, 1.0});

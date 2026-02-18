@@ -12,6 +12,8 @@
 
 ## TODO
 - cuda
+- what about stride in softmax for example? new result should have same stride or no?
+- https://docs.jax.dev/en/latest/notebooks/autodiff_cookbook.html#how-it-s-made-two-foundational-autodiff-functions
 - TODOs
 - use new C++ features
 - throw to static_assert
