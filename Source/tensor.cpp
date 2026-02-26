@@ -439,17 +439,15 @@ Tensor_ptr Tensor::softmax()
         }
     }
 
-    // TODO: could be O(N*C)
     result->backward_fn = [res = std::weak_ptr<Tensor>(result), exps, sum_exps, N, C](){
         if(auto r = res.lock()){
             for (int n = 0; n < N; ++n) {
+                double sum = 0.0;
                 for (int c = 0; c < C; ++c) {
-                    r->parents.first->grad_at({n, c}) += r->grad_at({n, c}) * r->at({n, c}) * (1 - r->at({n, c}));
-
-                    for (int c1 = 0; c1 < C; ++c1) {
-                        if (c1 == c) continue;
-                        r->parents.first->grad_at({n, c1}) += r->grad_at({n, c}) * -r->at({n, c}) * r->at({n, c1});
-                    }
+                    sum += r->grad_at({n, c}) * r->at({n, c});
+                }
+                for (int c1 = 0; c1 < C; ++c1) {
+                    r->parents.first->grad_at({n, c1}) += r->at({n, c1}) * (r->grad_at({n, c1}) - sum);
                 }
             }
         }

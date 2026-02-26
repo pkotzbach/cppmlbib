@@ -28,5 +28,5 @@
 - more broadcasting
 - faster at()
 - move
-- consts
+- consts Each SM also has a separate constant cache, which is used to cache values in global memory that have been declared to be constant over the life of a kernel
 - warnings - changing int to size_t increases memory
