@@ -1,0 +1,52 @@
+#include "cuda/cuda_ops.hpp"
+#include "cuda/cuda_launchers.h"
+#include <cstdlib>
+#include <cstdio>
+#include <cuda_runtime.h>
+
+#define CUDA_CHECK(x) do { \
+    cudaError_t err = x; \
+    if (err != cudaSuccess) { \
+        printf("CUDA error %s at %s:%d\n", \
+               cudaGetErrorString(err), __FILE__, __LINE__); \
+        exit(1); \
+    } \
+} while (0)
+
+
+namespace cuda {
+
+std::vector<double> matmul(const std::vector<double>& matrix_A, const std::vector<double>& matrix_B, int K, int X, int Y)
+{
+        double *d_matrix_A, *d_matrix_B, *d_output;
+        std::vector<double> output(X*Y);
+
+        size_t matrix_A_bytes = Y * K * sizeof(double);
+        size_t matrix_B_bytes = X * K * sizeof(double);
+        size_t output_bytes = Y * X * sizeof(double);
+
+        CUDA_CHECK(cudaMalloc(&d_matrix_A, matrix_A_bytes));
+        CUDA_CHECK(cudaMalloc(&d_matrix_B, matrix_B_bytes));
+        CUDA_CHECK(cudaMalloc(&d_output, output_bytes));
+        CUDA_CHECK(cudaMemcpy(d_matrix_A, matrix_A.data(), matrix_A_bytes, cudaMemcpyHostToDevice));
+        CUDA_CHECK(cudaMemcpy(d_matrix_B, matrix_B.data(), matrix_B_bytes, cudaMemcpyHostToDevice));
+
+        launch_matmul(d_matrix_A, d_matrix_B, d_output, K, X, Y);
+
+        CUDA_CHECK(cudaGetLastError());
+        CUDA_CHECK(cudaDeviceSynchronize());
+
+        CUDA_CHECK(cudaMemcpy(output.data(), d_output, output_bytes, cudaMemcpyDeviceToHost));
+
+        CUDA_CHECK(cudaFree(d_matrix_A));
+        CUDA_CHECK(cudaFree(d_matrix_B));
+        CUDA_CHECK(cudaFree(d_output));
+        
+        return output;
+}
+
+std::vector<double> softmax(const std::vector<double>& input, int N, int C)
+{
+}
+
+} // namespace cuda

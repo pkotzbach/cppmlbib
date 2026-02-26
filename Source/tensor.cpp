@@ -1,5 +1,6 @@
 #include "tensor.hpp"
-#include "matmul.hpp"
+#include "cpu_ops.hpp"
+#include "cuda_ops.hpp"
 
 #include <stdexcept>
 #include <cassert>
@@ -390,7 +391,13 @@ Tensor_ptr Tensor::matmul(Tensor_ptr tensor)
     result->parents = std::pair{shared_from_this(), tensor};
     result->op = "matmul";
     
-    auto matmul_output = _matmul(values_vec(), tensor->values_vec(), shape[1], tensor->shape[1], shape[0], device);
+    std::vector<double> matmul_output;
+    if (device == "cpu") {
+        matmul_output = cpu::matmul(values_vec(), tensor->values_vec(), shape[1], tensor->shape[1], shape[0]);
+    } else if (device == "cuda") {
+        matmul_output = cuda::matmul(values_vec(), tensor->values_vec(), shape[1], tensor->shape[1], shape[0]);
+    }
+
     for (int i = 0; i < matmul_output.size(); ++i)
         result->values[i] = matmul_output[i];
     
@@ -398,8 +405,15 @@ Tensor_ptr Tensor::matmul(Tensor_ptr tensor)
         if(auto r = res.lock()){
             Tensor_ptr firstT = r->parents.first->transpose();
             Tensor_ptr secondT = r->parents.second->transpose();
-            std::vector<double> grad_first = _matmul(r->grads_vec(), secondT->values_vec(), r->shape[1], secondT->shape[1], r->shape[0], r->device);
-            std::vector<double> grad_second = _matmul(firstT->values_vec(), r->grads_vec(), firstT->shape[1], r->shape[1], firstT->shape[0], r->device);
+            std::vector<double> grad_first;
+            std::vector<double> grad_second;
+            if (r->get_device() == "cpu") {
+                grad_first = cpu::matmul(r->grads_vec(), secondT->values_vec(), r->shape[1], secondT->shape[1], r->shape[0]);
+                grad_second = cpu::matmul(firstT->values_vec(), r->grads_vec(), firstT->shape[1], r->shape[1], firstT->shape[0]);
+            } else if (r->get_device() == "cuda") {
+                grad_first = cuda::matmul(r->grads_vec(), secondT->values_vec(), r->shape[1], secondT->shape[1], r->shape[0]);
+                grad_second = cuda::matmul(firstT->values_vec(), r->grads_vec(), firstT->shape[1], r->shape[1], firstT->shape[0]);
+            }
             for (int i = 0; i < r->parents.first->total_count; ++i) {
                 r->parents.first->grad_at(i) += grad_first[i];
             }
@@ -423,23 +437,26 @@ Tensor_ptr Tensor::softmax()
     result->parents = std::pair{shared_from_this(), nullptr};
     result->op = "softmax";
 
-    std::vector<double> exps(total_count);
-    std::vector<double> sum_exps(N);
+    if (device == "cpu") {
+        std::vector<double> exps(total_count);
+        std::vector<double> sum_exps(N);
 
-    for (int n = 0; n < N; ++n) {
-        for (int c = 0; c < C; ++c) {
-            exps[n * C + c] = std::exp(at({n, c}));
-            sum_exps[n] += exps[n * C + c];
+        for (int n = 0; n < N; ++n) {
+            for (int c = 0; c < C; ++c) {
+                exps[n * C + c] = std::exp(at({n, c}));
+                sum_exps[n] += exps[n * C + c];
+            }
         }
+
+        for (int n = 0; n < N; ++n) {
+            for (int c = 0; c < C; ++c) {
+                result->at({n, c}) = exps[n * C + c] / sum_exps[n];
+            }
+        }
+    } else if (device == "cuda") {
     }
 
-    for (int n = 0; n < N; ++n) {
-        for (int c = 0; c < C; ++c) {
-            result->at({n, c}) = exps[n * C + c] / sum_exps[n];
-        }
-    }
-
-    result->backward_fn = [res = std::weak_ptr<Tensor>(result), exps, sum_exps, N, C](){
+    result->backward_fn = [res = std::weak_ptr<Tensor>(result), N, C](){
         if(auto r = res.lock()){
             for (int n = 0; n < N; ++n) {
                 double sum = 0.0;
