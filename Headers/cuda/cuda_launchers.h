@@ -1,4 +1,4 @@
 #pragma once
 
 void launch_matmul(const double* d_A, const double* d_B, double* d_C, int K, int X, int Y);
-void launch_softmax(const double* input, double* output, int N, int C);
+void launch_simple(const char op, const double* input_A, const double* input_B, double* output, int size);

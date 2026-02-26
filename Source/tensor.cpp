@@ -60,6 +60,8 @@ Tensor &Tensor::init_internal(std::vector<int> shape, std::vector<double> init_v
 }
 
 // TODO: dont copy code
+
+// returns continous values
 std::vector<double> Tensor::values_vec()
 {
     std::vector<double> vec;
@@ -278,17 +280,26 @@ Tensor_ptr Tensor::exp()
 //tensor operators
 Tensor_ptr operator+(Tensor_ptr self, Tensor_ptr other)
 {
+    if (self->get_device() != other->get_device()) throw std::invalid_argument("Tensors must be on the same device");
+    std::string device = self->device;
     std::vector<int> out_shape = broadcast_shape(self->shape, other->shape);
     int ndim = out_shape.size();
     auto self_strides = self->broadcast_strides(ndim);
     auto other_strides = other->broadcast_strides(ndim);
 
-    auto result = Tensor::init(out_shape, true);
+    auto result = Tensor::init(out_shape, true, device);
     result->parents = std::pair{self, other};
     result->op = "add";
 
-    for (int i = 0; i < result->total_count; ++i) {
-        result->at(i) += self->at(i, self_strides, out_shape) + other->at(i, other_strides, out_shape);
+    if (device == "cpu") {
+        for (int i = 0; i < result->total_count; ++i) {
+            result->at(i) += self->at(i, self_strides, out_shape) + other->at(i, other_strides, out_shape);
+        }
+    }
+    else if (device == "cuda") {
+        std::vector<double> op_result = cuda::simple_op('+', self->values_vec(), other->values_vec(), self->get_total_count());
+        for (int i = 0; i < result->total_count; ++i)
+            result->values[i] = op_result[i];
     }
 
     result->backward_fn = [res = std::weak_ptr<Tensor>(result), first_str = self_strides, second_str = other_strides, out_shape](){
@@ -370,6 +381,10 @@ Tensor_ptr operator/(Tensor_ptr self, Tensor_ptr other)
         }
     };
     return result;
+}
+
+void check_errors(Tensor_ptr t1, Tensor_ptr t2)
+{
 }
 
 // Tensor_ptr Tensor::operator=(Tensor_ptr tensor)
@@ -482,6 +497,7 @@ Tensor_ptr Tensor::transpose()
     result->total_count = total_count;
     result->shape = shape;
     result->strides = strides;
+    result->device = device;
     result->parents = std::pair{shared_from_this(), nullptr};
     result->op = "transpose";
     std::reverse(result->shape.begin(), result->shape.end());

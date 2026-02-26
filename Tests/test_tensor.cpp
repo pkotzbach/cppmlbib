@@ -327,14 +327,14 @@ TEST(TensorMatmulTest, CUDA)
 #ifndef CUDA_TEST
     GTEST_SKIP() << "CUDA TEST not set";
 #else
-    g_cuda_matmul_launches = 0;
+    g_cuda_kernel_launches = 0;
 
     Tensor_ptr a = Tensor::init({2, 3}, {4.0, 8.0, 2.0, 6.0, 12.1, -2}, "cuda");
     Tensor_ptr b = Tensor::init({3, 2}, {2.0, 2.0, 1.0, 3.0, 1.0, 0.4}, "cuda");
 
     auto result = a->matmul(b);
 
-    EXPECT_EQ(g_cuda_matmul_launches, 1); 
+    EXPECT_EQ(g_cuda_kernel_launches, 1); 
     EXPECT_EQ(result->get_device(), "cuda");
     EXPECT_EQ(result->get_shape(), std::vector<int>({2, 2}));
     EXPECT_THAT(result->values_vec(),
@@ -343,7 +343,7 @@ TEST(TensorMatmulTest, CUDA)
 
     result->sum()->backward();
 
-    EXPECT_GT(g_cuda_matmul_launches, 1); // check if cuda was used in backward
+    EXPECT_GT(g_cuda_kernel_launches, 1); // check if cuda was used in backward
     EXPECT_THAT(a->grads_vec(),
                 Pointwise(DoubleNear(1e-5),
                           std::vector<double>{4.0, 4.0, 1.4, 4.0, 4.0, 1.4}));

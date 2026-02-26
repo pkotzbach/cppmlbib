@@ -1,6 +1,5 @@
 build/
 .vscode/
-tests
 iris
 todo.txt
 .python-version

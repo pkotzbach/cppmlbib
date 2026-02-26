@@ -1,11 +1,42 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include <float.h>
+#include <cuda/cmath>
 
 #ifdef CUDA_TEST
 #include "cuda_debug.h"
-int g_cuda_matmul_launches = 0;
+int g_cuda_kernel_launches = 0;
 #endif
+
+template <char Op>
+__global__ void simple_kernel(const double* input_A, const double* input_B, double* output, int size)
+{
+    int idx = threadIdx.x + blockDim.x * blockIdx.x;
+    if (idx < size) {
+        if constexpr (Op == '+') output[idx] = input_A[idx] + input_B[idx];
+        else if constexpr (Op == '-') output[idx] = input_A[idx] - input_B[idx];
+        else if constexpr (Op == '*') output[idx] = input_A[idx] * input_B[idx];
+        else if constexpr (Op == '/') output[idx] = input_A[idx] / input_B[idx];
+    }
+}
+
+void launch_simple(const char op, const double* input_A, const double* input_B, double* output, int size) {
+#ifdef CUDA_TEST
+    g_cuda_kernel_launches++;
+#endif
+    int threads = 256;
+    int blocks = cuda::ceil_div(size, threads);
+
+    switch (op) {
+        case '+': simple_kernel<'+'><<<blocks, threads>>>(input_A, input_B, output, size); break;
+        case '-': simple_kernel<'-'><<<blocks, threads>>>(input_A, input_B, output, size); break;
+        case '*': simple_kernel<'*'><<<blocks, threads>>>(input_A, input_B, output, size); break;
+        case '/': simple_kernel<'/'><<<blocks, threads>>>(input_A, input_B, output, size); break;
+        default: throw std::invalid_argument("Unknown op");
+    }
+}
+
+// -------------------
 
 __global__ void matmul_kernel(
     const double* A,   // [Y, K]
@@ -37,7 +68,7 @@ void launch_matmul(
     int Y)
 {
 #ifdef CUDA_TEST
-    g_cuda_matmul_launches++;
+    g_cuda_kernel_launches++;
 #endif
 
     dim3 block(16, 16);
@@ -50,6 +81,8 @@ void launch_matmul(
         d_A, d_B, d_C, K, X, Y
     );
 }
+
+// ----------------------------------
 
 __global__ void softmax_kernel(const double* input, double* output, int N, int C) {
 
