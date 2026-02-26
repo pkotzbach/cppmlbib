@@ -10,7 +10,7 @@ Tensor_ptr MSELoss(Tensor_ptr input, Tensor_ptr target)
     result = result * result;
     result = result->sum();
 
-    Tensor_ptr div = Tensor::init({1}, std::vector<double>{static_cast<double>(input->get_shape(0))});
+    Tensor_ptr div = Tensor::init({1}, std::vector<double>{static_cast<double>(input->get_shape(0))}, input->get_device());
     result = result / div;
     return result;
 }

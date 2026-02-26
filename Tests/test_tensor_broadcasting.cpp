@@ -1,14 +1,34 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include "tensor.hpp"
+#include "cuda_debug.h"
 
 using ::testing::DoubleNear;
 using ::testing::Pointwise;
 
-TEST(BroadcastingTest, AddScalar)
+class BroadcastingTest : public ::testing::TestWithParam<std::string> {
+protected:
+    bool expect_cuda = false;
+    void SetUp() override {
+#ifdef CUDA_TEST
+        if (GetParam() == "cuda") g_cuda_kernel_launches = 0;
+#endif
+    }
+    void TearDown() override {
+#ifdef CUDA_TEST
+        if (GetParam() == "cuda" && expect_cuda) {
+            EXPECT_GT(g_cuda_kernel_launches, 0);
+        }
+#endif
+    }
+};
+
+TEST_P(BroadcastingTest, AddScalar)
 {
-    Tensor_ptr a = Tensor::init({2, 2}, {1, 2, 3, 4});
-    Tensor_ptr b = Tensor::init(std::vector<int>({1}), std::vector<double>({10.0}));   // scalar
+    expect_cuda = true;
+    std::string device = GetParam();
+    Tensor_ptr a = Tensor::init({2, 2}, {1, 2, 3, 4}, device);
+    Tensor_ptr b = Tensor::init(std::vector<int>({1}), std::vector<double>({10.0}), device);   // scalar
 
     auto r = a + b;
 
@@ -27,13 +47,15 @@ TEST(BroadcastingTest, AddScalar)
                   std::vector<double>{4}));
 }
 
-TEST(BroadcastingTest, AddRowVector)
+TEST_P(BroadcastingTest, AddRowVector)
 {
+    expect_cuda = true;
+    std::string device = GetParam();
     Tensor_ptr a = Tensor::init({2, 3},
         {1, 2, 3,
-         4, 5, 6});
+         4, 5, 6}, device);
 
-    Tensor_ptr b = Tensor::init({3}, {10, 20, 30});
+    Tensor_ptr b = Tensor::init({3}, {10, 20, 30}, device);
 
     auto r = a + b;
 
@@ -54,13 +76,15 @@ TEST(BroadcastingTest, AddRowVector)
                   std::vector<double>{2,2,2}));
 }
 
-TEST(BroadcastingTest, AddColumn)
+TEST_P(BroadcastingTest, AddColumn)
 {
+    expect_cuda = true;
+    std::string device = GetParam();
     Tensor_ptr a = Tensor::init({2, 3},
         {1, 2, 3,
-         4, 5, 6});
+         4, 5, 6}, device);
 
-    Tensor_ptr b = Tensor::init({2, 1}, {10, 20});
+    Tensor_ptr b = Tensor::init({2, 1}, {10, 20}, device);
 
     auto r = a + b;
 
@@ -77,15 +101,17 @@ TEST(BroadcastingTest, AddColumn)
                   std::vector<double>{3, 3}));
 }
 
-TEST(BroadcastingTest, AddHighDimBroadcast)
+TEST_P(BroadcastingTest, AddHighDimBroadcast)
 {
+    expect_cuda = true;
+    std::string device = GetParam();
     Tensor_ptr a = Tensor::init({2, 3, 4},
         {
             1,2,3,4,     5,6,7,8,     9,10,11,12,
             13,14,15,16, 17,18,19,20, 21,22,23,24
-        });
+        }, device);
 
-    Tensor_ptr b = Tensor::init({4}, {1, 10, 100, 1000});
+    Tensor_ptr b = Tensor::init({4}, {1, 10, 100, 1000}, device);
 
     auto r = a + b;
 
@@ -107,13 +133,15 @@ TEST(BroadcastingTest, AddHighDimBroadcast)
                   std::vector<double>{6,6,6,6}));
 }
 
-TEST(BroadcastingTest, AddBroadcastWithTranspose)
+TEST_P(BroadcastingTest, AddBroadcastWithTranspose)
 {
+    expect_cuda = true;
+    std::string device = GetParam();
     Tensor_ptr a = Tensor::init({2, 3},
         {1, 2, 3,
-         4, 5, 6});
+         4, 5, 6}, device);
 
-    Tensor_ptr b = Tensor::init({3, 1}, {10, 20, 30});
+    Tensor_ptr b = Tensor::init({3, 1}, {10, 20, 30}, device);
     Tensor_ptr bt = b->transpose();  // shape (1, 3), stride swap
 
     auto r = a + bt;
@@ -130,3 +158,8 @@ TEST(BroadcastingTest, AddBroadcastWithTranspose)
         Pointwise(DoubleNear(1e-6),
                   std::vector<double>{2, 2, 2}));
 }
+
+INSTANTIATE_TEST_SUITE_P(CPU, BroadcastingTest, ::testing::Values("cpu"));
+#ifdef CUDA_TEST
+INSTANTIATE_TEST_SUITE_P(CUDA, BroadcastingTest, ::testing::Values("cuda"));
+#endif

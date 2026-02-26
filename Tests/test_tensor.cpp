@@ -7,9 +7,27 @@
 using ::testing::DoubleNear;
 using ::testing::Pointwise;
 
-TEST(TensorTest, ConstructionAndIndexing)
+class TensorTest : public ::testing::TestWithParam<std::string> {
+protected:
+    bool expect_cuda = false;
+    void SetUp() override {
+#ifdef CUDA_TEST
+        if (GetParam() == "cuda") g_cuda_kernel_launches = 0;
+#endif
+    }
+    void TearDown() override {
+#ifdef CUDA_TEST
+        if (GetParam() == "cuda" && expect_cuda) {
+            EXPECT_GT(g_cuda_kernel_launches, 0);
+        }
+#endif
+    }
+};
+
+TEST_P(TensorTest, ConstructionAndIndexing)
 {
-    Tensor_ptr t = Tensor::init({2, 3, 4});
+    std::string device = GetParam();
+    Tensor_ptr t = Tensor::init({2, 3, 4}, false, device);
 
     EXPECT_EQ(t->get_shape(), std::vector<int>({2, 3, 4}));
     EXPECT_EQ(t->get_total_count(), 24);
@@ -23,9 +41,11 @@ TEST(TensorTest, ConstructionAndIndexing)
     EXPECT_NEAR(t->at(19), 3.7, 1e-6);
 }
 
-TEST(TensorTest, ArgmaxLastDim)
+TEST_P(TensorTest, ArgmaxLastDim)
 {
-    Tensor_ptr input = Tensor::init({2, 3}, {0.1, 0.2, -0.1, 1, 1, 5});
+    expect_cuda = true;
+    std::string device = GetParam();
+    Tensor_ptr input = Tensor::init({2, 3}, {0.1, 0.2, -0.1, 1, 1, 5}, device);
     Tensor_ptr result = input->argmax(1);
 
     EXPECT_THAT(result->values_vec(),
@@ -33,10 +53,12 @@ TEST(TensorTest, ArgmaxLastDim)
                           std::vector<double>{1.0, 2.0}));
 }
 
-TEST(TensorTest, AdditionOperator)
+TEST_P(TensorTest, AdditionOperator)
 {
-    Tensor_ptr a = Tensor::init({2, 2}, {1.0, 2.0, 3.0, 4.0});
-    Tensor_ptr b = Tensor::init({2, 2}, {5.0, 6.0, 7.0, 8.0});
+    expect_cuda = true;
+    std::string device = GetParam();
+    Tensor_ptr a = Tensor::init({2, 2}, {1.0, 2.0, 3.0, 4.0}, device);
+    Tensor_ptr b = Tensor::init({2, 2}, {5.0, 6.0, 7.0, 8.0}, device);
 
     auto result = a + b;
 
@@ -55,10 +77,12 @@ TEST(TensorTest, AdditionOperator)
                           std::vector<double>{1, 1, 1, 1}));
 }
 
-TEST(TensorTest, SubtractionOperator)
+TEST_P(TensorTest, SubtractionOperator)
 {
-    Tensor_ptr a = Tensor::init({2, 2}, {5.0, 6.0, 7.0, 8.0});
-    Tensor_ptr b = Tensor::init({2, 2}, {1.0, 2.0, 3.0, 4.0});
+    expect_cuda = true;
+    std::string device = GetParam();
+    Tensor_ptr a = Tensor::init({2, 2}, {5.0, 6.0, 7.0, 8.0}, device);
+    Tensor_ptr b = Tensor::init({2, 2}, {1.0, 2.0, 3.0, 4.0}, device);
 
     auto result = a - b;
 
@@ -77,10 +101,11 @@ TEST(TensorTest, SubtractionOperator)
                           std::vector<double>{-1, -1, -1, -1}));
 }
 
-TEST(TensorTest, MultiplicationOperator)
+TEST_P(TensorTest, MultiplicationOperator)
 {
-    Tensor_ptr a = Tensor::init({2, 2}, {1.0, 2.0, 3.0, 4.0});
-    Tensor_ptr b = Tensor::init({2, 2}, {5.0, 6.0, 7.0, 8.0});
+    std::string device = GetParam();
+    Tensor_ptr a = Tensor::init({2, 2}, {1.0, 2.0, 3.0, 4.0}, device);
+    Tensor_ptr b = Tensor::init({2, 2}, {5.0, 6.0, 7.0, 8.0}, device);
 
     auto result = a * b;
 
@@ -99,9 +124,10 @@ TEST(TensorTest, MultiplicationOperator)
                           std::vector<double>{1.0, 2.0, 3.0, 4.0}));
 }
 
-TEST(TensorTest, AssignmentOperator)
+TEST_P(TensorTest, AssignmentOperator)
 {
-    Tensor_ptr a = Tensor::init({2, 2}, {1.0, 2.0, 3.0, 4.0});
+    std::string device = GetParam();
+    Tensor_ptr a = Tensor::init({2, 2}, {1.0, 2.0, 3.0, 4.0}, device);
     Tensor_ptr b = a;  // operator=
 
     EXPECT_EQ(a.get(), b.get());
@@ -112,10 +138,11 @@ TEST(TensorTest, AssignmentOperator)
     EXPECT_NEAR(a->at({0, 0}), 42.0, 1e-6);
 }
 
-TEST(TensorTest, DivisionOperator)
+TEST_P(TensorTest, DivisionOperator)
 {
-    Tensor_ptr a = Tensor::init({2, 2}, {4.0, 8.0, 2.0, 6.0});
-    Tensor_ptr b = Tensor::init({2, 2}, {2.0, 2.0, 1.0, 3.0});
+    std::string device = GetParam();
+    Tensor_ptr a = Tensor::init({2, 2}, {4.0, 8.0, 2.0, 6.0}, device);
+    Tensor_ptr b = Tensor::init({2, 2}, {2.0, 2.0, 1.0, 3.0}, device);
 
     auto result = a / b;
 
@@ -134,9 +161,10 @@ TEST(TensorTest, DivisionOperator)
                           std::vector<double>{-1.0, -2.0, -2.0, -0.666667}));
 }
 
-TEST(TensorTest, SumOperation)
+TEST_P(TensorTest, SumOperation)
 {
-    Tensor_ptr t = Tensor::init({2, 3}, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0});
+    std::string device = GetParam();
+    Tensor_ptr t = Tensor::init({2, 3}, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0}, device);
 
     auto sum_result = t->sum();
     EXPECT_EQ(sum_result->values_vec().size(), 1);
@@ -149,9 +177,10 @@ TEST(TensorTest, SumOperation)
                           std::vector<double>{1, 1, 1, 1, 1, 1}));
 }
 
-TEST(TensorTest, SumAlongAxis0)
+TEST_P(TensorTest, SumAlongAxis0)
 {
-    Tensor_ptr t = Tensor::init({3, 2}, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0});
+    std::string device = GetParam();
+    Tensor_ptr t = Tensor::init({3, 2}, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0}, device);
 
     auto sum = t->sum(0);
     EXPECT_EQ(sum->get_shape().size(), 1);
@@ -167,9 +196,10 @@ TEST(TensorTest, SumAlongAxis0)
                           std::vector<double>{1, 1, 1, 1, 1, 1}));
 }
 
-TEST(TensorTest, SumAlongAxis1)
+TEST_P(TensorTest, SumAlongAxis1)
 {
-    Tensor_ptr t = Tensor::init({3, 2}, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0});
+    std::string device = GetParam();
+    Tensor_ptr t = Tensor::init({3, 2}, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0}, device);
 
     auto sum = t->sum(1);
     EXPECT_EQ(sum->get_shape().size(), 1);
@@ -185,9 +215,10 @@ TEST(TensorTest, SumAlongAxis1)
                           std::vector<double>{1, 1, 1, 1, 1, 1}));
 }
 
-TEST(TensorTest, ReLUOperation)
+TEST_P(TensorTest, ReLUOperation)
 {
-    Tensor_ptr t = Tensor::init({3}, {1.0, -2.0, 0.5});
+    std::string device = GetParam();
+    Tensor_ptr t = Tensor::init({3}, {1.0, -2.0, 0.5}, device);
 
     auto relu_result = t->relu();
 
@@ -202,10 +233,11 @@ TEST(TensorTest, ReLUOperation)
                           std::vector<double>{1.0, 0.0, 1.0}));
 }
 
-TEST(TensorTest, SoftmaxOperation)
+TEST_P(TensorTest, SoftmaxOperation)
 {
-    Tensor_ptr a = Tensor::init({1, 3}, {0.1, 0.1, -0.1});
-    Tensor_ptr b = Tensor::init({1, 3}, {0.1, 1.4, 0.82});
+    std::string device = GetParam();
+    Tensor_ptr a = Tensor::init({1, 3}, {0.1, 0.1, -0.1}, device);
+    Tensor_ptr b = Tensor::init({1, 3}, {0.1, 1.4, 0.82}, device);
     Tensor_ptr softmax_result = a->softmax();
 
     EXPECT_THAT(softmax_result->values_vec(),
@@ -222,9 +254,10 @@ TEST(TensorTest, SoftmaxOperation)
                           std::vector<double>{0.3548, 0.3548, 0.2905}));
 }
 
-TEST(TensorTest, ExpOperation)
+TEST_P(TensorTest, ExpOperation)
 {
-    Tensor_ptr t = Tensor::init({2}, {0.0, 1.0});
+    std::string device = GetParam();
+    Tensor_ptr t = Tensor::init({2}, {0.0, 1.0}, device);
 
     auto exp_result = t->exp();
 
@@ -239,9 +272,10 @@ TEST(TensorTest, ExpOperation)
                           std::vector<double>{1.0, 2.71828}));
 }
 
-TEST(TensorTest, ExpSmallValues)
+TEST_P(TensorTest, ExpSmallValues)
 {
-    Tensor_ptr t = Tensor::init({3}, {0.0, 0.5, -0.5});
+    std::string device = GetParam();
+    Tensor_ptr t = Tensor::init({3}, {0.0, 0.5, -0.5}, device);
 
     auto exp_result = t->exp();
 
@@ -256,10 +290,11 @@ TEST(TensorTest, ExpSmallValues)
                           std::vector<double>{1.0, 1.6487, 0.6065}));
 }
 
-TEST(TensorTest, ComplexExpression)
+TEST_P(TensorTest, ComplexExpression)
 {
-    Tensor_ptr x = Tensor::init({3}, {1.0, -2.0, 3.0});
-    Tensor_ptr y = Tensor::init({3}, {5.0, 1.4, 0.82});
+    std::string device = GetParam();
+    Tensor_ptr x = Tensor::init({3}, {1.0, -2.0, 3.0}, device);
+    Tensor_ptr y = Tensor::init({3}, {5.0, 1.4, 0.82}, device);
 
     auto result = ((x * y) + (x / y)->exp())->sum();
     result->sum()->backward();
@@ -273,9 +308,10 @@ TEST(TensorTest, ComplexExpression)
                           std::vector<double>{0.9511, -1.7555, -170.1314}));
 }
 
-TEST(TensorTest, Transpose)
+TEST_P(TensorTest, Transpose)
 {
-    Tensor_ptr x = Tensor::init({3, 2}, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0});
+    std::string device = GetParam();
+    Tensor_ptr x = Tensor::init({3, 2}, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0}, device);
     Tensor_ptr xT = x->transpose();
     
     EXPECT_EQ(xT->get_shape(), std::vector<int>({2, 3}));
@@ -298,14 +334,17 @@ TEST(TensorTest, Transpose)
                           std::vector<double>{2, 5, 3, 6, 4, 7}));
 }
 
-TEST(TensorMatmulTest, CPU)
+TEST_P(TensorTest, Matmul)
 {
-    Tensor_ptr a = Tensor::init({2, 3}, {4.0, 8.0, 2.0, 6.0, 12.1, -2});
-    Tensor_ptr b = Tensor::init({3, 2}, {2.0, 2.0, 1.0, 3.0, 1.0, 0.4});
+    expect_cuda = true;
+    std::string device = GetParam();
+
+    Tensor_ptr a = Tensor::init({2, 3}, {4.0, 8.0, 2.0, 6.0, 12.1, -2}, device);
+    Tensor_ptr b = Tensor::init({3, 2}, {2.0, 2.0, 1.0, 3.0, 1.0, 0.4}, device);
 
     auto result = a->matmul(b);
     
-    EXPECT_EQ(result->get_device(), "cpu");
+    EXPECT_EQ(result->get_device(), device);
     EXPECT_EQ(result->get_shape(), std::vector<int>({2, 2}));
     EXPECT_THAT(result->values_vec(),
                 Pointwise(DoubleNear(1e-6),
@@ -322,34 +361,9 @@ TEST(TensorMatmulTest, CPU)
                           std::vector<double>{10.0, 10.0, 20.1, 20.1, 0.0, 0.0}));
 }
 
-TEST(TensorMatmulTest, CUDA)
-{
-#ifndef CUDA_TEST
-    GTEST_SKIP() << "CUDA TEST not set";
-#else
-    g_cuda_kernel_launches = 0;
 
-    Tensor_ptr a = Tensor::init({2, 3}, {4.0, 8.0, 2.0, 6.0, 12.1, -2}, "cuda");
-    Tensor_ptr b = Tensor::init({3, 2}, {2.0, 2.0, 1.0, 3.0, 1.0, 0.4}, "cuda");
-
-    auto result = a->matmul(b);
-
-    EXPECT_EQ(g_cuda_kernel_launches, 1); 
-    EXPECT_EQ(result->get_device(), "cuda");
-    EXPECT_EQ(result->get_shape(), std::vector<int>({2, 2}));
-    EXPECT_THAT(result->values_vec(),
-                Pointwise(DoubleNear(1e-6),
-                          std::vector<double>{18.0, 32.8, 22.1, 47.5}));
-
-    result->sum()->backward();
-
-    EXPECT_GT(g_cuda_kernel_launches, 1); // check if cuda was used in backward
-    EXPECT_THAT(a->grads_vec(),
-                Pointwise(DoubleNear(1e-5),
-                          std::vector<double>{4.0, 4.0, 1.4, 4.0, 4.0, 1.4}));
-
-    EXPECT_THAT(b->grads_vec(),
-                Pointwise(DoubleNear(1e-5),
-                          std::vector<double>{10.0, 10.0, 20.1, 20.1, 0.0, 0.0}));
+INSTANTIATE_TEST_SUITE_P(CPU, TensorTest, ::testing::Values("cpu"));
+#ifdef CUDA_TEST
+INSTANTIATE_TEST_SUITE_P(CUDA, TensorTest, ::testing::Values("cuda"));
 #endif
-}
+
