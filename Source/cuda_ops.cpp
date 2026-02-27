@@ -45,6 +45,7 @@ std::vector<double> matmul(const std::vector<double>& matrix_A, const std::vecto
         return output;
 }
 
+// TODO: as template with "op"? then i need to store it in .hpp and i dont know if i want that
 std::vector<double> simple_op(const char op, const std::vector<double>& matrix_A, const std::vector<double>& matrix_B, int size)
 {
         double *d_matrix_A, *d_matrix_B, *d_output;

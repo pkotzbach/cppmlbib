@@ -8,6 +8,7 @@
 #include <unordered_set>
 
 class Tensor;
+struct BinaryOpContext;
 typedef std::shared_ptr<Tensor> Tensor_ptr;
 
 class Tensor : public std::enable_shared_from_this<Tensor>
@@ -26,7 +27,7 @@ private:
     int total_count;
 
     std::vector<int> broadcast_strides(int ndim);
-    int strided_idx(int shape_idx, std::vector<int>& strides, std::vector<int>& shape);
+    int strided_idx(int shape_idx, const std::vector<int>& strides, const std::vector<int>& shape);
     int strided_idx(std::vector<int> idx);
 
     Tensor& init_internal(std::vector<int> shape, std::vector<double> init_values, std::vector<double> init_grads, bool init_zero, std::string device);
@@ -52,7 +53,7 @@ public:
     // TODO: smaller API, span?
     double& at(std::vector<int> shape_idx) { return values[strided_idx(shape_idx)]; }
     double& at(int shape_idx)              { return values[strided_idx(shape_idx, strides, shape)]; }
-    double& at(int shape_idx, std::vector<int>& strides, std::vector<int>& shape) {
+    double& at(int shape_idx, const std::vector<int>& strides, const std::vector<int>& shape) {
         return values[strided_idx(shape_idx, strides, shape)]; }
 
     double& grad_at(std::vector<int> shape_idx) { return grads[strided_idx(shape_idx)]; }
@@ -68,7 +69,8 @@ public:
     // Tensor_ptr max(int axis);
     Tensor_ptr matmul(Tensor_ptr tensor);
     Tensor_ptr softmax();
-    // simple operators
+    // binary operations
+    friend BinaryOpContext;
     friend Tensor_ptr operator+(Tensor_ptr self, Tensor_ptr other);
     friend Tensor_ptr operator-(Tensor_ptr self, Tensor_ptr other);
     friend Tensor_ptr operator*(Tensor_ptr self, Tensor_ptr other);

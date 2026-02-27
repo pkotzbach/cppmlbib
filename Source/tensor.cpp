@@ -112,7 +112,7 @@ int Tensor::strided_idx(std::vector<int> indices)
     return strided_idx;
 }
 
-int Tensor::strided_idx(int shape_idx, std::vector<int>& strides, std::vector<int>& shape)
+int Tensor::strided_idx(int shape_idx, const std::vector<int>& strides, const std::vector<int>& shape)
 {
     if (strides == shape) return shape_idx;
     
@@ -277,42 +277,63 @@ Tensor_ptr Tensor::exp()
     return result;
 }
 
-//tensor operators
-Tensor_ptr operator+(Tensor_ptr self, Tensor_ptr other)
-{
-    if (self->get_device() != other->get_device()) throw std::invalid_argument("Tensors must be on the same device");
-    std::string device = self->device;
-    std::vector<int> out_shape = broadcast_shape(self->shape, other->shape);
-    int ndim = out_shape.size();
-    auto self_strides = self->broadcast_strides(ndim);
-    auto other_strides = other->broadcast_strides(ndim);
+// binary tensor operators
 
-    auto result = Tensor::init(out_shape, true, device);
-    result->parents = std::pair{self, other};
+// TODO: should this struct be here?
+struct BinaryOpContext {
+    std::string device;
+    std::vector<int> out_shape;
+    std::vector<int> first_strides;
+    std::vector<int> second_strides;
+
+    BinaryOpContext(Tensor_ptr first, Tensor_ptr second)
+    {
+        if (first->get_device() != second->get_device()) {
+            throw std::invalid_argument("Tensors must be on the same device");
+        }
+        
+        device = first->device;
+        out_shape = broadcast_shape(first->shape, second->shape);
+        int ndim = out_shape.size();
+        
+        first_strides = first->broadcast_strides(ndim);
+        second_strides = second->broadcast_strides(ndim);
+    }
+
+    template <typename CPU_Op>
+    void compute_forward(Tensor_ptr first, Tensor_ptr second, Tensor_ptr result, char cuda_op, CPU_Op cpu_op)
+    {
+        if (device == "cpu") {
+            for (int i = 0; i < result->total_count; ++i) {
+                result->at(i) = cpu_op(first->at(i, first_strides, out_shape), second->at(i, second_strides, out_shape));
+            }
+        }
+        else if (device == "cuda") {
+            int count = result->total_count;
+            auto first_con_val = first->values_vec(count, first_strides, out_shape);
+            auto second_con_val = second->values_vec(count, second_strides, out_shape);
+            std::vector<double> op_result = cuda::simple_op(cuda_op, first_con_val, second_con_val, count);
+            for (int i = 0; i < result->total_count; ++i)
+                result->values[i] = op_result[i];
+        }
+    }
+};
+
+Tensor_ptr operator+(Tensor_ptr first, Tensor_ptr second)
+{
+    BinaryOpContext ctx(first, second);
+
+    auto result = Tensor::init(ctx.out_shape, true, ctx.device);
+    result->parents = std::pair{first, second};
     result->op = "add";
 
-    if (device == "cpu") {
-        for (int i = 0; i < result->total_count; ++i) {
-            result->at(i) += self->at(i, self_strides, out_shape) + other->at(i, other_strides, out_shape);
-        }
-    }
-    else if (device == "cuda") {
-        int count = result->total_count;
-        auto self_con_val = self->values_vec(count, self_strides, out_shape);
-        auto other_con_val = other->values_vec(count, other_strides, out_shape);
-        for (auto i : self_con_val) printf("%f ", i);
-        printf("\n");
-        for (auto i : other_con_val) printf("%f ", i);
-        std::vector<double> op_result = cuda::simple_op('+', self_con_val, other_con_val, count);
-        for (int i = 0; i < result->total_count; ++i)
-            result->values[i] = op_result[i];
-    }
+    ctx.compute_forward(first, second, result, '+', [](double a, double b){ return a + b; });
 
-    result->backward_fn = [res = std::weak_ptr<Tensor>(result), first_str = self_strides, second_str = other_strides, out_shape](){
+    result->backward_fn = [res = std::weak_ptr<Tensor>(result), ctx](){
         if(auto r = res.lock()){
             for (int i = 0; i < r->total_count; ++i) {
-                r->parents.first->grad_at(i, first_str, out_shape) += r->grad_at(i);
-                r->parents.second->grad_at(i, second_str, out_shape) += r->grad_at(i);
+                r->parents.first->grad_at(i, ctx.first_strides, ctx.out_shape) += r->grad_at(i);
+                r->parents.second->grad_at(i, ctx.second_strides, ctx.out_shape) += r->grad_at(i);
             }
         }
     };
@@ -320,78 +341,70 @@ Tensor_ptr operator+(Tensor_ptr self, Tensor_ptr other)
     return result;
 }
 
-Tensor_ptr operator-(Tensor_ptr self, Tensor_ptr other)
+Tensor_ptr operator-(Tensor_ptr first, Tensor_ptr second)
 {
-    if (self->shape != other->shape) throw std::invalid_argument("Shape must be the same");
-    auto result = Tensor::init(self->shape, true);
-    result->parents = std::pair{self, other};
+    BinaryOpContext ctx(first, second);
+
+    auto result = Tensor::init(ctx.out_shape, true, ctx.device);
+    result->parents = std::pair{first, second};
     result->op = "sub";
 
-    for (int i = 0; i < self->total_count; ++i) {
-        result->at(i) = self->at(i) - other->at(i);
-    }
+    ctx.compute_forward(first, second, result, '-', [](double a, double b){ return a - b; });
     
-    result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){
+    result->backward_fn = [res = std::weak_ptr<Tensor>(result), ctx](){
         if(auto r = res.lock()){
             for (int i = 0; i < r->total_count; ++i) {
-                r->parents.first->grad_at(i) += r->grad_at(i);
-                r->parents.second->grad_at(i) -= r->grad_at(i);
+                r->parents.first->grad_at(i, ctx.first_strides, ctx.out_shape) += r->grad_at(i);
+                r->parents.second->grad_at(i, ctx.second_strides, ctx.out_shape) -= r->grad_at(i);
             }
         }
     };
     return result;
 }
 
-Tensor_ptr operator*(Tensor_ptr self, Tensor_ptr other)
+Tensor_ptr operator*(Tensor_ptr first, Tensor_ptr second)
 {
-    if (self->shape != other->shape) throw std::invalid_argument("Shape must be the same");
-    auto result = Tensor::init(self->shape, true);
-    result->parents = std::pair{self, other};
+    BinaryOpContext ctx(first, second);
+
+    auto result = Tensor::init(first->shape, true);
+    result->parents = std::pair{first, second};
     result->op = "mul";
 
-    for (int i = 0; i < self->total_count; ++i) {
-        result->at(i) = self->at(i) * other->at(i);
-    }
+    ctx.compute_forward(first, second, result, '*', [](double a, double b){ return a * b; });
     
-    result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){
+    result->backward_fn = [res = std::weak_ptr<Tensor>(result), ctx](){
         if(auto r = res.lock()){
             for (int i = 0; i < r->total_count; ++i) {
-                r->parents.first->grad_at(i) += r->grad_at(i) * r->parents.second->at(i);
-                r->parents.second->grad_at(i) += r->grad_at(i) * r->parents.first->at(i);
+                r->parents.first->grad_at(i, ctx.first_strides, ctx.out_shape) += r->grad_at(i) * r->parents.second->at(i, ctx.second_strides, ctx.out_shape);
+                r->parents.second->grad_at(i, ctx.second_strides, ctx.out_shape) += r->grad_at(i) * r->parents.first->at(i, ctx.first_strides, ctx.out_shape);
             }
         }
     };
     return result;
 }
 
-Tensor_ptr operator/(Tensor_ptr self, Tensor_ptr other)
+Tensor_ptr operator/(Tensor_ptr first, Tensor_ptr second)
 {
-    bool scalar_div = (other->total_count == 1);
-    if (self->shape != other->shape) throw std::invalid_argument("Shape must be the same or div by scalar");
+    BinaryOpContext ctx(first, second);
 
-    auto result = Tensor::init(self->shape, true);
-    result->parents = std::pair{self, other};
+    auto result = Tensor::init(first->shape, true);
+    result->parents = std::pair{first, second};
     result->op = "div";
 
-    for (int i = 0; i < self->total_count; ++i) {
-        result->at(i) = self->at(i) / other->at(scalar_div? 0: i);
-    }
-    
-    result->backward_fn = [res = std::weak_ptr<Tensor>(result), scalar_div](){
+    ctx.compute_forward(first, second, result, '/', [](double a, double b){ return a / b; });
+
+    result->backward_fn = [res = std::weak_ptr<Tensor>(result), ctx](){
         if(auto r = res.lock()){
             for (int i = 0; i < r->total_count; ++i) {
-                r->parents.first->grad_at(i) += r->grad_at(i) * (1.0f / r->parents.second->at(scalar_div? 0: i));
-                r->parents.second->grad_at(scalar_div? 0: i) += r->grad_at(i) * 
-                    -(r->parents.first->at(i) / (r->parents.second->at(scalar_div? 0: i) * r->parents.second->at(scalar_div? 0: i)));
+                r->parents.first->grad_at(i, ctx.first_strides, ctx.out_shape) += r->grad_at(i) * (1.0f / r->parents.second->at(i, ctx.second_strides, ctx.out_shape));
+                r->parents.second->grad_at(i, ctx.second_strides, ctx.out_shape) += r->grad_at(i) * 
+                    -(r->parents.first->at(i, ctx.first_strides, ctx.out_shape) / (r->parents.second->at(i, ctx.second_strides, ctx.out_shape) * r->parents.second->at(i, ctx.second_strides, ctx.out_shape)));
             }
         }
     };
     return result;
 }
 
-void check_errors(Tensor_ptr t1, Tensor_ptr t2)
-{
-}
 
 // Tensor_ptr Tensor::operator=(Tensor_ptr tensor)
 // {
