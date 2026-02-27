@@ -45,7 +45,8 @@ public:
     int get_total_count() {return total_count;}
     std::string get_device() {return device;}
 
-    std::vector<double> values_vec();
+    std::vector<double> values_vec(int count, std::vector<int>& strides, std::vector<int>& shape);
+    std::vector<double> values_vec() {return values_vec(total_count, strides, shape);};
     std::vector<double> grads_vec();
 
     // TODO: smaller API, span?

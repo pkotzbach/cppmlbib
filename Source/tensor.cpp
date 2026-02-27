@@ -62,11 +62,11 @@ Tensor &Tensor::init_internal(std::vector<int> shape, std::vector<double> init_v
 // TODO: dont copy code
 
 // returns continous values
-std::vector<double> Tensor::values_vec()
+std::vector<double> Tensor::values_vec(int count, std::vector<int>& strides, std::vector<int>& shape)
 {
     std::vector<double> vec;
-    vec.resize(total_count);
-    for (int i = 0; i < total_count; ++i) vec[i] = at(i);
+    vec.resize(count);
+    for (int i = 0; i < count; ++i) vec[i] = at(i, strides, shape);
     return vec;
 }
 
@@ -297,7 +297,13 @@ Tensor_ptr operator+(Tensor_ptr self, Tensor_ptr other)
         }
     }
     else if (device == "cuda") {
-        std::vector<double> op_result = cuda::simple_op('+', self->values_vec(), other->values_vec(), self->get_total_count());
+        int count = result->total_count;
+        auto self_con_val = self->values_vec(count, self_strides, out_shape);
+        auto other_con_val = other->values_vec(count, other_strides, out_shape);
+        for (auto i : self_con_val) printf("%f ", i);
+        printf("\n");
+        for (auto i : other_con_val) printf("%f ", i);
+        std::vector<double> op_result = cuda::simple_op('+', self_con_val, other_con_val, count);
         for (int i = 0; i < result->total_count; ++i)
             result->values[i] = op_result[i];
     }
