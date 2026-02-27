@@ -9,7 +9,7 @@ int g_cuda_kernel_launches = 0;
 #endif
 
 template <char Op>
-__global__ void simple_kernel(const double* input_A, const double* input_B, double* output, int size)
+__global__ void binary_op_kernel(const double* input_A, const double* input_B, double* output, int size)
 {
     int idx = threadIdx.x + blockDim.x * blockIdx.x;
     if (idx < size) {
@@ -20,7 +20,7 @@ __global__ void simple_kernel(const double* input_A, const double* input_B, doub
     }
 }
 
-void launch_simple(const char op, const double* input_A, const double* input_B, double* output, int size) {
+void launch_binary_op(const char op, const double* input_A, const double* input_B, double* output, int size) {
 #ifdef CUDA_TEST
     g_cuda_kernel_launches++;
 #endif
@@ -28,10 +28,10 @@ void launch_simple(const char op, const double* input_A, const double* input_B, 
     int blocks = cuda::ceil_div(size, threads);
 
     switch (op) {
-        case '+': simple_kernel<'+'><<<blocks, threads>>>(input_A, input_B, output, size); break;
-        case '-': simple_kernel<'-'><<<blocks, threads>>>(input_A, input_B, output, size); break;
-        case '*': simple_kernel<'*'><<<blocks, threads>>>(input_A, input_B, output, size); break;
-        case '/': simple_kernel<'/'><<<blocks, threads>>>(input_A, input_B, output, size); break;
+        case '+': binary_op_kernel<'+'><<<blocks, threads>>>(input_A, input_B, output, size); break;
+        case '-': binary_op_kernel<'-'><<<blocks, threads>>>(input_A, input_B, output, size); break;
+        case '*': binary_op_kernel<'*'><<<blocks, threads>>>(input_A, input_B, output, size); break;
+        case '/': binary_op_kernel<'/'><<<blocks, threads>>>(input_A, input_B, output, size); break;
         default: throw std::invalid_argument("Unknown op");
     }
 }

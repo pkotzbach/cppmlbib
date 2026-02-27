@@ -10,6 +10,9 @@
 ## examples
 - iris with ~90% accuracy
 
+## ai usage
+- tests
+
 ## TODO
 ### cuda
 - unify ops
@@ -38,7 +41,6 @@
     Tensor_ptr div = Tensor::init({1}, std::vector<double>{static_cast<double>(input->shape[0])});
     result = result / div;
 - no grad
-- more broadcasting
 - faster at()
 - consts Each SM also has a separate constant cache, which is used to cache values in global memory that have been declared to be constant over the life of a kernel
 - values_vec to continous_values?

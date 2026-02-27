@@ -46,7 +46,7 @@ std::vector<double> matmul(const std::vector<double>& matrix_A, const std::vecto
 }
 
 // TODO: as template with "op"? then i need to store it in .hpp and i dont know if i want that
-std::vector<double> simple_op(const char op, const std::vector<double>& matrix_A, const std::vector<double>& matrix_B, int size)
+std::vector<double> binary_op(const char op, const std::vector<double>& matrix_A, const std::vector<double>& matrix_B, int size)
 {
         double *d_matrix_A, *d_matrix_B, *d_output;
         std::vector<double> output(size);
@@ -59,7 +59,7 @@ std::vector<double> simple_op(const char op, const std::vector<double>& matrix_A
         CUDA_CHECK(cudaMemcpy(d_matrix_A, matrix_A.data(), size_bytes, cudaMemcpyHostToDevice));
         CUDA_CHECK(cudaMemcpy(d_matrix_B, matrix_B.data(), size_bytes, cudaMemcpyHostToDevice));
 
-        launch_simple(op, d_matrix_A, d_matrix_B, d_output, size);
+        launch_binary_op(op, d_matrix_A, d_matrix_B, d_output, size);
 
         CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaDeviceSynchronize());

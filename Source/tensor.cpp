@@ -312,7 +312,7 @@ struct BinaryOpContext {
             int count = result->total_count;
             auto first_con_val = first->values_vec(count, first_strides, out_shape);
             auto second_con_val = second->values_vec(count, second_strides, out_shape);
-            std::vector<double> op_result = cuda::simple_op(cuda_op, first_con_val, second_con_val, count);
+            std::vector<double> op_result = cuda::binary_op(cuda_op, first_con_val, second_con_val, count);
             for (int i = 0; i < result->total_count; ++i)
                 result->values[i] = op_result[i];
         }
