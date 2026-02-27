@@ -9,7 +9,6 @@ using ::testing::Pointwise;
 
 class LinearTest : public ::testing::TestWithParam<std::string> {
 protected:
-    bool expect_cuda = false;
     void SetUp() override {
 #ifdef CUDA_TEST
         if (GetParam() == "cuda") g_cuda_kernel_launches = 0;
@@ -17,15 +16,12 @@ protected:
     }
     void TearDown() override {
 #ifdef CUDA_TEST
-        if (GetParam() == "cuda" && expect_cuda) {
-            EXPECT_GT(g_cuda_kernel_launches, 0);
-        }
+        if (GetParam() == "cuda") EXPECT_GT(g_cuda_kernel_launches, 0);
 #endif
     }
 };
 
 TEST_P(LinearTest, Forward) {
-    expect_cuda = true;
     std::string device = GetParam();
     Linear l1(5, 5, device);
 
@@ -48,7 +44,6 @@ TEST_P(LinearTest, Forward) {
 }
 
 TEST_P(LinearTest, SoftmaxForward) {
-    expect_cuda = true;
     std::string device = GetParam();
     Tensor_ptr input = Tensor::init({1, 3}, {0.1, 0.2, -0.1}, device);
     Softmax s;

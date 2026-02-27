@@ -17,10 +17,12 @@
 ### cuda
 - unify ops
 - cuda launchers?
+- cuda streams
 - https://docs.nvidia.com/cuda/cuda-programming-guide/02-basics/asynchronous-execution.html#async-execution-memory-transfers
 - page locked memory https://docs.nvidia.com/cuda/cuda-programming-guide/02-basics/intro-to-cuda-cpp.html#explicit-memory-management
 - cuda_check?
 - tests refactor (CUDA_TEST?)
+- expect_cuda = false update - should i even have cuda for all tests? (e.g argmax)
 
 ### c++
 - use new C++ features
@@ -44,3 +46,4 @@
 - faster at()
 - consts Each SM also has a separate constant cache, which is used to cache values in global memory that have been declared to be constant over the life of a kernel
 - values_vec to continous_values?
+- tests should have common header with this CUDA stuff

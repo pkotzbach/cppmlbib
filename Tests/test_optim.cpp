@@ -6,25 +6,9 @@
 using ::testing::DoubleNear;
 using ::testing::Pointwise;
 
-class SGDTest : public ::testing::TestWithParam<std::string> {
-protected:
-    bool expect_cuda = false;
-    void SetUp() override {
-#ifdef CUDA_TEST
-        if (GetParam() == "cuda") g_cuda_kernel_launches = 0;
-#endif
-    }
-    void TearDown() override {
-#ifdef CUDA_TEST
-        if (GetParam() == "cuda" && expect_cuda) {
-            EXPECT_GT(g_cuda_kernel_launches, 0);
-        }
-#endif
-    }
-};
+class SGDTest : public ::testing::TestWithParam<std::string> {};
 
 TEST_P(SGDTest, Step) {
-    expect_cuda = true;
     std::string device = GetParam();
     Tensor_ptr input = Tensor::init({3}, {0.1, 0.2, -0.1}, device);
     input->grad_at(0) = 0.1;

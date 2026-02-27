@@ -128,7 +128,7 @@ int Tensor::strided_idx(int shape_idx, const std::vector<int>& strides, const st
 
 Tensor_ptr Tensor::relu()
 {
-    auto result = Tensor::init(shape, true);
+    auto result = Tensor::init(shape, true, device);
     result->parents = std::pair{shared_from_this(), nullptr};
     
     for (int i = 0; i < total_count; ++i) {
@@ -156,7 +156,7 @@ Tensor_ptr Tensor::argmax(int axis)
     for (int i = 0; i < shape.size(); ++i) {
         result_shape.push_back(i == axis ? 1 : shape[i]);
     }
-    Tensor_ptr result = Tensor::init(result_shape, true);
+    Tensor_ptr result = Tensor::init(result_shape, true, device);
 
     int idx = -1;
     double max, data;
@@ -208,7 +208,7 @@ std::vector<int> Tensor::broadcast_strides(int ndim)
 
 Tensor_ptr Tensor::sum()
 {
-    auto result = Tensor::init({1}, true);
+    auto result = Tensor::init({1}, true, device);
     result->parents = std::pair{shared_from_this(), nullptr};
     result->op = "sum";
 
@@ -232,7 +232,7 @@ Tensor_ptr Tensor::sum(int axis)
     if (shape.size() != 2) throw std::invalid_argument("sum(axis) only implemented for 2D");
     int N = shape[0];
     int C = shape[1];
-    auto result = Tensor::init({axis == 0? C: N}, true);
+    auto result = Tensor::init({axis == 0? C: N}, true, device);
     result->parents = std::pair{shared_from_this(), nullptr};
     result->op = "sum_ax" + std::to_string(axis);
 
@@ -257,7 +257,7 @@ Tensor_ptr Tensor::sum(int axis)
 
 Tensor_ptr Tensor::exp()
 {
-    auto result = Tensor::init(shape, true);
+    auto result = Tensor::init(shape, true, device);
     result->parents = std::pair{shared_from_this(), nullptr};
     result->op = "exp";
 
@@ -366,7 +366,7 @@ Tensor_ptr operator*(Tensor_ptr first, Tensor_ptr second)
 {
     BinaryOpContext ctx(first, second);
 
-    auto result = Tensor::init(first->shape, true);
+    auto result = Tensor::init(ctx.out_shape, true, ctx.device);
     result->parents = std::pair{first, second};
     result->op = "mul";
 
@@ -387,7 +387,7 @@ Tensor_ptr operator/(Tensor_ptr first, Tensor_ptr second)
 {
     BinaryOpContext ctx(first, second);
 
-    auto result = Tensor::init(first->shape, true);
+    auto result = Tensor::init(ctx.out_shape, true, ctx.device);
     result->parents = std::pair{first, second};
     result->op = "div";
 

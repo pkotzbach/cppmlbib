@@ -14,7 +14,6 @@ enum class Op { ADD, SUB, MUL, DIV };
 // Parameterizing by both Device (string) and Operator (Op)
 class BroadcastingTest : public ::testing::TestWithParam<std::tuple<std::string, Op>> {
 protected:
-    bool expect_cuda = false;
     void SetUp() override {
 #ifdef CUDA_TEST
         if (std::get<0>(GetParam()) == "cuda") g_cuda_kernel_launches = 0;
@@ -22,9 +21,7 @@ protected:
     }
     void TearDown() override {
 #ifdef CUDA_TEST
-        if (std::get<0>(GetParam()) == "cuda" && expect_cuda) {
-            EXPECT_GT(g_cuda_kernel_launches, 0);
-        }
+        if (std::get<0>(GetParam()) == "cuda") EXPECT_GT(g_cuda_kernel_launches, 0);
 #endif
     }
 
@@ -42,7 +39,6 @@ protected:
 
 TEST_P(BroadcastingTest, Scalar)
 {
-    expect_cuda = true;
     std::string device = std::get<0>(GetParam());
     Op op = std::get<1>(GetParam());
 
@@ -72,7 +68,6 @@ TEST_P(BroadcastingTest, Scalar)
 
 TEST_P(BroadcastingTest, RowVector)
 {
-    expect_cuda = true;
     std::string device = std::get<0>(GetParam());
     Op op = std::get<1>(GetParam());
 
@@ -104,7 +99,6 @@ TEST_P(BroadcastingTest, RowVector)
 
 TEST_P(BroadcastingTest, Column)
 {
-    expect_cuda = true;
     std::string device = std::get<0>(GetParam());
     Op op = std::get<1>(GetParam());
 
@@ -136,7 +130,6 @@ TEST_P(BroadcastingTest, Column)
 
 TEST_P(BroadcastingTest, HighDimBroadcast)
 {
-    expect_cuda = true;
     std::string device = std::get<0>(GetParam());
     Op op = std::get<1>(GetParam());
 
@@ -173,7 +166,6 @@ TEST_P(BroadcastingTest, HighDimBroadcast)
 
 TEST_P(BroadcastingTest, BroadcastWithTranspose)
 {
-    expect_cuda = true;
     std::string device = std::get<0>(GetParam());
     Op op = std::get<1>(GetParam());
 

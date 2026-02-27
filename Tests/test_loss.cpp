@@ -4,7 +4,6 @@
 
 class LossTest : public ::testing::TestWithParam<std::string> {
 protected:
-    bool expect_cuda = false;
     void SetUp() override {
 #ifdef CUDA_TEST
         if (GetParam() == "cuda") g_cuda_kernel_launches = 0;
@@ -12,15 +11,12 @@ protected:
     }
     void TearDown() override {
 #ifdef CUDA_TEST
-        if (GetParam() == "cuda" && expect_cuda) {
-            EXPECT_GT(g_cuda_kernel_launches, 0);
-        }
+        if (GetParam() == "cuda") EXPECT_GT(g_cuda_kernel_launches, 0);
 #endif
     }
 };
 
 TEST_P(LossTest, MSE) {
-    expect_cuda = true;
     std::string device = GetParam();
     Tensor_ptr input = Tensor::init({2, 3}, {0.1, 0.2, -0.1, 0.3, 1, 0.2}, device);
     Tensor_ptr target = Tensor::init({2, 3}, {1, 0, -1, 1, 1, 1}, device);
