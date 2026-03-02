@@ -12,10 +12,6 @@ template <char Op>
 __global__ void binary_op_kernel(const double* input_A, const double* input_B, double* output, int size)
 {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
-<<<<<<< HEAD
-    int idx = blockDim.x * blockIdx.x + threadIdx.x;
-=======
->>>>>>> c9c799f (softmax cuda)
     if (idx < size) {
         if constexpr (Op == '+') output[idx] = input_A[idx] + input_B[idx];
         else if constexpr (Op == '-') output[idx] = input_A[idx] - input_B[idx];
