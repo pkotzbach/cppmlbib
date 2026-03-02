@@ -12,6 +12,7 @@ template <char Op>
 __global__ void binary_op_kernel(const double* input_A, const double* input_B, double* output, int size)
 {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
     if (idx < size) {
         if constexpr (Op == '+') output[idx] = input_A[idx] + input_B[idx];
         else if constexpr (Op == '-') output[idx] = input_A[idx] - input_B[idx];
@@ -91,8 +92,10 @@ __global__ void softmax_kernel(const double* input, double* output, int N, int C
     int c = threadIdx.y;
     double* exps = (double*)sharedArray;
     double* exps_sum = (double*)&exps[blockDim.x * C];
+    
+    if (n >= N) return;
 
-    exps[n_abs * C + c] = __expf(input[n * C + c]);
+    exps[n_abs * C + c] = exp(input[n * C + c]);
     
     __syncthreads();
 
@@ -100,7 +103,7 @@ __global__ void softmax_kernel(const double* input, double* output, int N, int C
     if (c == 0) {
         exps_sum[n_abs] = 0.0;
         for (int i = 0; i < C; ++i) {
-            exps_sum[n_abs] += exps[n_abs + i];
+            exps_sum[n_abs] += exps[n_abs * C + i];
         }
     }
 
@@ -114,9 +117,9 @@ void launch_softmax(const double* input, double* output, int N, int C) {
     g_cuda_kernel_launches++;
 #endif
 
-    size_t shared_memory_bytes = (32 * C + 32) * sizeof(double);
     dim3 block(32, C);
-    int grid = cuda::ceil_div(N, 32);
+    size_t shared_memory_bytes = (block.x * C + block.x) * sizeof(double);
+    int grid = cuda::ceil_div(N, block.x);
 
     softmax_kernel<<<grid, block, shared_memory_bytes>>>(input, output, N, C);
 }
