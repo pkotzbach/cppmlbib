@@ -467,7 +467,7 @@ Tensor_ptr Tensor::softmax()
     int N = shape[0];
     int C = shape[1];
 
-    auto result = Tensor::init(shape, true);
+    auto result = Tensor::init(shape, true, device);
     result->parents = std::pair{shared_from_this(), nullptr};
     result->op = "softmax";
 
@@ -488,6 +488,9 @@ Tensor_ptr Tensor::softmax()
             }
         }
     } else if (device == "cuda") {
+        std::vector<double> op_result = cuda::softmax(values_vec(), N, C);
+        for (int i = 0; i < result->total_count; ++i)
+            result->values[i] = op_result[i];
     }
 
     result->backward_fn = [res = std::weak_ptr<Tensor>(result), N, C](){

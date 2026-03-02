@@ -73,4 +73,29 @@ std::vector<double> binary_op(const char op, const std::vector<double>& matrix_A
         return output;
 }
 
+std::vector<double> softmax(const std::vector<double>& matrix_A, int N, int C)
+{
+        double *d_matrix_A, *d_output;
+        int size = N*C;
+        std::vector<double> output(size);
+
+        size_t size_bytes = sizeof(double) * size;
+
+        CUDA_CHECK(cudaMalloc(&d_matrix_A, size_bytes));
+        CUDA_CHECK(cudaMalloc(&d_output, size_bytes));
+        CUDA_CHECK(cudaMemcpy(d_matrix_A, matrix_A.data(), size_bytes, cudaMemcpyHostToDevice));
+
+        launch_softmax(d_matrix_A, d_output, N, C);
+
+        CUDA_CHECK(cudaGetLastError());
+        CUDA_CHECK(cudaDeviceSynchronize());
+
+        CUDA_CHECK(cudaMemcpy(output.data(), d_output, size_bytes, cudaMemcpyDeviceToHost));
+
+        CUDA_CHECK(cudaFree(d_matrix_A));
+        CUDA_CHECK(cudaFree(d_output));
+        
+        return output;
+}
+
 } // namespace cuda

@@ -1,6 +1,5 @@
 ## autograd engine
 ## tensor module
-- broadcasting (only at add)
 ## components
 - linear
 - softmax
@@ -20,6 +19,7 @@
 - cuda streams
 - https://docs.nvidia.com/cuda/cuda-programming-guide/02-basics/asynchronous-execution.html#async-execution-memory-transfers
 - page locked memory https://docs.nvidia.com/cuda/cuda-programming-guide/02-basics/intro-to-cuda-cpp.html#explicit-memory-management
+- cache memory https://docs.nvidia.com/cuda/cuda-programming-guide/02-basics/writing-cuda-kernels.html#caches
 - cuda_check?
 - tests refactor (CUDA_TEST?)
 - expect_cuda = false update - should i even have cuda for all tests? (e.g argmax)
@@ -33,6 +33,7 @@
 - warnings - changing int to size_t increases memory
 
 ### rest
+- double or float?
 - what about stride in softmax for example? new result should have same stride or no?
 - https://docs.jax.dev/en/latest/notebooks/autodiff_cookbook.html#how-it-s-made-two-foundational-autodiff-functions
 - TODOs
