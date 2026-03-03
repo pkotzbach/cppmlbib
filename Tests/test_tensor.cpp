@@ -276,6 +276,31 @@ TEST_P(TensorTest, SoftmaxOperation)
                           std::vector<double>{0.3548, 0.3548, 0.2905}));
 }
 
+TEST_P(TensorTest, SoftmaxOperationLargeNumbers)
+{
+    expect_cuda = false;
+    std::string device = GetParam();
+
+    Tensor_ptr a = Tensor::init({1, 3}, {1000.0, 1000.0, 999.0}, device);
+    Tensor_ptr b = Tensor::init({1, 3}, {0.1, 1.4, 0.82}, device);
+
+    Tensor_ptr softmax_result = a->softmax();
+
+    EXPECT_THAT(softmax_result->values_vec(),
+                Pointwise(DoubleNear(1e-4),
+                          std::vector<double>{0.4223, 0.4223, 0.1554}));
+
+    (softmax_result * b)->sum()->backward();
+
+    EXPECT_THAT(b->grads_vec(),
+                Pointwise(DoubleNear(1e-4),
+                          std::vector<double>{0.4223, 0.4223, 0.1554}));
+
+    EXPECT_THAT(a->grads_vec(),
+                Pointwise(DoubleNear(1e-4),
+                          std::vector<double>{-0.1520, 0.3969, -0.2449}));
+}
+
 TEST_P(TensorTest, ExpOperation)
 {
     expect_cuda = false;
