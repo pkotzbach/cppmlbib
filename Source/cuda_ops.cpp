@@ -98,4 +98,33 @@ std::vector<double> softmax(const std::vector<double>& matrix_A, int N, int C)
         return output;
 }
 
+double reduction(const ReductionOp op, const std::span<const double>& input)
+{
+        double *d_input, *d_output;
+        int size = input.size();
+        
+        size_t size_bytes = sizeof(double) * size;
+        
+        CUDA_CHECK(cudaMalloc(&d_input, size_bytes));
+        CUDA_CHECK(cudaMalloc(&d_output, size_bytes));
+        CUDA_CHECK(cudaMemcpy(d_input, input.data(), size_bytes, cudaMemcpyHostToDevice));
+        
+        while(size > 1) {
+                size = launch_reduction(op, d_input, d_output, size);
+                CUDA_CHECK(cudaMemcpy(d_input, d_output, sizeof(double) * size, cudaMemcpyDeviceToDevice));
+        }
+        
+        
+        CUDA_CHECK(cudaGetLastError());
+        CUDA_CHECK(cudaDeviceSynchronize());
+        
+        double output;
+        CUDA_CHECK(cudaMemcpy(&output, d_output, sizeof(double), cudaMemcpyDeviceToHost));
+
+        CUDA_CHECK(cudaFree(d_input));
+        CUDA_CHECK(cudaFree(d_output));
+        
+        return output;
+}
+
 } // namespace cuda

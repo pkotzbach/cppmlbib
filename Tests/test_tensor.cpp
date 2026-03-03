@@ -218,6 +218,23 @@ TEST_P(TensorTest, SumAlongAxis1)
                           std::vector<double>{1, 1, 1, 1, 1, 1}));
 }
 
+TEST_P(TensorTest, MaxOperation)
+{
+    std::string device = GetParam();
+    Tensor_ptr t = Tensor::init({2, 3}, {1.0, 2.1, 7.0, -4.0, 5.0, 6.0}, device);
+
+    auto max_result = t->max();
+    EXPECT_EQ(max_result->values_vec().size(), 1);
+    EXPECT_NEAR(max_result->values_vec()[0], 7.0, 1e-6);
+
+    // max_result->backward();
+
+    // EXPECT_THAT(t->grads_vec(),
+    //             Pointwise(DoubleNear(1e-6),
+    //                       std::vector<double>{1, 1, 1, 1, 1, 1}));
+}
+
+
 TEST_P(TensorTest, ReLUOperation)
 {
     expect_cuda = false;

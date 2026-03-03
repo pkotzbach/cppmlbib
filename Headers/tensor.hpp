@@ -50,7 +50,6 @@ public:
     std::vector<double> values_vec() {return values_vec(total_count, strides, shape);};
     std::vector<double> grads_vec();
 
-    // TODO: smaller API, span?
     double& at(std::vector<int> shape_idx) { return values[strided_idx(shape_idx)]; }
     double& at(int shape_idx)              { return values[strided_idx(shape_idx, strides, shape)]; }
     double& at(int shape_idx, const std::vector<int>& strides, const std::vector<int>& shape) {
@@ -61,28 +60,30 @@ public:
     double& grad_at(int shape_idx, std::vector<int> strides, std::vector<int> shape) {
         return grads[strided_idx(shape_idx, strides, shape)]; }
 
-    // operators (grad)
-    Tensor_ptr sum();
-    Tensor_ptr sum(int axis);
+    //// operators (grad)
     Tensor_ptr relu();
     Tensor_ptr exp();
-    // Tensor_ptr max(int axis);
     Tensor_ptr matmul(Tensor_ptr tensor);
     Tensor_ptr softmax();
-    // binary operations
+    //// binary operations
     friend BinaryOpContext;
     friend Tensor_ptr operator+(Tensor_ptr self, Tensor_ptr other);
     friend Tensor_ptr operator-(Tensor_ptr self, Tensor_ptr other);
     friend Tensor_ptr operator*(Tensor_ptr self, Tensor_ptr other);
     friend Tensor_ptr operator/(Tensor_ptr self, Tensor_ptr other);
     
-    // operators (no grad)
+    //// reduction
+    // no grad (for sure?)
     Tensor_ptr argmax(int axis = 1);
+    Tensor_ptr max();
+    // grad
+    Tensor_ptr sum();
+    Tensor_ptr sum(int axis);
 
-    // transformation
+    //// transformation
     Tensor_ptr transpose();
 
-    // autograd
+    //// autograd
     void backward();
     void zero_grad();
     void toposort(Tensor_ptr t, std::unordered_set<Tensor_ptr>& visited, std::vector<Tensor_ptr>& res);

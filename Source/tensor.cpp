@@ -78,6 +78,7 @@ std::vector<double> Tensor::grads_vec()
     return vec;
 }
 
+
 Tensor_ptr Tensor::init(std::vector<int> shape, bool init_zero, std::string device)
 {
     auto t = std::make_shared<Tensor>();
@@ -157,6 +158,7 @@ Tensor_ptr Tensor::argmax(int axis)
         result_shape.push_back(i == axis ? 1 : shape[i]);
     }
     Tensor_ptr result = Tensor::init(result_shape, true, device);
+    result->parents = std::pair{shared_from_this(), nullptr};
 
     int idx = -1;
     double max, data;
@@ -173,6 +175,27 @@ Tensor_ptr Tensor::argmax(int axis)
         result->at({i, 0}) = idx;
     }
     
+    return result;
+}
+
+Tensor_ptr Tensor::max()
+{
+    Tensor_ptr result = Tensor::init({1}, true, device);
+    result->parents = std::pair{shared_from_this(), nullptr};
+    double max = -INFINITY;
+
+    if (device == "cpu") {
+        for (int i = 0; i < total_count; ++i) {
+            if (values[i] > max) max = values[i];
+        }
+    }
+    if (device == "cuda")
+    {
+        max = cuda::reduction(cuda::ReductionOp::MAX, std::span<double>(values.get(), total_count));
+    }
+
+    result->values[0] = max;
+
     return result;
 }
 

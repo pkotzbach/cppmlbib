@@ -33,6 +33,8 @@
 - warnings - changing int to size_t increases memory
 
 ### rest
+- cpu ops to cpu_ops
+- {} consistency andTyping also_consistency
 - double or float?
 - what about stride in softmax for example? new result should have same stride or no?
 - https://docs.jax.dev/en/latest/notebooks/autodiff_cookbook.html#how-it-s-made-two-foundational-autodiff-functions

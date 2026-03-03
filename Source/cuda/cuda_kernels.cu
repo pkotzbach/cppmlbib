@@ -122,3 +122,46 @@ void launch_softmax(const double* input, double* output, int N, int C) {
 
     softmax_kernel<<<grid, block, shared_memory_bytes>>>(input, output, N, C);
 }
+
+// ----------------------------------
+
+// TODO: could be faster https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
+template <cuda::ReductionOp op>
+__global__ void reduction_kernel(const double* input, double* output, int size)
+{
+    extern __shared__ double sharedArray[];
+
+    int bidx = blockDim.x * blockIdx.x + threadIdx.x;
+    int tidx = threadIdx.x;
+
+    if constexpr (op == cuda::ReductionOp::MAX) sharedArray[tidx] = bidx < size? input[bidx]: -INFINITY;
+    __syncthreads();
+
+    for (int i = blockDim.x / 2; i > 0; i >>= 1) {
+        if constexpr (op == cuda::ReductionOp::MAX) {
+            if (tidx + i < blockDim.x && sharedArray[tidx] < sharedArray[tidx + i])
+                sharedArray[tidx] = sharedArray[tidx + i];
+        }
+        __syncthreads();
+    }
+
+    if (tidx == 0) output[blockIdx.x] = sharedArray[0];
+}
+
+int launch_reduction(const cuda::ReductionOp op, const double* input, double* output, int size) {
+#ifdef CUDA_TEST 
+    g_cuda_kernel_launches++; 
+#endif 
+
+    int block = 256; 
+    int grid = cuda::ceil_div(size, block);
+    int shared_memory = sizeof(double) * block; 
+    switch (op) {
+        case cuda::ReductionOp::MAX: 
+            reduction_kernel<cuda::ReductionOp::MAX><<<grid, block, shared_memory>>>(input, output, size); 
+            break;
+        default: throw std::invalid_argument("Unknown op");
+    }
+
+    return grid;
+}
