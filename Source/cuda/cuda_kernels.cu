@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <float.h>
 #include <cuda/cmath>
+#include "cuda_ops.hpp"
 
 #ifdef CUDA_TEST
 #include "cuda_debug.h"
