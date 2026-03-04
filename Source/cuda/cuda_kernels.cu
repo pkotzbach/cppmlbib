@@ -85,47 +85,6 @@ void launch_matmul(
 
 // ----------------------------------
 
-__global__ void softmax_kernel(const double* input, double* output, int N, int C) {
-    extern __shared__ double sharedArray[];
-    int n = blockIdx.x * blockDim.x + threadIdx.x;
-    int n_abs = threadIdx.x;
-    int c = threadIdx.y;
-    double* exps = (double*)sharedArray;
-    double* exps_sum = (double*)&exps[blockDim.x * C];
-    
-    if (n >= N) return;
-
-    exps[n_abs * C + c] = exp(input[n * C + c]);
-    
-    __syncthreads();
-
-    // one thread per row
-    if (c == 0) {
-        exps_sum[n_abs] = 0.0;
-        for (int i = 0; i < C; ++i) {
-            exps_sum[n_abs] += exps[n_abs * C + i];
-        }
-    }
-
-    __syncthreads();
-
-    output[n * C + c] = exps[n_abs * C + c] / exps_sum[n_abs];
-}
-
-void launch_softmax(const double* input, double* output, int N, int C) {
-#ifdef CUDA_TEST
-    g_cuda_kernel_launches++;
-#endif
-
-    dim3 block(32, C);
-    size_t shared_memory_bytes = (block.x * C + block.x) * sizeof(double);
-    int grid = cuda::ceil_div(N, block.x);
-
-    softmax_kernel<<<grid, block, shared_memory_bytes>>>(input, output, N, C);
-}
-
-// ----------------------------------
-
 // TODO: could be faster https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
 template <cuda::ReductionOp op>
 __global__ void reduction_kernel(const double* input, double* output, int size)
@@ -140,7 +99,7 @@ __global__ void reduction_kernel(const double* input, double* output, int size)
 
     for (int i = blockDim.x / 2; i > 0; i >>= 1) {
         if constexpr (op == cuda::ReductionOp::MAX) {
-            if (tidx + i < blockDim.x && sharedArray[tidx] < sharedArray[tidx + i])
+            if (tidx < i && sharedArray[tidx] < sharedArray[tidx + i])
                 sharedArray[tidx] = sharedArray[tidx + i];
         }
         __syncthreads();
@@ -165,4 +124,97 @@ int launch_reduction(const cuda::ReductionOp op, const double* input, double* ou
     }
 
     return grid;
+}
+
+// ----------------------------------
+
+template <cuda::ReductionOp op>
+__global__ void reduction_kernel2(const double* input, double* output, int size)
+{
+    extern __shared__ double sharedArray[];
+    int bidx = blockDim.x * blockIdx.x + threadIdx.x;
+    int tidx = threadIdx.x;
+    
+    double local_max = -DBL_MAX;
+    for (int i = tidx; i < size; i += blockDim.x)
+        local_max = fmax(local_max, input[i]);
+
+    sharedArray[tidx] = local_max;
+    
+    __syncthreads();
+
+    for (int i = blockDim.x / 2; i > 0; i >>= 1) {
+        if constexpr (op == cuda::ReductionOp::MAX) {
+            if (tidx < i && sharedArray[tidx] < sharedArray[tidx + i])
+                sharedArray[tidx] = sharedArray[tidx + i];
+        }
+        __syncthreads();
+    }
+
+    if (tidx == 0) *output = sharedArray[0];
+}
+
+void launch_full_reduction(const cuda::ReductionOp op, const double* input, double* output, int size) {
+#ifdef CUDA_TEST 
+    g_cuda_kernel_launches++; 
+#endif 
+
+    int block = 256; 
+    int grid = cuda::ceil_div(size, block);
+    int shared_memory = sizeof(double) * block; 
+    switch (op) {
+        case cuda::ReductionOp::MAX: 
+            reduction_kernel2<cuda::ReductionOp::MAX><<<grid, block, shared_memory>>>(input, output, size); 
+            break;
+        default: throw std::invalid_argument("Unknown op");
+    }
+}
+
+// -----------------
+
+__global__ void softmax_kernel2(const double* input, double* output, int N, int C) {
+    extern __shared__ double sharedArray[];
+    int n = blockIdx.x;
+    int c = threadIdx.x;
+    
+    // TODO: doesnt it break __syncthreads?
+    if (c >= C) return;
+    
+    sharedArray[c] = input[n * C + c];
+    __syncthreads();
+
+    for (int i = blockDim.x / 2; i > 0; i >>= 1) {
+        if (c < i && sharedArray[c] < sharedArray[c + i])
+            sharedArray[c] = sharedArray[c + i];
+        __syncthreads();
+    }
+
+    double max_val = sharedArray[0];
+    // printf("%d: %f\n", c, max_val);
+    __syncthreads();
+
+    double exp_vals[1024];
+    exp_vals[c] = exp(input[n * C + c] - max_val);
+    sharedArray[c] = exp_vals[c];
+    __syncthreads();
+
+    for (int i = blockDim.x / 2; i > 0; i >>= 1) {
+        if (c < i) sharedArray[c] += sharedArray[c + i];
+        __syncthreads();
+    }
+    
+    output[n * C + c] = exp_vals[c] / sharedArray[0];
+}
+
+void launch_softmax2(const double* input, double* output, int N, int C) {
+#ifdef CUDA_TEST
+    g_cuda_kernel_launches++;
+#endif
+    // one row per block
+    int block = (C + 32 - 1) / 32 * 32;
+    size_t shared_memory_bytes = block * sizeof(double);
+    int grid = N;
+
+    printf("block: %d, grid: %d\n", block, grid);
+    softmax_kernel2<<<grid, block, shared_memory_bytes>>>(input, output, N, C);
 }

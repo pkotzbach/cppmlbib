@@ -9,4 +9,5 @@ namespace cuda {
 
     enum ReductionOp {MIN, MAX, SUM};
     double reduction(const ReductionOp op, const ::std::span<const double>& input);
+    double full_reduction(const ReductionOp op, const ::std::span<const double>& input);
 }

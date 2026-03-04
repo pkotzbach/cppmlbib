@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cuda_runtime.h>
+#include <stdexcept>
 
 #define CUDA_CHECK(x) do { \
     cudaError_t err = x; \
@@ -75,6 +76,10 @@ std::vector<double> binary_op(const char op, const std::vector<double>& matrix_A
 
 std::vector<double> softmax(const std::vector<double>& input, int N, int C)
 {
+        if (C > 1024) {
+                // TODO: fix this - its because max thread block size is 1024
+                throw std::invalid_argument("CUDA softmax currently implemented for C <= 1024");
+        }
         double *d_input, *d_output;
         int size = N*C;
         std::vector<double> output(size);
@@ -85,7 +90,7 @@ std::vector<double> softmax(const std::vector<double>& input, int N, int C)
         CUDA_CHECK(cudaMalloc(&d_output, size_bytes));
         CUDA_CHECK(cudaMemcpy(d_input, input.data(), size_bytes, cudaMemcpyHostToDevice));
 
-        launch_softmax(d_input, d_output, N, C);
+        launch_softmax2(d_input, d_output, N, C);
 
         CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaDeviceSynchronize());
@@ -114,6 +119,31 @@ double reduction(const ReductionOp op, const std::span<const double>& input)
                 size = launch_reduction(op, d_input, d_output, size);
                 CUDA_CHECK(cudaMemcpy(d_input, d_output, sizeof(double) * size, cudaMemcpyDeviceToDevice));
         }
+        
+        CUDA_CHECK(cudaGetLastError());
+        CUDA_CHECK(cudaDeviceSynchronize());
+        
+        double output;
+        CUDA_CHECK(cudaMemcpy(&output, d_output, sizeof(double), cudaMemcpyDeviceToHost));
+
+        CUDA_CHECK(cudaFree(d_input));
+        CUDA_CHECK(cudaFree(d_output));
+        
+        return output;
+}
+
+double full_reduction(const ReductionOp op, const std::span<const double>& input)
+{
+        double *d_input, *d_output;
+        int size = input.size();
+        
+        size_t size_bytes = sizeof(double) * size;
+        
+        CUDA_CHECK(cudaMalloc(&d_input, size_bytes));
+        CUDA_CHECK(cudaMalloc(&d_output, size_bytes));
+        CUDA_CHECK(cudaMemcpy(d_input, input.data(), size_bytes, cudaMemcpyHostToDevice));
+        
+        launch_full_reduction(op, d_input, d_output, size);
         
         CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaDeviceSynchronize());
