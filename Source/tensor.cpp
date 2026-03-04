@@ -191,7 +191,7 @@ Tensor_ptr Tensor::max()
     }
     else if (device == "cuda")
     {
-        max = cuda::reduction(cuda::ReductionOp::MAX, std::span<double>(values.get(), total_count));
+        max = cuda::reduction(ReductionOp::MAX, std::span<double>(values.get(), total_count));
     }
 
     result->values[0] = max;
@@ -243,7 +243,7 @@ Tensor_ptr Tensor::sum()
     }
     else if (device == "cuda")
     {
-        result->values[0] = cuda::reduction(cuda::ReductionOp::SUM, std::span<double>(values.get(), total_count));
+        result->values[0] = cuda::reduction(ReductionOp::SUM, std::span<double>(values.get(), total_count));
     }
 
     result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){

@@ -129,15 +129,15 @@ int main() {
             auto input = generate_random_data(n);
             std::span<const double> span(input);
             
-            auto gpu_res = cuda::reduction(cuda::MAX, span);
-            auto cpu_res = cpu::reduction(cpu::MAX, span);
+            auto gpu_res = cuda::reduction(MAX, span);
+            auto cpu_res = cpu::reduction(MAX, span);
             bool correct = check_correctness(gpu_res, cpu_res);
 
             double avg_gpu = benchmark([&]() {
-                cuda::reduction(cuda::MAX, span);
+                cuda::reduction(MAX, span);
             }, 10);
             double avg_cpu = benchmark([&]() {
-                cpu::reduction(cpu::MAX, span);
+                cpu::reduction(MAX, span);
             }, 5);
             print_result("Reduction (MAX)", n, avg_gpu, avg_cpu, correct);
         }

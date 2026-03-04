@@ -86,7 +86,7 @@ void launch_matmul(
 // ----------------------------------
 
 // TODO: could be faster https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
-template <cuda::ReductionOp op>
+template <ReductionOp op>
 __global__ void reduction_kernel(const double* input, double* output, int size)
 {
     extern __shared__ double sharedArray[];
@@ -94,13 +94,20 @@ __global__ void reduction_kernel(const double* input, double* output, int size)
     int bidx = blockDim.x * blockIdx.x + threadIdx.x;
     int tidx = threadIdx.x;
 
-    if constexpr (op == cuda::ReductionOp::MAX) sharedArray[tidx] = bidx < size? input[bidx]: -INFINITY;
+    sharedArray[tidx] = bidx < size? input[bidx]: 0;
     __syncthreads();
 
     for (int i = blockDim.x / 2; i > 0; i >>= 1) {
-        if constexpr (op == cuda::ReductionOp::MAX) {
-            if (tidx < i && sharedArray[tidx] < sharedArray[tidx + i])
-                sharedArray[tidx] = sharedArray[tidx + i];
+        if (tidx < i) {
+            if constexpr (op == ReductionOp::MAX) {
+                if (sharedArray[tidx] < sharedArray[tidx + i]) sharedArray[tidx] = sharedArray[tidx + i];
+            }
+            if constexpr (op == ReductionOp::MIN) {
+                if (sharedArray[tidx] > sharedArray[tidx + i]) sharedArray[tidx] = sharedArray[tidx + i];
+            }
+            if constexpr (op == ReductionOp::SUM) {
+                sharedArray[tidx] += sharedArray[tidx + i];
+            }
         }
         __syncthreads();
     }
@@ -108,7 +115,7 @@ __global__ void reduction_kernel(const double* input, double* output, int size)
     if (tidx == 0) output[blockIdx.x] = sharedArray[0];
 }
 
-int launch_reduction(const cuda::ReductionOp op, const double* input, double* output, int size) {
+int launch_reduction(const ReductionOp op, const double* input, double* output, int size) {
 #ifdef CUDA_TEST 
     g_cuda_kernel_launches++; 
 #endif 
@@ -117,8 +124,14 @@ int launch_reduction(const cuda::ReductionOp op, const double* input, double* ou
     int grid = cuda::ceil_div(size, block);
     int shared_memory = sizeof(double) * block; 
     switch (op) {
-        case cuda::ReductionOp::MAX: 
-            reduction_kernel<cuda::ReductionOp::MAX><<<grid, block, shared_memory>>>(input, output, size); 
+        case MAX: 
+            reduction_kernel<MAX><<<grid, block, shared_memory>>>(input, output, size); 
+            break;
+        case MIN: 
+            reduction_kernel<MIN><<<grid, block, shared_memory>>>(input, output, size); 
+            break;
+        case SUM: 
+            reduction_kernel<SUM><<<grid, block, shared_memory>>>(input, output, size); 
             break;
         default: throw std::invalid_argument("Unknown op");
     }
@@ -128,7 +141,7 @@ int launch_reduction(const cuda::ReductionOp op, const double* input, double* ou
 
 // ----------------------------------
 
-template <cuda::ReductionOp op>
+template <ReductionOp op>
 __global__ void reduction_kernel2(const double* input, double* output, int size)
 {
     extern __shared__ double sharedArray[];
@@ -143,7 +156,7 @@ __global__ void reduction_kernel2(const double* input, double* output, int size)
     __syncthreads();
 
     for (int i = blockDim.x / 2; i > 0; i >>= 1) {
-        if constexpr (op == cuda::ReductionOp::MAX) {
+        if constexpr (op == ReductionOp::MAX) {
             if (tidx < i && sharedArray[tidx] < sharedArray[tidx + i])
                 sharedArray[tidx] = sharedArray[tidx + i];
         }
@@ -153,7 +166,7 @@ __global__ void reduction_kernel2(const double* input, double* output, int size)
     if (tidx == 0) *output = sharedArray[0];
 }
 
-void launch_full_reduction(const cuda::ReductionOp op, const double* input, double* output, int size) {
+void launch_full_reduction(const ReductionOp op, const double* input, double* output, int size) {
 #ifdef CUDA_TEST 
     g_cuda_kernel_launches++; 
 #endif 
@@ -162,8 +175,8 @@ void launch_full_reduction(const cuda::ReductionOp op, const double* input, doub
     int grid = cuda::ceil_div(size, block);
     int shared_memory = sizeof(double) * block; 
     switch (op) {
-        case cuda::ReductionOp::MAX: 
-            reduction_kernel2<cuda::ReductionOp::MAX><<<grid, block, shared_memory>>>(input, output, size); 
+        case ReductionOp::MAX: 
+            reduction_kernel2<ReductionOp::MAX><<<grid, block, shared_memory>>>(input, output, size); 
             break;
         default: throw std::invalid_argument("Unknown op");
     }
