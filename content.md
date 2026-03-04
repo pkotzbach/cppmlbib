@@ -15,7 +15,6 @@
 
 ## TODO
 ### cuda
-- unify ops
 - cuda launchers?
 - cuda streams
 - https://docs.nvidia.com/cuda/cuda-programming-guide/02-basics/asynchronous-execution.html#async-execution-memory-transfers
@@ -34,7 +33,6 @@
 - warnings - changing int to size_t increases memory
 
 ### rest
-- cpu ops to cpu_ops
 - {} consistency andTyping also_consistency
 - double or float? Global memory is accessed via 32-byte memory transactions. https://docs.nvidia.com/cuda/cuda-programming-guide/02-basics/writing-cuda-kernels.html#coalesced-global-memory-access
 - what about stride in softmax for example? new result should have same stride or no?
@@ -47,7 +45,7 @@
     Tensor_ptr div = Tensor::init({1}, std::vector<double>{static_cast<double>(input->shape[0])});
     result = result / div;
 - no grad
-- faster at()
+- faster at() and strides
 - consts Each SM also has a separate constant cache, which is used to cache values in global memory that have been declared to be constant over the life of a kernel
 - values_vec to continous_values?
 - tests should have common header with this CUDA stuff

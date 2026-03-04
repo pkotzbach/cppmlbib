@@ -200,27 +200,27 @@ __global__ void softmax_kernel2(const double* input, double* output, int N, int 
     }
 
     double max_val = sharedArray[0];
-    printf("%d: %f\n", c, max_val);
+    // printf("%d: %f\n", c, max_val);
     __syncthreads();
 
     double exp_val;
     if (active) {
         exp_val = exp(input[n * C + c] - max_val);
         sharedArray[c] = exp_val;
-        printf("%d: %f\n", c, exp_val);
+        // printf("%d: %f\n", c, exp_val);
     }
     __syncthreads();
 
     for (int i = blockDim.x / 2; i > 0; i >>= 1) {
         if (c < i && c + i < C) {
-            printf("%d: %f += %f\n", c, sharedArray[c], sharedArray[c + i]);
+            // printf("%d: %f += %f\n", c, sharedArray[c], sharedArray[c + i]);
             sharedArray[c] += sharedArray[c + i];
         }
         __syncthreads();
     }
     
     if (active) {
-        printf("%d: %f / %f\n", c, exp_val, sharedArray[0]);
+        // printf("%d: %f / %f\n", c, exp_val, sharedArray[0]);
         output[n * C + c] = exp_val / sharedArray[0];
     }
 }

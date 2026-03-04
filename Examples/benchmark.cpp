@@ -32,6 +32,15 @@ double benchmark(Func func, int iterations = 10) {
     return ms.count() / iterations;
 }
 
+bool check_correctness(const double* a, const double* b, int size, double epsilon = 1e-4) {
+    for (size_t i = 0; i < size; ++i) {
+        if (std::abs(a[i] - b[i]) > epsilon) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool check_correctness(const std::vector<double>& a, const std::vector<double>& b, double epsilon = 1e-4) {
     if (a.size() != b.size()) return false;
     for (size_t i = 0; i < a.size(); ++i) {
@@ -82,42 +91,50 @@ int main() {
     //     }
     // }
 
-    // // Binary ops
-    // {
-    //     int sizes[] = {1000000, 10000000};
-    //     for (int n : sizes) {
-    //         auto A = generate_random_data(n);
-    //         auto B = generate_random_data(n);
+    // Binary ops
+    {
+        int sizes[] = {1000000, 10000000};
+        for (int n : sizes) {
+            auto A = generate_random_data(n);
+            auto B = generate_random_data(n);
             
-    //         auto gpu_res = cuda::binary_op('+', A, B, n);
-    //         auto cpu_res = cpu::binary_op('+', A, B, n);
-    //         bool correct = check_correctness(gpu_res, cpu_res);
+            auto gpu_res = cuda::binary_op('+', A, B, n);
+            std::vector<double> cpu_res(n);
+            for (int i = 0; i < n; ++i) {
+                cpu_res[i] = A[i] + B[i];
+            }
+            bool correct = check_correctness(gpu_res, cpu_res);
 
-    //         double avg_gpu = benchmark([&]() {
-    //             cuda::binary_op('+', A, B, n);
-    //         }, 10);
-    //         double avg_cpu = benchmark([&]() {
-    //             cpu::binary_op('+', A, B, n);
-    //         }, 5);
-    //         print_result("Binary Op (+)", n, avg_gpu, avg_cpu, correct);
-    //     }
-    // }
+            double avg_gpu = benchmark([&]() {
+                cuda::binary_op('+', A, B, n);
+            }, 10);
+            double avg_cpu = benchmark([&]() {
+                for (int i = 0; i < n; ++i) {
+                    cpu_res[i] = A[i] + B[i];
+                }
+            }, 5);
+            print_result("Binary Op (+)", n, avg_gpu, avg_cpu, correct);
+        }
+    }
 
     // 3. Softmax Benchmark
     {
         int N = 1024;
         int C = 256; 
-        auto input = generate_random_data(N * C);
+        int size = N * C;
+        auto input = generate_random_data(size);
+        double cpu_res[size];
+        double gpu_res[size];
 
-        auto gpu_res = cuda::softmax(input, N, C);
-        auto cpu_res = cpu::softmax(input, N, C);
-        bool correct = check_correctness(gpu_res, cpu_res);
+        cuda::softmax(input, gpu_res, N, C);
+        cpu::softmax(input, cpu_res, N, C);
+        bool correct = check_correctness(gpu_res, cpu_res, size);
 
         double avg_gpu = benchmark([&]() {
-            cuda::softmax(input, N, C);
+            cuda::softmax(input, gpu_res, N, C);
         }, 10);
         double avg_cpu = benchmark([&]() {
-            cpu::softmax(input, N, C);
+            cpu::softmax(input, cpu_res, N, C);
         }, 5);
         print_result("Softmax", N * C, avg_gpu, avg_cpu, correct);
     }
@@ -130,14 +147,14 @@ int main() {
             std::span<const double> span(input);
             
             auto gpu_res = cuda::reduction(MAX, span);
-            auto cpu_res = cpu::reduction(MAX, span);
+            auto cpu_res = *std::max_element(input.begin(), input.end());
             bool correct = check_correctness(gpu_res, cpu_res);
 
             double avg_gpu = benchmark([&]() {
                 cuda::reduction(MAX, span);
             }, 10);
             double avg_cpu = benchmark([&]() {
-                cpu::reduction(MAX, span);
+                *std::max_element(input.begin(), input.end());
             }, 5);
             print_result("Reduction (MAX)", n, avg_gpu, avg_cpu, correct);
         }

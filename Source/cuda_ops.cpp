@@ -74,7 +74,7 @@ std::vector<double> binary_op(const char op, const std::vector<double>& matrix_A
         return output;
 }
 
-std::vector<double> softmax(const std::vector<double>& input, int N, int C)
+void softmax(const std::vector<double>& input, double* output, int N, int C)
 {
         if (C > 1024) {
                 // TODO: fix this - its because max thread block size is 1024
@@ -82,7 +82,6 @@ std::vector<double> softmax(const std::vector<double>& input, int N, int C)
         }
         double *d_input, *d_output;
         int size = N*C;
-        std::vector<double> output(size);
 
         size_t size_bytes = sizeof(double) * size;
 
@@ -95,12 +94,10 @@ std::vector<double> softmax(const std::vector<double>& input, int N, int C)
         CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaDeviceSynchronize());
 
-        CUDA_CHECK(cudaMemcpy(output.data(), d_output, size_bytes, cudaMemcpyDeviceToHost));
+        CUDA_CHECK(cudaMemcpy(output, d_output, size_bytes, cudaMemcpyDeviceToHost));
 
         CUDA_CHECK(cudaFree(d_input));
         CUDA_CHECK(cudaFree(d_output));
-        
-        return output;
 }
 
 double reduction(const ReductionOp op, const std::span<const double>& input)

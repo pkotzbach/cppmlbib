@@ -62,6 +62,7 @@ Tensor &Tensor::init_internal(std::vector<int> shape, std::vector<double> init_v
 // TODO: dont copy code
 
 // returns continous values
+// TODO: could be faster i think, dont have to take every value, could use span
 std::vector<double> Tensor::values_vec(int count, std::vector<int>& strides, std::vector<int>& shape)
 {
     std::vector<double> vec;
@@ -502,34 +503,9 @@ Tensor_ptr Tensor::softmax()
     result->op = "softmax";
 
     if (device == "cpu") {
-        std::vector<double> exps(total_count);
-        std::vector<double> sum_exps(N, 0.0);
-        std::vector<double> maxs(N, -INFINITY);
-
-        for (int n = 0; n < N; ++n) {
-            for (int c = 0; c < C; ++c) {
-                if (at({n, c}) > maxs[n]) maxs[n] = at({n, c});
-            }
-        }
-
-        for (int n = 0; n < N; ++n) {
-            for (int c = 0; c < C; ++c) {
-                exps[n * C + c] = std::exp(at({n, c}) - maxs[n]);
-                sum_exps[n] += exps[n * C + c];
-            }
-        }
-
-        for (int n = 0; n < N; ++n) {
-            for (int c = 0; c < C; ++c) {
-                result->at({n, c}) = exps[n * C + c] / sum_exps[n];
-            }
-        }
+        cpu::softmax(values_vec(), result->values.get(), N, C);
     } else if (device == "cuda") {
-        std::vector<double> op_result = cuda::softmax(values_vec(), N, C);
-
-        // TODO: fix it
-        for (int i = 0; i < result->total_count; ++i)
-            result->values[i] = op_result[i];
+        cuda::softmax(values_vec(), result->values.get(), N, C);
     }
 
     result->backward_fn = [res = std::weak_ptr<Tensor>(result), N, C](){
