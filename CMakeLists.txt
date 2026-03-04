@@ -134,3 +134,18 @@ target_include_directories(iris PRIVATE
 set_target_properties(iris PROPERTIES
     CUDA_SEPARABLE_COMPILATION ON
 )
+
+# Benchmark
+add_executable(benchmark
+    $<TARGET_OBJECTS:common_objs>
+    ${EX_DIR}/benchmark.cpp
+)
+
+target_include_directories(benchmark PRIVATE
+    ${HEADER_DIR}
+    ${CUDA_HEADER_DIR}
+)
+
+set_target_properties(benchmark PROPERTIES
+    CUDA_SEPARABLE_COMPILATION ON
+)

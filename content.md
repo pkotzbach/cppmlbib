@@ -11,6 +11,7 @@
 
 ## ai usage
 - tests
+- benchmark.cpp
 
 ## TODO
 ### cuda
@@ -35,7 +36,7 @@
 ### rest
 - cpu ops to cpu_ops
 - {} consistency andTyping also_consistency
-- double or float?
+- double or float? Global memory is accessed via 32-byte memory transactions. https://docs.nvidia.com/cuda/cuda-programming-guide/02-basics/writing-cuda-kernels.html#coalesced-global-memory-access
 - what about stride in softmax for example? new result should have same stride or no?
 - https://docs.jax.dev/en/latest/notebooks/autodiff_cookbook.html#how-it-s-made-two-foundational-autodiff-functions
 - TODOs
