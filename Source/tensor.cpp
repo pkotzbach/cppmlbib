@@ -189,7 +189,7 @@ Tensor_ptr Tensor::max()
             if (values[i] > max) max = values[i];
         }
     }
-    if (device == "cuda")
+    else if (device == "cuda")
     {
         max = cuda::reduction(cuda::ReductionOp::MAX, std::span<double>(values.get(), total_count));
     }
@@ -235,8 +235,15 @@ Tensor_ptr Tensor::sum()
     result->parents = std::pair{shared_from_this(), nullptr};
     result->op = "sum";
 
-    for (int i = 0; i < total_count; ++i) {
-        result->values[0] += at(i);
+    if (device == "cpu")
+    {
+        for (int i = 0; i < total_count; ++i) {
+            result->values[0] += at(i);
+        }
+    }
+    else if (device == "cuda")
+    {
+        result->values[0] = cuda::reduction(cuda::ReductionOp::SUM, std::span<double>(values.get(), total_count));
     }
 
     result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){

@@ -163,7 +163,6 @@ TEST_P(TensorTest, DivisionOperator)
 
 TEST_P(TensorTest, SumOperation)
 {
-    expect_cuda = false;
     std::string device = GetParam();
     Tensor_ptr t = Tensor::init({2, 3}, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0}, device);
 
