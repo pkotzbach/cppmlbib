@@ -26,12 +26,14 @@ int main()
         {"Iris-virginica", {0, 0, 1}}
     };
 
+    std::string device = "cuda";
+
     int features = 4;
     int rows = csv.size();
     int classes = 3;
 
-    Tensor_ptr df = Tensor::init({rows, features});
-    Tensor_ptr target = Tensor::init({rows, classes});
+    Tensor_ptr df = Tensor::init({rows, features}, true, device);
+    Tensor_ptr target = Tensor::init({rows, classes}, true, device);
     for (int i = 0; i < csv.size(); ++i) {
         for (int j = 1; j < features; ++j) {
             df->at({i, j-1}) = std::stod(csv[i][j]); // ignore id
@@ -44,10 +46,10 @@ int main()
 
     // split train test
     int train = rows * 0.8, test = rows - train;
-    Tensor_ptr df_train = Tensor::init({train, features});
-    Tensor_ptr target_train = Tensor::init({train, classes});
-    Tensor_ptr df_test = Tensor::init({test, features});
-    Tensor_ptr target_test = Tensor::init({test, classes});
+    Tensor_ptr df_train = Tensor::init({train, features}, true, device);
+    Tensor_ptr target_train = Tensor::init({train, classes}, true, device);
+    Tensor_ptr df_test = Tensor::init({test, features}, true, device);
+    Tensor_ptr target_test = Tensor::init({test, classes}, true, device);
 
     for (int i = 0; i < train; ++i) {
         for (int j = 0; j < features; ++j) {
@@ -70,8 +72,8 @@ int main()
     printf("train size: %i, test size: %i\n", df_train->get_shape(0), df_test->get_shape(0));
 
     // model
-    Linear l1(4, 16);
-    Linear l2(16, 3);
+    Linear l1(4, 16, device);
+    Linear l2(16, 3, device);
     SGD optim({l1.params(), l2.params()}, 0.01);
 
     // train
