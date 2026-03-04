@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-using ::testing::DoubleNear;
+using ::testing::FloatNear;
 using ::testing::Pointwise;
 
 enum class Op { ADD, SUB, MUL, DIV };
@@ -42,15 +42,15 @@ TEST_P(BroadcastingTest, Scalar)
     std::string device = std::get<0>(GetParam());
     Op op = std::get<1>(GetParam());
 
-    std::vector<double> a_vals = {1, 2, 3, 4};
-    std::vector<double> b_vals = {10.0};
+    std::vector<float> a_vals = {1, 2, 3, 4};
+    std::vector<float> b_vals = {10.0};
     Tensor_ptr a = Tensor::init({2, 2}, a_vals, device);
     Tensor_ptr b = Tensor::init({1}, b_vals, device);   // scalar
 
     auto r = apply_op(a, b);
 
     // Dynamic expectation generators for values and gradients
-    std::vector<double> exp_v(4), exp_ga(4), exp_gb(1, 0.0);
+    std::vector<float> exp_v(4), exp_ga(4), exp_gb(1, 0.0);
     for(int i = 0; i < 4; ++i) {
         if (op == Op::ADD) { exp_v[i] = a_vals[i] + b_vals[0]; exp_ga[i] = 1; exp_gb[0] += 1; }
         else if (op == Op::SUB) { exp_v[i] = a_vals[i] - b_vals[0]; exp_ga[i] = 1; exp_gb[0] -= 1; }
@@ -58,12 +58,12 @@ TEST_P(BroadcastingTest, Scalar)
         else if (op == Op::DIV) { exp_v[i] = a_vals[i] / b_vals[0]; exp_ga[i] = 1.0/b_vals[0]; exp_gb[0] += -a_vals[i] / (b_vals[0] * b_vals[0]); }
     }
 
-    EXPECT_THAT(r->values_vec(), Pointwise(DoubleNear(1e-6), exp_v));
+    EXPECT_THAT(r->values_vec(), Pointwise(FloatNear(1e-5), exp_v));
 
     r->sum()->backward();
 
-    EXPECT_THAT(a->grads_vec(), Pointwise(DoubleNear(1e-6), exp_ga));
-    EXPECT_THAT(b->grads_vec(), Pointwise(DoubleNear(1e-6), exp_gb));
+    EXPECT_THAT(a->grads_vec(), Pointwise(FloatNear(1e-5), exp_ga));
+    EXPECT_THAT(b->grads_vec(), Pointwise(FloatNear(1e-5), exp_gb));
 }
 
 TEST_P(BroadcastingTest, RowVector)
@@ -71,14 +71,14 @@ TEST_P(BroadcastingTest, RowVector)
     std::string device = std::get<0>(GetParam());
     Op op = std::get<1>(GetParam());
 
-    std::vector<double> a_vals = {1, 2, 3, 4, 5, 6};
-    std::vector<double> b_vals = {10, 20, 30};
+    std::vector<float> a_vals = {1, 2, 3, 4, 5, 6};
+    std::vector<float> b_vals = {10, 20, 30};
     Tensor_ptr a = Tensor::init({2, 3}, a_vals, device);
     Tensor_ptr b = Tensor::init({3}, b_vals, device);
 
     auto r = apply_op(a, b);
 
-    std::vector<double> exp_v(6), exp_ga(6), exp_gb(3, 0.0);
+    std::vector<float> exp_v(6), exp_ga(6), exp_gb(3, 0.0);
     for(int i = 0; i < 2; ++i) {
         for(int j = 0; j < 3; ++j) {
             int idx = i * 3 + j;
@@ -89,12 +89,12 @@ TEST_P(BroadcastingTest, RowVector)
         }
     }
 
-    EXPECT_THAT(r->values_vec(), Pointwise(DoubleNear(1e-6), exp_v));
+    EXPECT_THAT(r->values_vec(), Pointwise(FloatNear(1e-5), exp_v));
 
     r->sum()->backward();
 
-    EXPECT_THAT(a->grads_vec(), Pointwise(DoubleNear(1e-6), exp_ga));
-    EXPECT_THAT(b->grads_vec(), Pointwise(DoubleNear(1e-6), exp_gb));
+    EXPECT_THAT(a->grads_vec(), Pointwise(FloatNear(1e-5), exp_ga));
+    EXPECT_THAT(b->grads_vec(), Pointwise(FloatNear(1e-5), exp_gb));
 }
 
 TEST_P(BroadcastingTest, Column)
@@ -102,14 +102,14 @@ TEST_P(BroadcastingTest, Column)
     std::string device = std::get<0>(GetParam());
     Op op = std::get<1>(GetParam());
 
-    std::vector<double> a_vals = {1, 2, 3, 4, 5, 6};
-    std::vector<double> b_vals = {10, 20};
+    std::vector<float> a_vals = {1, 2, 3, 4, 5, 6};
+    std::vector<float> b_vals = {10, 20};
     Tensor_ptr a = Tensor::init({2, 3}, a_vals, device);
     Tensor_ptr b = Tensor::init({2, 1}, b_vals, device);
 
     auto r = apply_op(a, b);
 
-    std::vector<double> exp_v(6), exp_ga(6), exp_gb(2, 0.0);
+    std::vector<float> exp_v(6), exp_ga(6), exp_gb(2, 0.0);
     for(int i = 0; i < 2; ++i) {
         for(int j = 0; j < 3; ++j) {
             int idx = i * 3 + j;
@@ -120,12 +120,12 @@ TEST_P(BroadcastingTest, Column)
         }
     }
 
-    EXPECT_THAT(r->values_vec(), Pointwise(DoubleNear(1e-6), exp_v));
+    EXPECT_THAT(r->values_vec(), Pointwise(FloatNear(1e-5), exp_v));
 
     r->sum()->backward();
 
-    EXPECT_THAT(a->grads_vec(), Pointwise(DoubleNear(1e-6), exp_ga));
-    EXPECT_THAT(b->grads_vec(), Pointwise(DoubleNear(1e-6), exp_gb));
+    EXPECT_THAT(a->grads_vec(), Pointwise(FloatNear(1e-5), exp_ga));
+    EXPECT_THAT(b->grads_vec(), Pointwise(FloatNear(1e-5), exp_gb));
 }
 
 TEST_P(BroadcastingTest, HighDimBroadcast)
@@ -133,17 +133,17 @@ TEST_P(BroadcastingTest, HighDimBroadcast)
     std::string device = std::get<0>(GetParam());
     Op op = std::get<1>(GetParam());
 
-    std::vector<double> a_vals = {
+    std::vector<float> a_vals = {
         1,2,3,4,     5,6,7,8,     9,10,11,12,
         13,14,15,16, 17,18,19,20, 21,22,23,24
     };
-    std::vector<double> b_vals = {1, 10, 100, 1000};
+    std::vector<float> b_vals = {1, 10, 100, 1000};
     Tensor_ptr a = Tensor::init({2, 3, 4}, a_vals, device);
     Tensor_ptr b = Tensor::init({4}, b_vals, device);
 
     auto r = apply_op(a, b);
 
-    std::vector<double> exp_v(24), exp_ga(24), exp_gb(4, 0.0);
+    std::vector<float> exp_v(24), exp_ga(24), exp_gb(4, 0.0);
     for(int i = 0; i < 2; ++i) {
         for(int j = 0; j < 3; ++j) {
             for(int k = 0; k < 4; ++k) {
@@ -156,12 +156,12 @@ TEST_P(BroadcastingTest, HighDimBroadcast)
         }
     }
 
-    EXPECT_THAT(r->values_vec(), Pointwise(DoubleNear(1e-6), exp_v));
+    EXPECT_THAT(r->values_vec(), Pointwise(FloatNear(1e-5), exp_v));
 
     r->sum()->backward();
 
-    EXPECT_THAT(a->grads_vec(), Pointwise(DoubleNear(1e-6), exp_ga));
-    EXPECT_THAT(b->grads_vec(), Pointwise(DoubleNear(1e-6), exp_gb));
+    EXPECT_THAT(a->grads_vec(), Pointwise(FloatNear(1e-5), exp_ga));
+    EXPECT_THAT(b->grads_vec(), Pointwise(FloatNear(1e-5), exp_gb));
 }
 
 TEST_P(BroadcastingTest, BroadcastWithTranspose)
@@ -169,15 +169,15 @@ TEST_P(BroadcastingTest, BroadcastWithTranspose)
     std::string device = std::get<0>(GetParam());
     Op op = std::get<1>(GetParam());
 
-    std::vector<double> a_vals = {1, 2, 3, 4, 5, 6};
-    std::vector<double> b_vals = {10, 20, 30};
+    std::vector<float> a_vals = {1, 2, 3, 4, 5, 6};
+    std::vector<float> b_vals = {10, 20, 30};
     Tensor_ptr a = Tensor::init({2, 3}, a_vals, device);
     Tensor_ptr b = Tensor::init({3, 1}, b_vals, device);
     Tensor_ptr bt = b->transpose();  // shape (1, 3), stride swap
 
     auto r = apply_op(a, bt);
 
-    std::vector<double> exp_v(6), exp_ga(6), exp_gb(3, 0.0);
+    std::vector<float> exp_v(6), exp_ga(6), exp_gb(3, 0.0);
     for(int i = 0; i < 2; ++i) {
         for(int j = 0; j < 3; ++j) {
             int idx = i * 3 + j;
@@ -188,12 +188,12 @@ TEST_P(BroadcastingTest, BroadcastWithTranspose)
         }
     }
 
-    EXPECT_THAT(r->values_vec(), Pointwise(DoubleNear(1e-6), exp_v));
+    EXPECT_THAT(r->values_vec(), Pointwise(FloatNear(1e-5), exp_v));
 
     r->sum()->backward();
 
-    EXPECT_THAT(a->grads_vec(), Pointwise(DoubleNear(1e-6), exp_ga));
-    EXPECT_THAT(bt->grads_vec(), Pointwise(DoubleNear(1e-6), exp_gb));
+    EXPECT_THAT(a->grads_vec(), Pointwise(FloatNear(1e-5), exp_ga));
+    EXPECT_THAT(bt->grads_vec(), Pointwise(FloatNear(1e-5), exp_gb));
 }
 
 

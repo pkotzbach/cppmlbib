@@ -3,7 +3,7 @@
 #include "optim.hpp"
 #include "cuda_debug.h"
 
-using ::testing::DoubleNear;
+using ::testing::FloatNear;
 using ::testing::Pointwise;
 
 class SGDTest : public ::testing::TestWithParam<std::string> {};
@@ -19,8 +19,8 @@ TEST_P(SGDTest, Step) {
     optim.step();
 
     EXPECT_THAT(input->values_vec(),
-            Pointwise(DoubleNear(1e-6),
-                      std::vector<double>({0.099, 0.201, -0.105})));
+            Pointwise(FloatNear(1e-5),
+                      std::vector<float>({0.099, 0.201, -0.105})));
 }
 
 INSTANTIATE_TEST_SUITE_P(CPU, SGDTest, ::testing::Values("cpu"));

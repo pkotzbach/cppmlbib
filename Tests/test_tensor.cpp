@@ -4,7 +4,7 @@
 #include <cuda_runtime.h>
 #include "cuda_debug.h"
 
-using ::testing::DoubleNear;
+using ::testing::FloatNear;
 using ::testing::Pointwise;
 
 class TensorTest : public ::testing::TestWithParam<std::string> {
@@ -38,8 +38,8 @@ TEST_P(TensorTest, ConstructionAndIndexing)
     t->at({0, 0, 0}) = 1.5;
     t->at({1, 1, 3}) = 3.7;
 
-    EXPECT_NEAR(t->at(0), 1.5, 1e-6);
-    EXPECT_NEAR(t->at(19), 3.7, 1e-6);
+    EXPECT_NEAR(t->at(0), 1.5, 1e-5);
+    EXPECT_NEAR(t->at(19), 3.7, 1e-5);
 }
 
 TEST_P(TensorTest, ArgmaxLastDim)
@@ -50,8 +50,8 @@ TEST_P(TensorTest, ArgmaxLastDim)
     Tensor_ptr result = input->argmax(1);
 
     EXPECT_THAT(result->values_vec(),
-                Pointwise(DoubleNear(1e-6),
-                          std::vector<double>{1.0, 2.0}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{1.0, 2.0}));
 }
 
 TEST_P(TensorTest, AdditionOperator)
@@ -63,18 +63,18 @@ TEST_P(TensorTest, AdditionOperator)
     auto result = a + b;
 
     EXPECT_THAT(result->values_vec(),
-                Pointwise(DoubleNear(1e-6),
-                          std::vector<double>{6.0, 8.0, 10.0, 12.0}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{6.0, 8.0, 10.0, 12.0}));
 
     result->sum()->backward();
 
     EXPECT_THAT(a->grads_vec(),
-                Pointwise(DoubleNear(1e-6),
-                          std::vector<double>{1, 1, 1, 1}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{1, 1, 1, 1}));
 
     EXPECT_THAT(b->grads_vec(),
-                Pointwise(DoubleNear(1e-6),
-                          std::vector<double>{1, 1, 1, 1}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{1, 1, 1, 1}));
 }
 
 TEST_P(TensorTest, SubtractionOperator)
@@ -86,18 +86,18 @@ TEST_P(TensorTest, SubtractionOperator)
     auto result = a - b;
 
     EXPECT_THAT(result->values_vec(),
-                Pointwise(DoubleNear(1e-6),
-                          std::vector<double>{4.0, 4.0, 4.0, 4.0}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{4.0, 4.0, 4.0, 4.0}));
 
     result->sum()->backward();
 
     EXPECT_THAT(a->grads_vec(),
-                Pointwise(DoubleNear(1e-6),
-                          std::vector<double>{1, 1, 1, 1}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{1, 1, 1, 1}));
 
     EXPECT_THAT(b->grads_vec(),
-                Pointwise(DoubleNear(1e-6),
-                          std::vector<double>{-1, -1, -1, -1}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{-1, -1, -1, -1}));
 }
 
 TEST_P(TensorTest, MultiplicationOperator)
@@ -109,18 +109,18 @@ TEST_P(TensorTest, MultiplicationOperator)
     auto result = a * b;
 
     EXPECT_THAT(result->values_vec(),
-                Pointwise(DoubleNear(1e-6),
-                          std::vector<double>{5.0, 12.0, 21.0, 32.0}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{5.0, 12.0, 21.0, 32.0}));
 
     result->sum()->backward();
 
     EXPECT_THAT(a->grads_vec(),
-                Pointwise(DoubleNear(1e-6),
-                          std::vector<double>{5.0, 6.0, 7.0, 8.0}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{5.0, 6.0, 7.0, 8.0}));
 
     EXPECT_THAT(b->grads_vec(),
-                Pointwise(DoubleNear(1e-6),
-                          std::vector<double>{1.0, 2.0, 3.0, 4.0}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{1.0, 2.0, 3.0, 4.0}));
 }
 
 TEST_P(TensorTest, AssignmentOperator)
@@ -135,7 +135,7 @@ TEST_P(TensorTest, AssignmentOperator)
 
     b->at({0, 0}) = 42.0;
 
-    EXPECT_NEAR(a->at({0, 0}), 42.0, 1e-6);
+    EXPECT_NEAR(a->at({0, 0}), 42.0, 1e-5);
 }
 
 TEST_P(TensorTest, DivisionOperator)
@@ -147,18 +147,18 @@ TEST_P(TensorTest, DivisionOperator)
     auto result = a / b;
 
     EXPECT_THAT(result->values_vec(),
-                Pointwise(DoubleNear(1e-6),
-                          std::vector<double>{2.0, 4.0, 2.0, 2.0}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{2.0, 4.0, 2.0, 2.0}));
 
     result->sum()->backward();
 
     EXPECT_THAT(a->grads_vec(),
-                Pointwise(DoubleNear(1e-5),
-                          std::vector<double>{0.5, 0.5, 1.0, 0.333333}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{0.5, 0.5, 1.0, 0.333333}));
 
     EXPECT_THAT(b->grads_vec(),
-                Pointwise(DoubleNear(1e-5),
-                          std::vector<double>{-1.0, -2.0, -2.0, -0.666667}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{-1.0, -2.0, -2.0, -0.666667}));
 }
 
 TEST_P(TensorTest, SumOperation)
@@ -168,13 +168,13 @@ TEST_P(TensorTest, SumOperation)
 
     auto sum_result = t->sum();
     EXPECT_EQ(sum_result->values_vec().size(), 1);
-    EXPECT_NEAR(sum_result->values_vec()[0], 21.0, 1e-6);
+    EXPECT_NEAR(sum_result->values_vec()[0], 21.0, 1e-5);
 
     sum_result->backward();
 
     EXPECT_THAT(t->grads_vec(),
-                Pointwise(DoubleNear(1e-6),
-                          std::vector<double>{1, 1, 1, 1, 1, 1}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{1, 1, 1, 1, 1, 1}));
 }
 
 TEST_P(TensorTest, SumAlongAxis0)
@@ -187,14 +187,14 @@ TEST_P(TensorTest, SumAlongAxis0)
     EXPECT_EQ(sum->get_shape().size(), 1);
 
     EXPECT_THAT(sum->values_vec(),
-                Pointwise(DoubleNear(1e-6),
-                          std::vector<double>{9.0, 12.0}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{9.0, 12.0}));
 
     sum->sum()->backward();
 
     EXPECT_THAT(t->grads_vec(),
-                Pointwise(DoubleNear(1e-6),
-                          std::vector<double>{1, 1, 1, 1, 1, 1}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{1, 1, 1, 1, 1, 1}));
 }
 
 TEST_P(TensorTest, SumAlongAxis1)
@@ -207,14 +207,14 @@ TEST_P(TensorTest, SumAlongAxis1)
     EXPECT_EQ(sum->get_shape().size(), 1);
 
     EXPECT_THAT(sum->values_vec(),
-                Pointwise(DoubleNear(1e-6),
-                          std::vector<double>{3.0, 7.0, 11.0}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{3.0, 7.0, 11.0}));
 
     sum->sum()->backward();
 
     EXPECT_THAT(t->grads_vec(),
-                Pointwise(DoubleNear(1e-6),
-                          std::vector<double>{1, 1, 1, 1, 1, 1}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{1, 1, 1, 1, 1, 1}));
 }
 
 TEST_P(TensorTest, MaxOperation)
@@ -224,13 +224,13 @@ TEST_P(TensorTest, MaxOperation)
 
     auto max_result = t->max();
     EXPECT_EQ(max_result->values_vec().size(), 1);
-    EXPECT_NEAR(max_result->values_vec()[0], 7.0, 1e-6);
+    EXPECT_NEAR(max_result->values_vec()[0], 7.0, 1e-5);
 
     // max_result->backward();
 
     // EXPECT_THAT(t->grads_vec(),
-    //             Pointwise(DoubleNear(1e-6),
-    //                       std::vector<double>{1, 1, 1, 1, 1, 1}));
+    //             Pointwise(FloatNear(1e-5),
+    //                       std::vector<float>{1, 1, 1, 1, 1, 1}));
 }
 
 
@@ -243,14 +243,14 @@ TEST_P(TensorTest, ReLUOperation)
     auto relu_result = t->relu();
 
     EXPECT_THAT(relu_result->values_vec(),
-                Pointwise(DoubleNear(1e-6),
-                          std::vector<double>{1.0, 0.0, 0.5}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{1.0, 0.0, 0.5}));
 
     relu_result->sum()->backward();
 
     EXPECT_THAT(t->grads_vec(),
-                Pointwise(DoubleNear(1e-6),
-                          std::vector<double>{1.0, 0.0, 1.0}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{1.0, 0.0, 1.0}));
 }
 
 TEST_P(TensorTest, SoftmaxOperation)
@@ -261,17 +261,17 @@ TEST_P(TensorTest, SoftmaxOperation)
     Tensor_ptr softmax_result = a->softmax();
 
     EXPECT_THAT(softmax_result->values_vec(),
-                Pointwise(DoubleNear(1e-4),
-                          std::vector<double>{0.3548, 0.3548, 0.2905}));
+                Pointwise(FloatNear(1e-4),
+                          std::vector<float>{0.3548, 0.3548, 0.2905}));
 
     (softmax_result * b)->sum()->backward();
 
     EXPECT_THAT(a->grads_vec(),
-                Pointwise(DoubleNear(1e-4),
-                          std::vector<double>{-0.2378, 0.2234, 0.0144}));
+                Pointwise(FloatNear(1e-4),
+                          std::vector<float>{-0.2378, 0.2234, 0.0144}));
     EXPECT_THAT(b->grads_vec(),
-                Pointwise(DoubleNear(1e-4),
-                          std::vector<double>{0.3548, 0.3548, 0.2905}));
+                Pointwise(FloatNear(1e-4),
+                          std::vector<float>{0.3548, 0.3548, 0.2905}));
 }
 
 TEST_P(TensorTest, SoftmaxOperationLargeNumbers)
@@ -285,18 +285,18 @@ TEST_P(TensorTest, SoftmaxOperationLargeNumbers)
     Tensor_ptr softmax_result = a->softmax();
 
     EXPECT_THAT(softmax_result->values_vec(),
-                Pointwise(DoubleNear(1e-4),
-                          std::vector<double>{0.4223, 0.4223, 0.1554}));
+                Pointwise(FloatNear(1e-4),
+                          std::vector<float>{0.4223, 0.4223, 0.1554}));
 
     (softmax_result * b)->sum()->backward();
 
     EXPECT_THAT(a->grads_vec(),
-                Pointwise(DoubleNear(1e-4),
-                          std::vector<double>{-0.2791,  0.2699,  0.0092}));
+                Pointwise(FloatNear(1e-4),
+                          std::vector<float>{-0.2791,  0.2699,  0.0092}));
     
     EXPECT_THAT(b->grads_vec(),
-                Pointwise(DoubleNear(1e-4),
-                          std::vector<double>{0.4223, 0.4223, 0.1554}));
+                Pointwise(FloatNear(1e-4),
+                          std::vector<float>{0.4223, 0.4223, 0.1554}));
 
 }
 
@@ -309,14 +309,14 @@ TEST_P(TensorTest, ExpOperation)
     auto exp_result = t->exp();
 
     EXPECT_THAT(exp_result->values_vec(),
-                Pointwise(DoubleNear(1e-4),
-                          std::vector<double>{1.0, 2.71828}));
+                Pointwise(FloatNear(1e-4),
+                          std::vector<float>{1.0, 2.71828}));
 
     exp_result->sum()->backward();
 
     EXPECT_THAT(t->grads_vec(),
-                Pointwise(DoubleNear(1e-4),
-                          std::vector<double>{1.0, 2.71828}));
+                Pointwise(FloatNear(1e-4),
+                          std::vector<float>{1.0, 2.71828}));
 }
 
 TEST_P(TensorTest, ExpSmallValues)
@@ -328,14 +328,14 @@ TEST_P(TensorTest, ExpSmallValues)
     auto exp_result = t->exp();
 
     EXPECT_THAT(exp_result->values_vec(),
-                Pointwise(DoubleNear(1e-4),
-                          std::vector<double>{1.0, 1.6487, 0.6065}));
+                Pointwise(FloatNear(1e-4),
+                          std::vector<float>{1.0, 1.6487, 0.6065}));
 
     exp_result->sum()->backward();
 
     EXPECT_THAT(t->grads_vec(),
-                Pointwise(DoubleNear(1e-4),
-                          std::vector<double>{1.0, 1.6487, 0.6065}));
+                Pointwise(FloatNear(1e-4),
+                          std::vector<float>{1.0, 1.6487, 0.6065}));
 }
 
 TEST_P(TensorTest, ComplexExpression)
@@ -348,12 +348,12 @@ TEST_P(TensorTest, ComplexExpression)
     result->sum()->backward();
 
     EXPECT_THAT(x->grads_vec(),
-                Pointwise(DoubleNear(1e-4),
-                          std::vector<double>{5.2443, 1.5712, 48.1426}));
+                Pointwise(FloatNear(1e-4),
+                          std::vector<float>{5.2443, 1.5712, 48.1426}));
 
     EXPECT_THAT(y->grads_vec(),
-                Pointwise(DoubleNear(1e-4),
-                          std::vector<double>{0.9511, -1.7555, -170.1314}));
+                Pointwise(FloatNear(1e-4),
+                          std::vector<float>{0.9511, -1.7555, -170.1314}));
 }
 
 TEST_P(TensorTest, Transpose)
@@ -365,8 +365,8 @@ TEST_P(TensorTest, Transpose)
     
     EXPECT_EQ(xT->get_shape(), std::vector<int>({2, 3}));
     EXPECT_THAT(xT->values_vec(),
-                Pointwise(DoubleNear(1e-4),
-                          std::vector<double>{1.0, 3.0, 5.0, 2.0, 4.0, 6.0}));
+                Pointwise(FloatNear(1e-4),
+                          std::vector<float>{1.0, 3.0, 5.0, 2.0, 4.0, 6.0}));
     
     xT->zero_grad();
     xT->grad_at({0, 0}) = 1;
@@ -379,8 +379,8 @@ TEST_P(TensorTest, Transpose)
     
     // TODO: not sure if this test is correct
     EXPECT_THAT(x->grads_vec(),
-                Pointwise(DoubleNear(1e-4),
-                          std::vector<double>{2, 5, 3, 6, 4, 7}));
+                Pointwise(FloatNear(1e-4),
+                          std::vector<float>{2, 5, 3, 6, 4, 7}));
 }
 
 TEST_P(TensorTest, Matmul)
@@ -395,18 +395,18 @@ TEST_P(TensorTest, Matmul)
     EXPECT_EQ(result->get_device(), device);
     EXPECT_EQ(result->get_shape(), std::vector<int>({2, 2}));
     EXPECT_THAT(result->values_vec(),
-                Pointwise(DoubleNear(1e-6),
-                          std::vector<double>{18.0, 32.8, 22.1, 47.5}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{18.0, 32.8, 22.1, 47.5}));
 
     result->sum()->backward();
 
     EXPECT_THAT(a->grads_vec(),
-                Pointwise(DoubleNear(1e-5),
-                          std::vector<double>{4.0, 4.0, 1.4, 4.0, 4.0, 1.4}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{4.0, 4.0, 1.4, 4.0, 4.0, 1.4}));
 
     EXPECT_THAT(b->grads_vec(),
-                Pointwise(DoubleNear(1e-5),
-                          std::vector<double>{10.0, 10.0, 20.1, 20.1, 0.0, 0.0}));
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{10.0, 10.0, 20.1, 20.1, 0.0, 0.0}));
 }
 
 

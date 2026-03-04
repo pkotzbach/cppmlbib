@@ -14,8 +14,8 @@ typedef std::shared_ptr<Tensor> Tensor_ptr;
 class Tensor : public std::enable_shared_from_this<Tensor>
 {
 private:
-    std::shared_ptr<double[]> values;
-    std::shared_ptr<double[]> grads;
+    std::shared_ptr<float[]> values;
+    std::shared_ptr<float[]> grads;
 
     std::vector<int> strides;
     std::pair<Tensor_ptr, Tensor_ptr> parents;
@@ -30,12 +30,12 @@ private:
     int strided_idx(int shape_idx, const std::vector<int>& strides, const std::vector<int>& shape);
     int strided_idx(std::vector<int> idx);
 
-    Tensor& init_internal(std::vector<int> shape, std::vector<double> init_values, std::vector<double> init_grads, bool init_zero, std::string device);
+    Tensor& init_internal(std::vector<int> shape, std::vector<float> init_values, std::vector<float> init_grads, bool init_zero, std::string device);
 
 public:
     static Tensor_ptr init(std::vector<int> shape, bool init_zero = false, std::string device = "cpu");
-    static Tensor_ptr init(std::vector<int> shape, std::vector<double> values, std::string device = "cpu");
-    // static Tensor_ptr init(std::vector<int> shape, std::vector<double> values, std::vector<double> grads, std::string device = "cpu") {init_internal(shape, values, grads, false, device);}
+    static Tensor_ptr init(std::vector<int> shape, std::vector<float> values, std::string device = "cpu");
+    // static Tensor_ptr init(std::vector<int> shape, std::vector<float> values, std::vector<float> grads, std::string device = "cpu") {init_internal(shape, values, grads, false, device);}
 
     Tensor() {}
     ~Tensor() {};
@@ -46,18 +46,18 @@ public:
     int get_total_count() {return total_count;}
     std::string get_device() {return device;}
 
-    std::vector<double> values_vec(int count, std::vector<int>& strides, std::vector<int>& shape);
-    std::vector<double> values_vec() {return values_vec(total_count, strides, shape);};
-    std::vector<double> grads_vec();
+    std::vector<float> values_vec(int count, std::vector<int>& strides, std::vector<int>& shape);
+    std::vector<float> values_vec() {return values_vec(total_count, strides, shape);};
+    std::vector<float> grads_vec();
 
-    double& at(std::vector<int> shape_idx) { return values[strided_idx(shape_idx)]; }
-    double& at(int shape_idx)              { return values[strided_idx(shape_idx, strides, shape)]; }
-    double& at(int shape_idx, const std::vector<int>& strides, const std::vector<int>& shape) {
+    float& at(std::vector<int> shape_idx) { return values[strided_idx(shape_idx)]; }
+    float& at(int shape_idx)              { return values[strided_idx(shape_idx, strides, shape)]; }
+    float& at(int shape_idx, const std::vector<int>& strides, const std::vector<int>& shape) {
         return values[strided_idx(shape_idx, strides, shape)]; }
 
-    double& grad_at(std::vector<int> shape_idx) { return grads[strided_idx(shape_idx)]; }
-    double& grad_at(int shape_idx)              { return grads[strided_idx(shape_idx, strides, shape)]; }
-    double& grad_at(int shape_idx, std::vector<int> strides, std::vector<int> shape) {
+    float& grad_at(std::vector<int> shape_idx) { return grads[strided_idx(shape_idx)]; }
+    float& grad_at(int shape_idx)              { return grads[strided_idx(shape_idx, strides, shape)]; }
+    float& grad_at(int shape_idx, std::vector<int> strides, std::vector<int> shape) {
         return grads[strided_idx(shape_idx, strides, shape)]; }
 
     //// operators (grad)

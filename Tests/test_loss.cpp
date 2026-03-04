@@ -26,8 +26,8 @@ TEST_P(LossTest, MSE) {
     EXPECT_NEAR(loss->at(0), 1.3950, 1e-4);
 
     loss->backward();
-    EXPECT_EQ(input->grads_vec(), std::vector<double>({-0.9, 0.2, 0.9, -0.7, 0, -0.8}));
-    EXPECT_EQ(target->grads_vec(), std::vector<double>({0.9, -0.2, -0.9, 0.7, 0, 0.8})); // TODO: target shouldnt have grad 
+    EXPECT_EQ(input->grads_vec(), std::vector<float>({-0.9, 0.2, 0.9, -0.7, 0, -0.8}));
+    EXPECT_EQ(target->grads_vec(), std::vector<float>({0.9, -0.2, -0.9, 0.7, 0, 0.8})); // TODO: target shouldnt have grad 
 }
 
 INSTANTIATE_TEST_SUITE_P(CPU, LossTest, ::testing::Values("cpu"));

@@ -7,14 +7,14 @@
 #include <random>
 #include <string>
 
-double sample_kaiming(double n)
+float sample_kaiming(float n)
 {
     std::mt19937 gen(std::random_device{}());
-    std::normal_distribution<double> dist(0.0, std::sqrt(2/n));
+    std::normal_distribution<float> dist(0.0, std::sqrt(2/n));
     return dist(gen);
 }
 
-Tensor &Tensor::init_internal(std::vector<int> shape, std::vector<double> init_values, std::vector<double> init_grads, bool init_zero, std::string device)
+Tensor &Tensor::init_internal(std::vector<int> shape, std::vector<float> init_values, std::vector<float> init_grads, bool init_zero, std::string device)
 {
     if (shape.size() == 0) throw std::runtime_error("shape 0");
     if (device.compare("cuda") != 0 && device.compare("cpu") != 0) throw std::runtime_error("invalid device!");
@@ -41,8 +41,8 @@ Tensor &Tensor::init_internal(std::vector<int> shape, std::vector<double> init_v
     if (init_values.size() > 0 && init_values.size() != total_count) throw std::runtime_error("init values doesnt match shape");
     if (init_grads.size() > 0 && init_grads.size() != total_count) throw std::runtime_error("init grads doesnt match shape");
 
-    values = std::shared_ptr<double[]>(new double[total_count], std::default_delete<double[]>());
-    grads  = std::shared_ptr<double[]>(new double[total_count], std::default_delete<double[]>());
+    values = std::shared_ptr<float[]>(new float[total_count], std::default_delete<float[]>());
+    grads  = std::shared_ptr<float[]>(new float[total_count], std::default_delete<float[]>());
 
     for (int i = 0; i < total_count; ++i)
     {
@@ -63,17 +63,17 @@ Tensor &Tensor::init_internal(std::vector<int> shape, std::vector<double> init_v
 
 // returns continous values
 // TODO: could be faster i think, dont have to take every value, could use span
-std::vector<double> Tensor::values_vec(int count, std::vector<int>& strides, std::vector<int>& shape)
+std::vector<float> Tensor::values_vec(int count, std::vector<int>& strides, std::vector<int>& shape)
 {
-    std::vector<double> vec;
+    std::vector<float> vec;
     vec.resize(count);
     for (int i = 0; i < count; ++i) vec[i] = at(i, strides, shape);
     return vec;
 }
 
-std::vector<double> Tensor::grads_vec()
+std::vector<float> Tensor::grads_vec()
 {
-    std::vector<double> vec;
+    std::vector<float> vec;
     vec.resize(total_count);
     for (int i = 0; i < total_count; ++i) vec[i] = grad_at(i);
     return vec;
@@ -87,14 +87,14 @@ Tensor_ptr Tensor::init(std::vector<int> shape, bool init_zero, std::string devi
     return t;
 }
 
-Tensor_ptr Tensor::init(std::vector<int> shape, std::vector<double> values, std::string device)
+Tensor_ptr Tensor::init(std::vector<int> shape, std::vector<float> values, std::string device)
 {
     auto t = std::make_shared<Tensor>();
     t->init_internal(shape, values, {}, false, device);
     return t;
 }
 
-// Tensor_ptr Tensor::init(std::vector<int> shape, std::vector<double> values, std::string device = "cpu")
+// Tensor_ptr Tensor::init(std::vector<int> shape, std::vector<float> values, std::string device = "cpu")
 // {
 //     auto t = Tensor::init();
 //     t->init_internal(shape, values, {}, false, device);
@@ -162,7 +162,7 @@ Tensor_ptr Tensor::argmax(int axis)
     result->parents = std::pair{shared_from_this(), nullptr};
 
     int idx = -1;
-    double max, data;
+    float max, data;
     for (int i = 0; i < shape[0]; ++i) {
         max = -INFINITY;
         idx = -1;
@@ -183,7 +183,7 @@ Tensor_ptr Tensor::max()
 {
     Tensor_ptr result = Tensor::init({1}, true, device);
     result->parents = std::pair{shared_from_this(), nullptr};
-    double max = -INFINITY;
+    float max = -INFINITY;
 
     if (device == "cpu") {
         for (int i = 0; i < total_count; ++i) {
@@ -192,7 +192,7 @@ Tensor_ptr Tensor::max()
     }
     else if (device == "cuda")
     {
-        max = cuda::reduction(ReductionOp::MAX, std::span<double>(values.get(), total_count));
+        max = cuda::reduction(ReductionOp::MAX, std::span<float>(values.get(), total_count));
     }
 
     result->values[0] = max;
@@ -244,7 +244,7 @@ Tensor_ptr Tensor::sum()
     }
     else if (device == "cuda")
     {
-        result->values[0] = cuda::reduction(ReductionOp::SUM, std::span<double>(values.get(), total_count));
+        result->values[0] = cuda::reduction(ReductionOp::SUM, std::span<float>(values.get(), total_count));
     }
 
     result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){
@@ -343,7 +343,7 @@ struct BinaryOpContext {
             int count = result->total_count;
             auto first_con_val = first->values_vec(count, first_strides, out_shape);
             auto second_con_val = second->values_vec(count, second_strides, out_shape);
-            std::vector<double> op_result = cuda::binary_op(cuda_op, first_con_val, second_con_val, count);
+            std::vector<float> op_result = cuda::binary_op(cuda_op, first_con_val, second_con_val, count);
             for (int i = 0; i < result->total_count; ++i)
                 result->values[i] = op_result[i];
         }
@@ -358,7 +358,7 @@ Tensor_ptr operator+(Tensor_ptr first, Tensor_ptr second)
     result->parents = std::pair{first, second};
     result->op = "add";
 
-    ctx.compute_forward(first, second, result, '+', [](double a, double b){ return a + b; });
+    ctx.compute_forward(first, second, result, '+', [](float a, float b){ return a + b; });
 
     result->backward_fn = [res = std::weak_ptr<Tensor>(result), ctx](){
         if(auto r = res.lock()){
@@ -380,7 +380,7 @@ Tensor_ptr operator-(Tensor_ptr first, Tensor_ptr second)
     result->parents = std::pair{first, second};
     result->op = "sub";
 
-    ctx.compute_forward(first, second, result, '-', [](double a, double b){ return a - b; });
+    ctx.compute_forward(first, second, result, '-', [](float a, float b){ return a - b; });
     
     result->backward_fn = [res = std::weak_ptr<Tensor>(result), ctx](){
         if(auto r = res.lock()){
@@ -401,7 +401,7 @@ Tensor_ptr operator*(Tensor_ptr first, Tensor_ptr second)
     result->parents = std::pair{first, second};
     result->op = "mul";
 
-    ctx.compute_forward(first, second, result, '*', [](double a, double b){ return a * b; });
+    ctx.compute_forward(first, second, result, '*', [](float a, float b){ return a * b; });
     
     result->backward_fn = [res = std::weak_ptr<Tensor>(result), ctx](){
         if(auto r = res.lock()){
@@ -422,7 +422,7 @@ Tensor_ptr operator/(Tensor_ptr first, Tensor_ptr second)
     result->parents = std::pair{first, second};
     result->op = "div";
 
-    ctx.compute_forward(first, second, result, '/', [](double a, double b){ return a / b; });
+    ctx.compute_forward(first, second, result, '/', [](float a, float b){ return a / b; });
 
     result->backward_fn = [res = std::weak_ptr<Tensor>(result), ctx](){
         if(auto r = res.lock()){
@@ -456,7 +456,7 @@ Tensor_ptr Tensor::matmul(Tensor_ptr tensor)
     result->parents = std::pair{shared_from_this(), tensor};
     result->op = "matmul";
     
-    std::vector<double> matmul_output;
+    std::vector<float> matmul_output;
     if (device == "cpu") {
         matmul_output = cpu::matmul(values_vec(), tensor->values_vec(), shape[1], tensor->shape[1], shape[0]);
     } else if (device == "cuda") {
@@ -470,8 +470,8 @@ Tensor_ptr Tensor::matmul(Tensor_ptr tensor)
         if(auto r = res.lock()){
             Tensor_ptr firstT = r->parents.first->transpose();
             Tensor_ptr secondT = r->parents.second->transpose();
-            std::vector<double> grad_first;
-            std::vector<double> grad_second;
+            std::vector<float> grad_first;
+            std::vector<float> grad_second;
             if (r->get_device() == "cpu") {
                 grad_first = cpu::matmul(r->grads_vec(), secondT->values_vec(), r->shape[1], secondT->shape[1], r->shape[0]);
                 grad_second = cpu::matmul(firstT->values_vec(), r->grads_vec(), firstT->shape[1], r->shape[1], firstT->shape[0]);
@@ -511,7 +511,7 @@ Tensor_ptr Tensor::softmax()
     result->backward_fn = [res = std::weak_ptr<Tensor>(result), N, C](){
         if(auto r = res.lock()){
             for (int n = 0; n < N; ++n) {
-                double sum = 0.0;
+                float sum = 0.0;
                 for (int c = 0; c < C; ++c) {
                     sum += r->grad_at({n, c}) * r->at({n, c});
                 }

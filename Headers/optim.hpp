@@ -6,11 +6,11 @@ class Optimizer
 {
 protected:
     std::vector<Tensor_ptr> parameters;
-    double lr;
+    float lr;
 
 public:
-    Optimizer(std::vector<std::vector<Tensor_ptr>> params, double lr);
-    Optimizer(std::vector<Tensor_ptr> params, double lr) : parameters(params), lr(lr) {};
+    Optimizer(std::vector<std::vector<Tensor_ptr>> params, float lr);
+    Optimizer(std::vector<Tensor_ptr> params, float lr) : parameters(params), lr(lr) {};
 
     virtual void step() = 0;
     void zero_grad();
@@ -19,7 +19,7 @@ public:
 class SGD : public Optimizer
 {
 public:
-    SGD(std::vector<std::vector<Tensor_ptr>> params, double lr) : Optimizer{params, lr} {}
-    SGD(std::vector<Tensor_ptr> params, double lr) : Optimizer{params, lr} {}
+    SGD(std::vector<std::vector<Tensor_ptr>> params, float lr) : Optimizer{params, lr} {}
+    SGD(std::vector<Tensor_ptr> params, float lr) : Optimizer{params, lr} {}
     void step() override;
 };

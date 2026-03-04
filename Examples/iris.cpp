@@ -116,5 +116,5 @@ int main()
     }
 
     printf("correct: %i\n", correct);
-    printf("correct% : %f\n", float(correct)/float(test));
+    printf("correct percentage : %f\n", float(correct)/float(test));
 }

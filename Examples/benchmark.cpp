@@ -7,11 +7,11 @@
 #include <iomanip>
 #include <span>
 
-std::vector<double> generate_random_data(size_t size) {
-    std::vector<double> data(size);
+std::vector<float> generate_random_data(size_t size) {
+    std::vector<float> data(size);
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_real_distribution<double> dis(-1.0, 1.0);
+    std::uniform_real_distribution<float> dis(-1.0, 1.0);
     for (size_t i = 0; i < size; ++i) {
         data[i] = dis(gen);
     }
@@ -19,7 +19,7 @@ std::vector<double> generate_random_data(size_t size) {
 }
 
 template<typename Func>
-double benchmark(Func func, int iterations = 10) {
+float benchmark(Func func, int iterations = 10) {
     // Warm-up
     func();
     
@@ -28,11 +28,11 @@ double benchmark(Func func, int iterations = 10) {
         func();
     }
     auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> ms = end - start;
+    std::chrono::duration<float, std::milli> ms = end - start;
     return ms.count() / iterations;
 }
 
-bool check_correctness(const double* a, const double* b, int size, double epsilon = 1e-4) {
+bool check_correctness(const float* a, const float* b, int size, float epsilon = 1e-4) {
     for (size_t i = 0; i < size; ++i) {
         if (std::abs(a[i] - b[i]) > epsilon) {
             return false;
@@ -41,7 +41,7 @@ bool check_correctness(const double* a, const double* b, int size, double epsilo
     return true;
 }
 
-bool check_correctness(const std::vector<double>& a, const std::vector<double>& b, double epsilon = 1e-4) {
+bool check_correctness(const std::vector<float>& a, const std::vector<float>& b, float epsilon = 1e-4) {
     if (a.size() != b.size()) return false;
     for (size_t i = 0; i < a.size(); ++i) {
         if (std::abs(a[i] - b[i]) > epsilon) {
@@ -51,11 +51,11 @@ bool check_correctness(const std::vector<double>& a, const std::vector<double>& 
     return true;
 }
 
-bool check_correctness(double a, double b, double epsilon = 1e-4) {
+bool check_correctness(float a, float b, float epsilon = 1e-4) {
     return std::abs(a - b) < epsilon;
 }
 
-void print_result(const std::string& name, int size, double avg_ms, double cpu_ms = -1.0, bool correct = true) {
+void print_result(const std::string& name, int size, float avg_ms, float cpu_ms = -1.0, bool correct = true) {
     std::cout << std::left << std::setw(20) << name 
               << " | Size: " << std::setw(10) << size 
               << " | CUDA: " << std::fixed << std::setprecision(4) << std::setw(10) << avg_ms << " ms";
@@ -81,10 +81,10 @@ int main() {
     //         auto cpu_res = cpu::matmul(A, B, n, n, n);
     //         bool correct = check_correctness(gpu_res, cpu_res);
 
-    //         double avg_gpu = benchmark([&]() {
+    //         float avg_gpu = benchmark([&]() {
     //             cuda::matmul(A, B, n, n, n);
     //         }, 5);
-    //         double avg_cpu = benchmark([&]() {
+    //         float avg_cpu = benchmark([&]() {
     //             cpu::matmul(A, B, n, n, n);
     //         }, 1);
     //         print_result("Matmul", n, avg_gpu, avg_cpu, correct);
@@ -99,16 +99,16 @@ int main() {
             auto B = generate_random_data(n);
             
             auto gpu_res = cuda::binary_op('+', A, B, n);
-            std::vector<double> cpu_res(n);
+            std::vector<float> cpu_res(n);
             for (int i = 0; i < n; ++i) {
                 cpu_res[i] = A[i] + B[i];
             }
             bool correct = check_correctness(gpu_res, cpu_res);
 
-            double avg_gpu = benchmark([&]() {
+            float avg_gpu = benchmark([&]() {
                 cuda::binary_op('+', A, B, n);
             }, 10);
-            double avg_cpu = benchmark([&]() {
+            float avg_cpu = benchmark([&]() {
                 for (int i = 0; i < n; ++i) {
                     cpu_res[i] = A[i] + B[i];
                 }
@@ -123,17 +123,17 @@ int main() {
         int C = 256; 
         int size = N * C;
         auto input = generate_random_data(size);
-        double cpu_res[size];
-        double gpu_res[size];
+        float cpu_res[size];
+        float gpu_res[size];
 
         cuda::softmax(input, gpu_res, N, C);
         cpu::softmax(input, cpu_res, N, C);
         bool correct = check_correctness(gpu_res, cpu_res, size);
 
-        double avg_gpu = benchmark([&]() {
+        float avg_gpu = benchmark([&]() {
             cuda::softmax(input, gpu_res, N, C);
         }, 10);
-        double avg_cpu = benchmark([&]() {
+        float avg_cpu = benchmark([&]() {
             cpu::softmax(input, cpu_res, N, C);
         }, 5);
         print_result("Softmax", N * C, avg_gpu, avg_cpu, correct);
@@ -144,16 +144,16 @@ int main() {
         int sizes[] = {1000000, 10000000};
         for (int n : sizes) {
             auto input = generate_random_data(n);
-            std::span<const double> span(input);
+            std::span<const float> span(input);
             
             auto gpu_res = cuda::reduction(MAX, span);
             auto cpu_res = *std::max_element(input.begin(), input.end());
             bool correct = check_correctness(gpu_res, cpu_res);
 
-            double avg_gpu = benchmark([&]() {
+            float avg_gpu = benchmark([&]() {
                 cuda::reduction(MAX, span);
             }, 10);
-            double avg_cpu = benchmark([&]() {
+            float avg_cpu = benchmark([&]() {
                 *std::max_element(input.begin(), input.end());
             }, 5);
             print_result("Reduction (MAX)", n, avg_gpu, avg_cpu, correct);

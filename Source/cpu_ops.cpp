@@ -5,9 +5,9 @@
 
 namespace cpu {
 
-std::vector<double> matmul(const std::vector<double> &A, const std::vector<double> &B, int K, int X, int Y)
+std::vector<float> matmul(const std::vector<float> &A, const std::vector<float> &B, int K, int X, int Y)
 {
-    std::vector<double> output(X * Y, 0.0);
+    std::vector<float> output(X * Y, 0.0);
 
     for (int y = 0; y < Y; ++y)
         for (int x = 0; x < X; ++x)
@@ -16,14 +16,14 @@ std::vector<double> matmul(const std::vector<double> &A, const std::vector<doubl
 
     return output;
 }
-void softmax(const std::vector<double>& input, double* output, int N, int C) {
+void softmax(const std::vector<float>& input, float* output, int N, int C) {
     for (int i = 0; i < N; ++i) {
-        double max_val = input[i * C];
+        float max_val = input[i * C];
         for (int j = 1; j < C; ++j) {
             max_val = std::max(max_val, input[i * C + j]);
         }
 
-        double sum = 0.0;
+        float sum = 0.0;
         for (int j = 0; j < C; ++j) {
             output[i * C + j] = std::exp(input[i * C + j] - max_val);
             sum += output[i * C + j];

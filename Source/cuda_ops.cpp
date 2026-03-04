@@ -17,14 +17,14 @@
 // TODO: copied code
 namespace cuda {
 
-std::vector<double> matmul(const std::vector<double>& matrix_A, const std::vector<double>& matrix_B, int K, int X, int Y)
+std::vector<float> matmul(const std::vector<float>& matrix_A, const std::vector<float>& matrix_B, int K, int X, int Y)
 {
-        double *d_matrix_A, *d_matrix_B, *d_output;
-        std::vector<double> output(X*Y);
+        float *d_matrix_A, *d_matrix_B, *d_output;
+        std::vector<float> output(X*Y);
 
-        size_t matrix_A_bytes = Y * K * sizeof(double);
-        size_t matrix_B_bytes = X * K * sizeof(double);
-        size_t output_bytes = Y * X * sizeof(double);
+        size_t matrix_A_bytes = Y * K * sizeof(float);
+        size_t matrix_B_bytes = X * K * sizeof(float);
+        size_t output_bytes = Y * X * sizeof(float);
 
         CUDA_CHECK(cudaMalloc(&d_matrix_A, matrix_A_bytes));
         CUDA_CHECK(cudaMalloc(&d_matrix_B, matrix_B_bytes));
@@ -47,12 +47,12 @@ std::vector<double> matmul(const std::vector<double>& matrix_A, const std::vecto
 }
 
 // TODO: as template with "op"? then i need to store it in .hpp and i dont know if i want that
-std::vector<double> binary_op(const char op, const std::vector<double>& matrix_A, const std::vector<double>& matrix_B, int size)
+std::vector<float> binary_op(const char op, const std::vector<float>& matrix_A, const std::vector<float>& matrix_B, int size)
 {
-        double *d_matrix_A, *d_matrix_B, *d_output;
-        std::vector<double> output(size);
+        float *d_matrix_A, *d_matrix_B, *d_output;
+        std::vector<float> output(size);
 
-        size_t size_bytes = sizeof(double) * size;
+        size_t size_bytes = sizeof(float) * size;
 
         CUDA_CHECK(cudaMalloc(&d_matrix_A, size_bytes));
         CUDA_CHECK(cudaMalloc(&d_matrix_B, size_bytes));
@@ -74,16 +74,16 @@ std::vector<double> binary_op(const char op, const std::vector<double>& matrix_A
         return output;
 }
 
-void softmax(const std::vector<double>& input, double* output, int N, int C)
+void softmax(const std::vector<float>& input, float* output, int N, int C)
 {
         if (C > 1024) {
                 // TODO: fix this - its because max thread block size is 1024
                 throw std::invalid_argument("CUDA softmax currently implemented for C <= 1024");
         }
-        double *d_input, *d_output;
+        float *d_input, *d_output;
         int size = N*C;
 
-        size_t size_bytes = sizeof(double) * size;
+        size_t size_bytes = sizeof(float) * size;
 
         CUDA_CHECK(cudaMalloc(&d_input, size_bytes));
         CUDA_CHECK(cudaMalloc(&d_output, size_bytes));
@@ -100,12 +100,12 @@ void softmax(const std::vector<double>& input, double* output, int N, int C)
         CUDA_CHECK(cudaFree(d_output));
 }
 
-double reduction(const ReductionOp op, const std::span<const double>& input)
+float reduction(const ReductionOp op, const std::span<const float>& input)
 {
-        double *d_input, *d_output;
+        float *d_input, *d_output;
         int size = input.size();
         
-        size_t size_bytes = sizeof(double) * size;
+        size_t size_bytes = sizeof(float) * size;
         
         CUDA_CHECK(cudaMalloc(&d_input, size_bytes));
         CUDA_CHECK(cudaMalloc(&d_output, size_bytes));
@@ -114,14 +114,14 @@ double reduction(const ReductionOp op, const std::span<const double>& input)
         // TODO: while here or in launch_reduction?
         while(size > 1) {
                 size = launch_reduction(op, d_input, d_output, size);
-                CUDA_CHECK(cudaMemcpy(d_input, d_output, sizeof(double) * size, cudaMemcpyDeviceToDevice));
+                CUDA_CHECK(cudaMemcpy(d_input, d_output, sizeof(float) * size, cudaMemcpyDeviceToDevice));
         }
         
         CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaDeviceSynchronize());
         
-        double output;
-        CUDA_CHECK(cudaMemcpy(&output, d_output, sizeof(double), cudaMemcpyDeviceToHost));
+        float output;
+        CUDA_CHECK(cudaMemcpy(&output, d_output, sizeof(float), cudaMemcpyDeviceToHost));
 
         CUDA_CHECK(cudaFree(d_input));
         CUDA_CHECK(cudaFree(d_output));
@@ -129,12 +129,12 @@ double reduction(const ReductionOp op, const std::span<const double>& input)
         return output;
 }
 
-double full_reduction(const ReductionOp op, const std::span<const double>& input)
+float full_reduction(const ReductionOp op, const std::span<const float>& input)
 {
-        double *d_input, *d_output;
+        float *d_input, *d_output;
         int size = input.size();
         
-        size_t size_bytes = sizeof(double) * size;
+        size_t size_bytes = sizeof(float) * size;
         
         CUDA_CHECK(cudaMalloc(&d_input, size_bytes));
         CUDA_CHECK(cudaMalloc(&d_output, size_bytes));
@@ -145,8 +145,8 @@ double full_reduction(const ReductionOp op, const std::span<const double>& input
         CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaDeviceSynchronize());
         
-        double output;
-        CUDA_CHECK(cudaMemcpy(&output, d_output, sizeof(double), cudaMemcpyDeviceToHost));
+        float output;
+        CUDA_CHECK(cudaMemcpy(&output, d_output, sizeof(float), cudaMemcpyDeviceToHost));
 
         CUDA_CHECK(cudaFree(d_input));
         CUDA_CHECK(cudaFree(d_output));

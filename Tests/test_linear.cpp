@@ -4,7 +4,7 @@
 #include "tensor.hpp"
 #include "cuda_debug.h"
 
-using ::testing::DoubleNear;
+using ::testing::FloatNear;
 using ::testing::Pointwise;
 
 class LinearTest : public ::testing::TestWithParam<std::string> {
@@ -36,8 +36,8 @@ TEST_P(LinearTest, Forward) {
     Tensor_ptr output = l1.forward(input);
 
     EXPECT_THAT(output->values_vec(),
-        Pointwise(DoubleNear(1e-6),
-                std::vector<double>({
+        Pointwise(FloatNear(1e-5),
+                std::vector<float>({
                     0.14, 0.29, 0.44, 0.59, 0.74,
                     0.11, 0.20, 0.29, 0.38, 0.47
                 })));
@@ -51,8 +51,8 @@ TEST_P(LinearTest, SoftmaxForward) {
     Tensor_ptr output = s.forward(input);
 
     EXPECT_THAT(output->values_vec(),
-            Pointwise(DoubleNear(1e-4),
-                      std::vector<double>({0.3420, 0.3780, 0.2800})));
+            Pointwise(FloatNear(1e-4),
+                      std::vector<float>({0.3420, 0.3780, 0.2800})));
 }
 
 INSTANTIATE_TEST_SUITE_P(CPU, LinearTest, ::testing::Values("cpu"));

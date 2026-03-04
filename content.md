@@ -34,7 +34,7 @@
 
 ### rest
 - {} consistency andTyping also_consistency
-- double or float? Global memory is accessed via 32-byte memory transactions. https://docs.nvidia.com/cuda/cuda-programming-guide/02-basics/writing-cuda-kernels.html#coalesced-global-memory-access
+- float or float? Global memory is accessed via 32-byte memory transactions. https://docs.nvidia.com/cuda/cuda-programming-guide/02-basics/writing-cuda-kernels.html#coalesced-global-memory-access
 - what about stride in softmax for example? new result should have same stride or no?
 - https://docs.jax.dev/en/latest/notebooks/autodiff_cookbook.html#how-it-s-made-two-foundational-autodiff-functions
 - TODOs
@@ -42,7 +42,7 @@
 - move tensor operators
 - remove total_count
 - scalar
-    Tensor_ptr div = Tensor::init({1}, std::vector<double>{static_cast<double>(input->shape[0])});
+    Tensor_ptr div = Tensor::init({1}, std::vector<float>{static_cast<float>(input->shape[0])});
     result = result / div;
 - no grad
 - faster at() and strides

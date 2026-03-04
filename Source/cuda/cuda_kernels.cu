@@ -10,7 +10,7 @@ int g_cuda_kernel_launches = 0;
 #endif
 
 template <char Op>
-__global__ void binary_op_kernel(const double* input_A, const double* input_B, double* output, int size)
+__global__ void binary_op_kernel(const float* input_A, const float* input_B, float* output, int size)
 {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
     if (idx < size) {
@@ -21,7 +21,7 @@ __global__ void binary_op_kernel(const double* input_A, const double* input_B, d
     }
 }
 
-void launch_binary_op(const char op, const double* input_A, const double* input_B, double* output, int size) {
+void launch_binary_op(const char op, const float* input_A, const float* input_B, float* output, int size) {
 #ifdef CUDA_TEST
     g_cuda_kernel_launches++;
 #endif
@@ -40,9 +40,9 @@ void launch_binary_op(const char op, const double* input_A, const double* input_
 // -------------------
 
 __global__ void matmul_kernel(
-    const double* A,   // [Y, K]
-    const double* B,   // [K, X]
-    double* C,         // [Y, X]
+    const float* A,   // [Y, K]
+    const float* B,   // [K, X]
+    float* C,         // [Y, X]
     int K,
     int X,
     int Y)
@@ -51,7 +51,7 @@ __global__ void matmul_kernel(
     int col = blockIdx.x * blockDim.x + threadIdx.x; // output column
 
     if (row < Y && col < X) {
-        double sum = 0.0;
+        float sum = 0.0;
         for (int k = 0; k < K; ++k) {
             sum += A[row * K + k] *
                    B[k * X + col];
@@ -61,9 +61,9 @@ __global__ void matmul_kernel(
 }
 
 void launch_matmul(
-    const double* d_A,
-    const double* d_B,
-    double* d_C,
+    const float* d_A,
+    const float* d_B,
+    float* d_C,
     int K,
     int X,
     int Y)
@@ -87,9 +87,9 @@ void launch_matmul(
 
 // TODO: could be faster https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
 template <ReductionOp op>
-__global__ void reduction_kernel(const double* input, double* output, int size)
+__global__ void reduction_kernel(const float* input, float* output, int size)
 {
-    extern __shared__ double sharedArray[];
+    extern __shared__ float sharedArray[];
 
     int bidx = blockDim.x * blockIdx.x + threadIdx.x;
     int tidx = threadIdx.x;
@@ -115,14 +115,14 @@ __global__ void reduction_kernel(const double* input, double* output, int size)
     if (tidx == 0) output[blockIdx.x] = sharedArray[0];
 }
 
-int launch_reduction(const ReductionOp op, const double* input, double* output, int size) {
+int launch_reduction(const ReductionOp op, const float* input, float* output, int size) {
 #ifdef CUDA_TEST 
     g_cuda_kernel_launches++; 
 #endif 
 
     int block = 256; 
     int grid = cuda::ceil_div(size, block);
-    int shared_memory = sizeof(double) * block; 
+    int shared_memory = sizeof(float) * block; 
     switch (op) {
         case MAX: 
             reduction_kernel<MAX><<<grid, block, shared_memory>>>(input, output, size); 
@@ -142,12 +142,12 @@ int launch_reduction(const ReductionOp op, const double* input, double* output, 
 // ----------------------------------
 
 template <ReductionOp op>
-__global__ void reduction_kernel2(const double* input, double* output, int size)
+__global__ void reduction_kernel2(const float* input, float* output, int size)
 {
-    extern __shared__ double sharedArray[];
+    extern __shared__ float sharedArray[];
     int tidx = threadIdx.x;
     
-    double local_max = -DBL_MAX;
+    float local_max = -DBL_MAX;
     for (int i = tidx; i < size; i += blockDim.x)
         local_max = fmax(local_max, input[i]);
 
@@ -166,14 +166,14 @@ __global__ void reduction_kernel2(const double* input, double* output, int size)
     if (tidx == 0) *output = sharedArray[0];
 }
 
-void launch_full_reduction(const ReductionOp op, const double* input, double* output, int size) {
+void launch_full_reduction(const ReductionOp op, const float* input, float* output, int size) {
 #ifdef CUDA_TEST 
     g_cuda_kernel_launches++; 
 #endif 
 
     int block = 256; 
     int grid = cuda::ceil_div(size, block);
-    int shared_memory = sizeof(double) * block; 
+    int shared_memory = sizeof(float) * block; 
     switch (op) {
         case ReductionOp::MAX: 
             reduction_kernel2<ReductionOp::MAX><<<grid, block, shared_memory>>>(input, output, size); 
@@ -184,8 +184,8 @@ void launch_full_reduction(const ReductionOp op, const double* input, double* ou
 
 // -----------------
 
-__global__ void softmax_kernel2(const double* input, double* output, int N, int C) {
-    extern __shared__ double sharedArray[];
+__global__ void softmax_kernel2(const float* input, float* output, int N, int C) {
+    extern __shared__ float sharedArray[];
     int n = blockIdx.x;
     int c = threadIdx.x;
     
@@ -199,11 +199,11 @@ __global__ void softmax_kernel2(const double* input, double* output, int N, int 
         __syncthreads();
     }
 
-    double max_val = sharedArray[0];
+    float max_val = sharedArray[0];
     // printf("%d: %f\n", c, max_val);
     __syncthreads();
 
-    double exp_val;
+    float exp_val;
     if (active) {
         exp_val = exp(input[n * C + c] - max_val);
         sharedArray[c] = exp_val;
@@ -225,13 +225,13 @@ __global__ void softmax_kernel2(const double* input, double* output, int N, int 
     }
 }
 
-void launch_softmax2(const double* input, double* output, int N, int C) {
+void launch_softmax2(const float* input, float* output, int N, int C) {
 #ifdef CUDA_TEST
     g_cuda_kernel_launches++;
 #endif
     // one row per block
     int block = (C + 32 - 1) / 32 * 32;
-    size_t shared_memory_bytes = block * sizeof(double);
+    size_t shared_memory_bytes = block * sizeof(float);
     int grid = N;
 
     softmax_kernel2<<<grid, block, shared_memory_bytes>>>(input, output, N, C);

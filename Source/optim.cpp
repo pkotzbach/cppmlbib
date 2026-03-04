@@ -10,7 +10,7 @@ void Optimizer::zero_grad()
     }
 }
 
-Optimizer::Optimizer(std::vector<std::vector<Tensor_ptr>> params, double lr) : lr(lr)
+Optimizer::Optimizer(std::vector<std::vector<Tensor_ptr>> params, float lr) : lr(lr)
 {
     // flatten
     size_t total_size = 0;
