@@ -132,7 +132,6 @@ template <cuda::ReductionOp op>
 __global__ void reduction_kernel2(const double* input, double* output, int size)
 {
     extern __shared__ double sharedArray[];
-    int bidx = blockDim.x * blockIdx.x + threadIdx.x;
     int tidx = threadIdx.x;
     
     double local_max = -DBL_MAX;
@@ -177,33 +176,40 @@ __global__ void softmax_kernel2(const double* input, double* output, int N, int 
     int n = blockIdx.x;
     int c = threadIdx.x;
     
-    // TODO: doesnt it break __syncthreads?
-    if (c >= C) return;
-    
-    sharedArray[c] = input[n * C + c];
+    bool active = c < C;
+    sharedArray[c] = active? input[n * C + c]: -DBL_MAX;
     __syncthreads();
 
     for (int i = blockDim.x / 2; i > 0; i >>= 1) {
-        if (c < i && sharedArray[c] < sharedArray[c + i])
+        if (c < i && c + i < C && sharedArray[c] < sharedArray[c + i])
             sharedArray[c] = sharedArray[c + i];
         __syncthreads();
     }
 
     double max_val = sharedArray[0];
-    // printf("%d: %f\n", c, max_val);
+    printf("%d: %f\n", c, max_val);
     __syncthreads();
 
-    double exp_vals[1024];
-    exp_vals[c] = exp(input[n * C + c] - max_val);
-    sharedArray[c] = exp_vals[c];
+    double exp_val;
+    if (active) {
+        exp_val = exp(input[n * C + c] - max_val);
+        sharedArray[c] = exp_val;
+        printf("%d: %f\n", c, exp_val);
+    }
     __syncthreads();
 
     for (int i = blockDim.x / 2; i > 0; i >>= 1) {
-        if (c < i) sharedArray[c] += sharedArray[c + i];
+        if (c < i && c + i < C) {
+            printf("%d: %f += %f\n", c, sharedArray[c], sharedArray[c + i]);
+            sharedArray[c] += sharedArray[c + i];
+        }
         __syncthreads();
     }
     
-    output[n * C + c] = exp_vals[c] / sharedArray[0];
+    if (active) {
+        printf("%d: %f / %f\n", c, exp_val, sharedArray[0]);
+        output[n * C + c] = exp_val / sharedArray[0];
+    }
 }
 
 void launch_softmax2(const double* input, double* output, int N, int C) {
@@ -215,6 +221,5 @@ void launch_softmax2(const double* input, double* output, int N, int C) {
     size_t shared_memory_bytes = block * sizeof(double);
     int grid = N;
 
-    printf("block: %d, grid: %d\n", block, grid);
     softmax_kernel2<<<grid, block, shared_memory_bytes>>>(input, output, N, C);
 }

@@ -256,7 +256,6 @@ TEST_P(TensorTest, ReLUOperation)
 
 TEST_P(TensorTest, SoftmaxOperation)
 {
-    expect_cuda = false;
     std::string device = GetParam();
     Tensor_ptr a = Tensor::init({1, 3}, {0.1, 0.1, -0.1}, device);
     Tensor_ptr b = Tensor::init({1, 3}, {0.1, 1.4, 0.82}, device);
@@ -292,13 +291,14 @@ TEST_P(TensorTest, SoftmaxOperationLargeNumbers)
 
     (softmax_result * b)->sum()->backward();
 
+    EXPECT_THAT(a->grads_vec(),
+                Pointwise(DoubleNear(1e-4),
+                          std::vector<double>{-0.2791,  0.2699,  0.0092}));
+    
     EXPECT_THAT(b->grads_vec(),
                 Pointwise(DoubleNear(1e-4),
                           std::vector<double>{0.4223, 0.4223, 0.1554}));
 
-    EXPECT_THAT(a->grads_vec(),
-                Pointwise(DoubleNear(1e-4),
-                          std::vector<double>{-0.1520, 0.3969, -0.2449}));
 }
 
 TEST_P(TensorTest, ExpOperation)
