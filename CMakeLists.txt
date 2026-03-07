@@ -29,6 +29,9 @@ enable_testing()
 # CUDA
 find_package(CUDAToolkit REQUIRED)
 
+# OpenMP
+find_package(OpenMP REQUIRED)
+
 # Directories
 set(SRC_DIR         ${CMAKE_SOURCE_DIR}/Source)
 set(CUDA_SRC_DIR    ${SRC_DIR}/cuda)
@@ -57,11 +60,11 @@ target_include_directories(common_objs PUBLIC
 )
 
 target_link_libraries(common_objs PUBLIC
-    CUDA::cudart
+    CUDA::cudart OpenMP::OpenMP_CXX
 )
 
 target_compile_options(common_objs PRIVATE
-    $<$<COMPILE_LANGUAGE:CXX>:-g -Wall>
+    $<$<COMPILE_LANGUAGE:CXX>:-g -Wall -mavx512f -O3>
     $<$<COMPILE_LANGUAGE:CUDA>:-g>
 )
 
@@ -82,7 +85,7 @@ target_include_directories(debug PRIVATE
 )
 
 target_link_libraries(debug PRIVATE
-    CUDA::cudart
+    CUDA::cudart OpenMP::OpenMP_CXX
 )
 
 set_target_properties(debug PROPERTIES
@@ -108,6 +111,7 @@ target_link_libraries(tests PRIVATE
     GTest::gmock
     GTest::gmock_main
     CUDA::cudart
+    OpenMP::OpenMP_CXX
 )
 
 set_target_properties(tests PROPERTIES
@@ -135,6 +139,10 @@ set_target_properties(iris PROPERTIES
     CUDA_SEPARABLE_COMPILATION ON
 )
 
+target_link_libraries(iris PRIVATE
+    CUDA::cudart
+    OpenMP::OpenMP_CXX)
+
 # Benchmark
 add_executable(benchmark
     $<TARGET_OBJECTS:common_objs>
@@ -149,3 +157,7 @@ target_include_directories(benchmark PRIVATE
 set_target_properties(benchmark PROPERTIES
     CUDA_SEPARABLE_COMPILATION ON
 )
+
+target_link_libraries(benchmark PRIVATE
+    CUDA::cudart
+    OpenMP::OpenMP_CXX)

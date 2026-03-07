@@ -5,12 +5,13 @@
 #include <chrono>
 #include <random>
 #include <iomanip>
+#include <cstring>
+#include <format>
 #include <span>
 
 std::vector<float> generate_random_data(size_t size) {
     std::vector<float> data(size);
-    std::random_device rd;
-    std::mt19937 gen(rd());
+    std::mt19937 gen(42);
     std::uniform_real_distribution<float> dis(-1.0, 1.0);
     for (size_t i = 0; i < size; ++i) {
         data[i] = dis(gen);
@@ -55,44 +56,59 @@ bool check_correctness(float a, float b, float epsilon = 1e-4) {
     return std::abs(a - b) < epsilon;
 }
 
-void print_result(const std::string& name, int size, float avg_ms, float cpu_ms = -1.0, bool correct = true) {
+void print_result(const std::string& name, int size, float what_ms, float to_ms = -1.0, bool correct = true, 
+                  const std::string& what = "CUDA", const std::string& to = "CPU") {
     std::cout << std::left << std::setw(20) << name 
               << " | Size: " << std::setw(10) << size 
-              << " | CUDA: " << std::fixed << std::setprecision(4) << std::setw(10) << avg_ms << " ms";
-    if (cpu_ms > 0) {
-        std::cout << " | CPU: " << std::setw(10) << cpu_ms << " ms"
-                  << " | Speedup: " << std::setprecision(2) << cpu_ms / avg_ms << "x";
+              << std::format(" | {}: ", what) << std::fixed << std::setprecision(4) << std::setw(10) << what_ms << " ms";
+    if (to_ms > 0) {
+        std::cout << std::format(" | {}: ", to) << std::setw(10) << to_ms << " ms"
+                  << " | Speedup: " << std::setprecision(2) << to_ms / what_ms << "x";
     }
     std::cout << " | " << (correct ? "PASSED" : "FAILED") << std::endl;
 }
 
-int main() {
-    std::cout << "CUDA vs CPU Ops Benchmark & Verification" << std::endl;
-    std::cout << "-----------------------------------------" << std::endl;
-
-    // Matmul
-    // {
-    //     int sizes[] = {128, 256, 512};
-    //     for (int n : sizes) {
-    //         auto A = generate_random_data(n * n);
-    //         auto B = generate_random_data(n * n);
+void matmul() {
+        int sizes[] = {128, 256, 512, 1024, 2048};
+        for (int n : sizes) {
+            auto A = generate_random_data(n * n);
+            auto B = generate_random_data(n * n);
             
-    //         auto gpu_res = cuda::matmul(A, B, n, n, n);
-    //         auto cpu_res = cpu::matmul(A, B, n, n, n);
-    //         bool correct = check_correctness(gpu_res, cpu_res);
+            auto gpu_res = cuda::matmul(A, B, n, n, n);
+            auto cpu_res = cpu::matmul(A, B, n, n, n);
+            bool correct = check_correctness(gpu_res, cpu_res);
 
-    //         float avg_gpu = benchmark([&]() {
-    //             cuda::matmul(A, B, n, n, n);
-    //         }, 5);
-    //         float avg_cpu = benchmark([&]() {
-    //             cpu::matmul(A, B, n, n, n);
-    //         }, 1);
-    //         print_result("Matmul", n, avg_gpu, avg_cpu, correct);
-    //     }
-    // }
+            float avg_gpu = benchmark([&]() {
+                cuda::matmul(A, B, n, n, n);
+            }, 5);
+            float avg_cpu = benchmark([&]() {
+                cpu::matmul(A, B, n, n, n);
+            }, 1);
+            print_result("Matmul", n, avg_gpu, avg_cpu, correct);
+        }
+    }
 
-    // Binary ops
-    {
+void matmul_cpu() {
+        int sizes[] = {128, 256, 512};
+        for (int n : sizes) {
+            auto A = generate_random_data(n * n);
+            auto B = generate_random_data(n * n);
+            
+            auto opt_res = cpu::matmul(A, B, n, n, n);
+            auto naive_res = cpu::matmul_naive(A, B, n, n, n);
+            bool correct = check_correctness(opt_res, naive_res);
+
+            float avg_opt = benchmark([&]() {
+                cpu::matmul(A, B, n, n, n);
+            }, 100);
+            float avg_naive = benchmark([&]() {
+                cpu::matmul_naive(A, B, n, n, n);
+            }, 100);
+            print_result("Matmul (CPU)", n, avg_opt, avg_naive, correct, "OPT", "NAIVE");
+        }
+    }
+
+void binary() {
         int sizes[] = {1000000, 10000000};
         for (int n : sizes) {
             auto A = generate_random_data(n);
@@ -115,10 +131,9 @@ int main() {
             }, 5);
             print_result("Binary Op (+)", n, avg_gpu, avg_cpu, correct);
         }
-    }
+}
 
-    // 3. Softmax Benchmark
-    {
+void softmax() {
         int N = 1024;
         int C = 256; 
         int size = N * C;
@@ -137,10 +152,9 @@ int main() {
             cpu::softmax(input, cpu_res, N, C);
         }, 5);
         print_result("Softmax", N * C, avg_gpu, avg_cpu, correct);
-    }
+}
 
-    // 4. Reduction Benchmark (MAX)
-    {
+void reduction() {
         int sizes[] = {1000000, 10000000};
         for (int n : sizes) {
             auto input = generate_random_data(n);
@@ -160,6 +174,20 @@ int main() {
         }
     }
 
-    std::cout << "--------------------------------------------------------" << std::endl;
+int main(int argc, char* argv[]) {
+    if (argc > 1) {
+        for (int i = 0; i < argc; ++i) {
+            if (strcmp(argv[i], "matmul") == 0) matmul();
+            if (strcmp(argv[i], "matmul_cpu") == 0) matmul_cpu();
+            if (strcmp(argv[i], "binary") == 0) binary();
+            if (strcmp(argv[i], "softmax") == 0) softmax();
+            if (strcmp(argv[i], "reduction") == 0) reduction();
+        }
+    } else {
+        matmul();
+        binary();
+        softmax();
+        reduction();
+    }
     return 0;
 }

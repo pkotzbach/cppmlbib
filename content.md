@@ -15,6 +15,7 @@
 
 ## TODO
 ### cuda
+- faster ops with floats
 - cuda launchers?
 - cuda streams
 - https://docs.nvidia.com/cuda/cuda-programming-guide/02-basics/asynchronous-execution.html#async-execution-memory-transfers
@@ -49,3 +50,4 @@
 - consts Each SM also has a separate constant cache, which is used to cache values in global memory that have been declared to be constant over the life of a kernel
 - values_vec to continous_values?
 - tests should have common header with this CUDA stuff
+- google benchmark
