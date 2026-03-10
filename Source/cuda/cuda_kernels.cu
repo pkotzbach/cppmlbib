@@ -39,48 +39,71 @@ void launch_binary_op(const char op, const float* input_A, const float* input_B,
 
 // -------------------
 
-__global__ void matmul_kernel(
-    const float* A,   // [Y, K]
-    const float* B,   // [K, X]
-    float* C,         // [Y, X]
-    int K,
-    int X,
-    int Y)
+__global__ void matmul_kernel_naive(const float* A, const float* B, float* C, int K, int X, int Y)
 {
-    int row = blockIdx.y * blockDim.y + threadIdx.y; // batch
-    int col = blockIdx.x * blockDim.x + threadIdx.x; // output column
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-    if (row < Y && col < X) {
+    if (y < Y && x < X) {
         float sum = 0.0;
         for (int k = 0; k < K; ++k) {
-            sum += A[row * K + k] *
-                   B[k * X + col];
+            sum += A[y * K + k] * B[k * X + x];
         }
-        C[row * X + col] = sum;
+        C[y * X + x] = sum;
     }
 }
 
-void launch_matmul(
-    const float* d_A,
-    const float* d_B,
-    float* d_C,
-    int K,
-    int X,
-    int Y)
+void launch_matmul_naive(const float* d_A, const float* d_B, float* d_C, int K, int X, int Y)
 {
 #ifdef CUDA_TEST
     g_cuda_kernel_launches++;
 #endif
 
     dim3 block(16, 16);
-    dim3 grid(
-        (X + block.x - 1) / block.x,
-        (Y + block.y - 1) / block.y
-    );
+    dim3 grid(cuda::ceil_div(X, block.x), cuda::ceil_div(Y, block.y));
 
-    matmul_kernel<<<grid, block>>>(
-        d_A, d_B, d_C, K, X, Y
-    );
+    matmul_kernel_naive<<<grid, block>>>(d_A, d_B, d_C, K, X, Y);
+}
+
+
+__global__ void matmul_kernel(const float* A, const float* B, float* C, int K, int X, int Y)
+{
+    const int block_dim = blockDim.x; // == blockDim.y
+
+    extern __shared__ float shared_A[];
+    float* shared_B = shared_A + block_dim * block_dim;
+
+    int x = blockIdx.x * block_dim + threadIdx.x;
+    int y = blockIdx.y * block_dim + threadIdx.y;
+
+    if (y < Y && x < X) {
+        float sum = 0.0;
+        for (int i = 0; i < block_dim; ++i) {
+            shared_A[threadIdx.y * block_dim + threadIdx.x] = A[y * K + (i * block_dim + threadIdx.x)];
+            shared_B[threadIdx.y * block_dim + threadIdx.x] = B[i * block_dim * X + (threadIdx.y * block_dim + x)];
+            __syncthreads();
+
+            for (int k = 0; k < K; ++k) {
+                sum += shared_A[threadIdx.y * block_dim + k] * shared_B[k * block_dim + threadIdx.x];
+            }
+            __syncthreads();
+        }
+        C[y * X + x] = sum;
+    }
+}
+
+void launch_matmul(const float* d_A, const float* d_B, float* d_C, int K, int X, int Y)
+{
+#ifdef CUDA_TEST
+    g_cuda_kernel_launches++;
+#endif
+    const int block_dim = 16;
+    dim3 block(block_dim, block_dim);
+    dim3 grid(cuda::ceil_div(X, block.x), cuda::ceil_div(Y, block.y));
+
+    int shared_memory = 2 * sizeof(float) * block_dim * block_dim; 
+
+    matmul_kernel<<<grid, block, shared_memory>>>(d_A, d_B, d_C, K, X, Y);
 }
 
 // ----------------------------------

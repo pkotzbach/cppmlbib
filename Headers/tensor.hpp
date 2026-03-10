@@ -14,6 +14,7 @@ typedef std::shared_ptr<Tensor> Tensor_ptr;
 class Tensor : public std::enable_shared_from_this<Tensor>
 {
 private:
+    // TODO: should be aligned?
     std::shared_ptr<float[]> values;
     std::shared_ptr<float[]> grads;
 

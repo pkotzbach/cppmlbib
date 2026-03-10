@@ -5,6 +5,7 @@
 
 namespace cuda {
     ::std::vector<float> matmul(const ::std::vector<float>& matrix_A, const ::std::vector<float>& matrix_B, int K, int X, int Y);
+    ::std::vector<float> matmul_naive(const ::std::vector<float>& matrix_A, const ::std::vector<float>& matrix_B, int K, int X, int Y);
     ::std::vector<float> binary_op(const char op, const ::std::vector<float>& matrix_A, const ::std::vector<float>& matrix_B, int size);
     void softmax(const ::std::vector<float>& input, float* output, int N, int C);
 

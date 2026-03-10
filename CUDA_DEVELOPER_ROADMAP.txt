@@ -1,0 +1,38 @@
+# CUDA Developer Roadmap for cppmlbib
+
+To get a job as a CUDA developer, you need to move beyond "functional" kernels and show "performance-aware" engineering. Here is what you should add to this project to impress recruiters:
+
+## 1. Professional Optimization Techniques
+*   **Tiled Matrix Multiplication:** Your current `matmul_kernel` is naive and memory-bound. Implement a **Tiled Matmul using Shared Memory**. This is a classic interview question and demonstrates you understand the memory hierarchy (Global vs. Shared vs. Registers).
+*   **Memory Coalescing:** Ensure all global memory accesses are coalesced. Document where you've optimized for this.
+*   **Warp-Level Primitives:** Use `__shfl_sync` (shuffle) for reductions instead of shared memory when possible. This shows you know how the hardware works at the warp level.
+*   **Avoid Bank Conflicts:** In your shared memory reductions/softmax, ensure you aren't hitting bank conflicts.
+
+## 2. Industry Standard Libraries (Hybrid Approach)
+*   **cuBLAS Integration:** While writing kernels shows fundamental knowledge, a pro uses libraries for standard ops. Add a toggle or a `Tensor::matmul` implementation that uses `cublasSgemm`.
+*   **cuDNN Integration:** If you add Convolutions (CNNs), use cuDNN. Knowing how to interface with NVIDIA's proprietary libraries is a must.
+*   **Thrust:** Use Thrust for complex reductions or sorts to show you can write high-level, maintainable CUDA code.
+
+## 3. Advanced CUDA Features
+*   **CUDA Streams:** Currently, your operations are likely synchronous on the default stream. Implement **Asynchronous Data Transfers** and overlap kernel execution with `cudaMemcpyAsync`.
+*   **Unified Memory (Managed Memory):** Demonstrate knowledge of `cudaMallocManaged` vs. manual `cudaMalloc/cudaMemcpy`.
+*   **Pinned Memory:** Use `cudaHostAlloc` for faster host-to-device transfers.
+
+## 4. Performance Analysis & Profiling (CRITICAL)
+*   **Nsight Systems / Nsight Compute:** Profile your kernels. Add a folder to the repo called `profiling/` and include screenshots or reports showing:
+    *   Kernel Occupancy.
+    *   Memory Throughput.
+    *   Compute vs. Memory bound analysis.
+*   **Benchmarking Script:** Your `benchmark.cpp` is a good start. Expand it to compare your custom kernels vs. cuBLAS.
+
+## 5. Architectural Improvements
+*   **Mixed Precision (FP16/Tensor Cores):** Since you just switched to `float`, the next step is `half` (FP16). Utilizing Tensor Cores is the "gold standard" for modern ML CUDA development.
+*   **C++ Template Meta-programming:** Use templates to handle different data types (float, half, int8) without duplicating kernel code.
+
+## 6. Testing & CI
+*   **GPU Unit Tests:** You have tests, but do you have a CI (like GitHub Actions) that runs them on a GPU? (Requires a self-hosted runner or specialized cloud provider). This shows you care about production reliability.
+
+## Summary: The "Hero" Feature
+Pick one: 
+1.  **Fastest Matmul in the world (or close to it):** Write a kernel that gets within 80-90% of cuBLAS performance.
+2.  **Custom Op:** Implement a fused kernel (e.g., `Linear + ReLU + Dropout` in one kernel) to show you understand how to minimize memory round-trips.

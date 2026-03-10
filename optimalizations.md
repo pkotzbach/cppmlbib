@@ -7,5 +7,5 @@
 - **Raw Pointer Access:** Used direct pointer access to vector data to avoid the overhead of `std::vector` bounds checking or iterator abstractions in hot loops.
 
 more:
-- manual unrolling with full utility of zmm
+- manual unrolling with full utility of zmm https://github.com/flame/how-to-optimize-gemm/wiki#computing-a-4-x-4-block-of-c-at-a-time
 - aligned memory

@@ -1,23 +1,13 @@
 #include "cuda_ops.hpp"
 #include "cpu_ops.hpp"
+#include "examples_helpers.hpp"
 #include <iostream>
 #include <vector>
 #include <chrono>
-#include <random>
 #include <iomanip>
 #include <cstring>
 #include <format>
 #include <span>
-
-std::vector<float> generate_random_data(size_t size) {
-    std::vector<float> data(size);
-    std::mt19937 gen(42);
-    std::uniform_real_distribution<float> dis(-1.0, 1.0);
-    for (size_t i = 0; i < size; ++i) {
-        data[i] = dis(gen);
-    }
-    return data;
-}
 
 template<typename Func>
 float benchmark(Func func, int iterations = 10) {
@@ -121,7 +111,7 @@ void matmul_cpu() {
     }
 
 void matmul_opt() {
-        int sizes[] = {128, 256, 512, 1024, 2048};
+        int sizes[] = {128, 256, 1024, 2000, 2048};
         for (int n : sizes) {
             auto A = generate_random_data(n * n);
             auto B = generate_random_data(n * n);
@@ -132,10 +122,10 @@ void matmul_opt() {
 
             float avg_opt = benchmark([&]() {
                 cuda::matmul(A, B, n, n, n);
-            }, 100);
+            }, 10);
             float avg_naive = benchmark([&]() {
                 cuda::matmul_naive(A, B, n, n, n);
-            }, 100);
+            }, 10);
             long long ops = 2LL * n * n * n;
             print_result("Matmul (CUDA)", n, avg_opt, avg_naive, correct, "OPT", "NAIVE", ops);
         }
