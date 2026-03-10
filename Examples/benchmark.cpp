@@ -57,13 +57,23 @@ bool check_correctness(float a, float b, float epsilon = 1e-4) {
 }
 
 void print_result(const std::string& name, int size, float what_ms, float to_ms = -1.0, bool correct = true, 
-                  const std::string& what = "CUDA", const std::string& to = "CPU") {
+                  const std::string& what = "CUDA", const std::string& to = "CPU", long long ops = -1) {
     std::cout << std::left << std::setw(20) << name 
               << " | Size: " << std::setw(10) << size 
               << std::format(" | {}: ", what) << std::fixed << std::setprecision(4) << std::setw(10) << what_ms << " ms";
+    
+    if (ops > 0) {
+        float gflops = (float)ops / (what_ms * 1e6);
+        std::cout << " (" << std::fixed << std::setprecision(2) << std::setw(8) << gflops << " GFLOPS)";
+    }
+
     if (to_ms > 0) {
-        std::cout << std::format(" | {}: ", to) << std::setw(10) << to_ms << " ms"
-                  << " | Speedup: " << std::setprecision(2) << to_ms / what_ms << "x";
+        std::cout << std::format(" | {}: ", to) << std::fixed << std::setprecision(4) << std::setw(10) << to_ms << " ms";
+        if (ops > 0) {
+            float gflops_to = (float)ops / (to_ms * 1e6);
+            std::cout << " (" << std::fixed << std::setprecision(2) << std::setw(8) << gflops_to << " GFLOPS)";
+        }
+        std::cout << " | Speedup: " << std::fixed << std::setprecision(2) << to_ms / what_ms << "x";
     }
     std::cout << " | " << (correct ? "PASSED" : "FAILED") << std::endl;
 }
@@ -84,7 +94,8 @@ void matmul() {
             float avg_cpu = benchmark([&]() {
                 cpu::matmul(A, B, n, n, n);
             }, 1);
-            print_result("Matmul", n, avg_gpu, avg_cpu, correct);
+            long long ops = 2LL * n * n * n;
+            print_result("Matmul", n, avg_gpu, avg_cpu, correct, "CUDA", "CPU", ops);
         }
     }
 
@@ -104,7 +115,29 @@ void matmul_cpu() {
             float avg_naive = benchmark([&]() {
                 cpu::matmul_naive(A, B, n, n, n);
             }, 100);
-            print_result("Matmul (CPU)", n, avg_opt, avg_naive, correct, "OPT", "NAIVE");
+            long long ops = 2LL * n * n * n;
+            print_result("Matmul (CPU)", n, avg_opt, avg_naive, correct, "OPT", "NAIVE", ops);
+        }
+    }
+
+void matmul_opt() {
+        int sizes[] = {128, 256, 512, 1024, 2048};
+        for (int n : sizes) {
+            auto A = generate_random_data(n * n);
+            auto B = generate_random_data(n * n);
+            
+            auto opt_res = cuda::matmul(A, B, n, n, n);
+            auto naive_res = cuda::matmul_naive(A, B, n, n, n);
+            bool correct = check_correctness(opt_res, naive_res);
+
+            float avg_opt = benchmark([&]() {
+                cuda::matmul(A, B, n, n, n);
+            }, 100);
+            float avg_naive = benchmark([&]() {
+                cuda::matmul_naive(A, B, n, n, n);
+            }, 100);
+            long long ops = 2LL * n * n * n;
+            print_result("Matmul (CUDA)", n, avg_opt, avg_naive, correct, "OPT", "NAIVE", ops);
         }
     }
 
@@ -129,7 +162,7 @@ void binary() {
                     cpu_res[i] = A[i] + B[i];
                 }
             }, 5);
-            print_result("Binary Op (+)", n, avg_gpu, avg_cpu, correct);
+            print_result("Binary Op (+)", n, avg_gpu, avg_cpu, correct, "CUDA", "CPU", (long long)n);
         }
 }
 
@@ -151,7 +184,8 @@ void softmax() {
         float avg_cpu = benchmark([&]() {
             cpu::softmax(input, cpu_res, N, C);
         }, 5);
-        print_result("Softmax", N * C, avg_gpu, avg_cpu, correct);
+        long long ops = 5LL * N * C;
+        print_result("Softmax", N * C, avg_gpu, avg_cpu, correct, "CUDA", "CPU", ops);
 }
 
 void reduction() {
@@ -170,7 +204,7 @@ void reduction() {
             float avg_cpu = benchmark([&]() {
                 *std::max_element(input.begin(), input.end());
             }, 5);
-            print_result("Reduction (MAX)", n, avg_gpu, avg_cpu, correct);
+            print_result("Reduction (MAX)", n, avg_gpu, avg_cpu, correct, "CUDA", "CPU", (long long)n);
         }
     }
 
@@ -179,6 +213,7 @@ int main(int argc, char* argv[]) {
         for (int i = 0; i < argc; ++i) {
             if (strcmp(argv[i], "matmul") == 0) matmul();
             if (strcmp(argv[i], "matmul_cpu") == 0) matmul_cpu();
+            if (strcmp(argv[i], "matmul_opt") == 0) matmul_opt();
             if (strcmp(argv[i], "binary") == 0) binary();
             if (strcmp(argv[i], "softmax") == 0) softmax();
             if (strcmp(argv[i], "reduction") == 0) reduction();
