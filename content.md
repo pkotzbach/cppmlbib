@@ -51,3 +51,4 @@
 - values_vec to continous_values?
 - tests should have common header with this CUDA stuff
 - google benchmark
+- https://ajcr.net/stride-guide-part-1/ - do something with strides (slow)

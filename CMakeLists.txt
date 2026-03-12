@@ -65,7 +65,7 @@ target_link_libraries(common_objs PUBLIC
 
 target_compile_options(common_objs PRIVATE
     $<$<COMPILE_LANGUAGE:CXX>:-g -Wall -mavx512f -O3>
-    $<$<COMPILE_LANGUAGE:CUDA>:-g>
+    $<$<COMPILE_LANGUAGE:CUDA>:-g -G>
 )
 
 set_target_properties(common_objs PROPERTIES

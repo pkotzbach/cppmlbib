@@ -36,3 +36,11 @@ std::vector<float> generate_random_data(size_t size) {
     }
     return data;
 }
+
+std::vector<float> generate_following_data(size_t size) {
+    std::vector<float> data(size);
+    for (size_t i = 0; i < size; ++i) {
+        data[i] = i;
+    }
+    return data;
+}
