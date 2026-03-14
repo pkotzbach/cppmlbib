@@ -72,52 +72,53 @@ void launch_matmul_naive(const float* d_A, const float* d_B, float* d_C, int K, 
 #define BLOCK_Y 64
 __global__ void matmul_kernel(const float* A, const float* B, float* C, int K, int X, int Y)
 {
-    __shared__ float shared_A[BLOCK_Y * BLOCK_K];
-    __shared__ float shared_B[BLOCK_K * BLOCK_X];
+    __shared__ float sA[BLOCK_Y * BLOCK_K];
+    __shared__ float sB[BLOCK_K * BLOCK_X];
 
-    const int shared_A_x = threadIdx.x % BLOCK_K;
-    const int shared_A_y = threadIdx.x / BLOCK_K;
+    const int block_steps = BLOCK_X / PER_THREAD; // or BLOCK_Y
     
-    const int shared_B_x = threadIdx.x % BLOCK_X;
-    const int shared_B_y = threadIdx.x / BLOCK_X;
+    const int thread_x = threadIdx.x % block_steps;
+    const int thread_y = threadIdx.x / block_steps;
 
-    const int thread_x = threadIdx.x % BLOCK_X;
-    const int thread_y = threadIdx.x / BLOCK_X;
+    float sum[PER_THREAD * PER_THREAD] = {0};
 
-    int A_x = threadIdx.x % BLOCK_K;
-    int A_y = blockIdx.y * BLOCK_Y + threadIdx.x / BLOCK_K;
+    float regA[PER_THREAD] = {0};
+    float regB[PER_THREAD] = {0};
 
-    int B_x = blockIdx.x * BLOCK_X + threadIdx.x % BLOCK_X;
-    int B_y = threadIdx.x / BLOCK_X;
+    for (int k = 0; k < K; k += BLOCK_K) {
 
-    const int sums = PER_THREAD;
-    float sum[sums] = {0};
-    for (int i = 0; i < K; i += BLOCK_K) {
-        A_x = i + shared_A_x;
-        B_y = i + shared_B_y;
-
-        shared_A[shared_A_y * BLOCK_K + shared_A_x] = A[A_y * K + A_x];
-        shared_B[shared_B_y * BLOCK_X + shared_B_x] = B[B_y * X + B_x];
+        for (int y = 0; y < block_steps; ++y) {
+            int offset = y * PER_THREAD;
+            sA[(thread_y + offset) * BLOCK_K + thread_x] = A[(blockIdx.y * BLOCK_Y + thread_y + offset) * K + thread_x + k];
+            sB[y * BLOCK_X + threadIdx.x] = B[(k + y) * X + blockIdx.x * BLOCK_X + threadIdx.x];
+        }
 
         __syncthreads();
 
-        for (int k = 0; k < BLOCK_K; ++k) {
-            float blocked_B = shared_B[k * BLOCK_X + shared_B_x];
-            for (int y = 0; y < PER_THREAD; ++y) {
-                int current_y = thread_y * PER_THREAD + y;
-                sum[y] += shared_A[current_y * BLOCK_K + k] * blocked_B;
+        // inner loop
+        for (int k_in = 0; k_in < PER_THREAD; ++k_in) {
+            for (int i = 0; i < PER_THREAD; ++i) {
+                regA[i] = sA[(thread_y * PER_THREAD + i) * BLOCK_K + k_in];
+                regB[i] = sB[k_in * BLOCK_X + thread_x * PER_THREAD + i];
+            }
+
+            for (int i = 0; i < PER_THREAD; ++i) {
+                for (int j = 0; j < PER_THREAD; ++j) {
+                    sum[i * PER_THREAD + j] += regA[i] * regB[j];
+                }
             }
         }
 
         __syncthreads();
     }
 
-    for (int i = 0; i < PER_THREAD; ++i) {
-        int C_x = blockIdx.x * BLOCK_X + thread_x;
-        int C_y = blockIdx.y * BLOCK_Y + thread_y * PER_THREAD + i;
+    for (int y = 0; y < PER_THREAD; ++y)
+        for (int x = 0; x < PER_THREAD; ++x) {
+            int C_y = blockIdx.y * BLOCK_Y + thread_y * PER_THREAD + y;
+            int C_x = blockIdx.x * BLOCK_X + thread_x * PER_THREAD + x;
 
-        C[C_y * X + C_x] = sum[i];
-    }
+            C[C_y * X + C_x] = sum[y * PER_THREAD + x];
+        }
 }
 
 void launch_matmul(const float* d_A, const float* d_B, float* d_C, int K, int X, int Y)
@@ -125,10 +126,10 @@ void launch_matmul(const float* d_A, const float* d_B, float* d_C, int K, int X,
 #ifdef CUDA_TEST
     g_cuda_kernel_launches++;
 #endif
-    static_assert(BLOCK_X * BLOCK_K == BLOCK_Y * BLOCK_K);
+    static_assert(BLOCK_X == BLOCK_Y);
     static_assert(BLOCK_Y / PER_THREAD == PER_THREAD);
     dim3 grid(cuda::ceil_div(X, BLOCK_X), cuda::ceil_div(Y, BLOCK_Y));
-    dim3 block(BLOCK_X * BLOCK_K); // or BLOCK_Y * BLOCK_K
+    dim3 block(BLOCK_X / PER_THREAD * BLOCK_Y / PER_THREAD);
 
     matmul_kernel<<<grid, block>>>(d_A, d_B, d_C, K, X, Y);
 }
