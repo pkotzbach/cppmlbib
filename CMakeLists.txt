@@ -60,7 +60,7 @@ target_include_directories(common_objs PUBLIC
 )
 
 target_link_libraries(common_objs PUBLIC
-    CUDA::cudart OpenMP::OpenMP_CXX
+    CUDA::cudart CUDA::cublas OpenMP::OpenMP_CXX
 )
 
 target_compile_options(common_objs PRIVATE
@@ -85,7 +85,7 @@ target_include_directories(debug PRIVATE
 )
 
 target_link_libraries(debug PRIVATE
-    CUDA::cudart OpenMP::OpenMP_CXX
+    CUDA::cudart CUDA::cublas OpenMP::OpenMP_CXX
 )
 
 set_target_properties(debug PROPERTIES
@@ -111,6 +111,7 @@ target_link_libraries(tests PRIVATE
     GTest::gmock
     GTest::gmock_main
     CUDA::cudart
+    CUDA::cublas
     OpenMP::OpenMP_CXX
 )
 
@@ -141,6 +142,7 @@ set_target_properties(iris PROPERTIES
 
 target_link_libraries(iris PRIVATE
     CUDA::cudart
+    CUDA::cublas
     OpenMP::OpenMP_CXX)
 
 # Benchmark
@@ -160,4 +162,5 @@ set_target_properties(benchmark PROPERTIES
 
 target_link_libraries(benchmark PRIVATE
     CUDA::cudart
+    CUDA::cublas
     OpenMP::OpenMP_CXX)

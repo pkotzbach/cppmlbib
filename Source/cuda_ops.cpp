@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cuda_runtime.h>
+#include <cublas_v2.h>
 #include <stdexcept>
 
 #define CUDA_CHECK(x) do { \
@@ -10,6 +11,15 @@
     if (err != cudaSuccess) { \
         printf("CUDA error %s at %s:%d\n", \
                cudaGetErrorString(err), __FILE__, __LINE__); \
+        exit(1); \
+    } \
+} while (0)
+
+#define CUBLAS_CHECK(x) do { \
+    cublasStatus_t status = x; \
+    if (status != CUBLAS_STATUS_SUCCESS) { \
+        printf("cuBLAS error %d at %s:%d\n", \
+               status, __FILE__, __LINE__); \
         exit(1); \
     } \
 } while (0)
@@ -64,6 +74,51 @@ std::vector<float> matmul_naive(const std::vector<float>& matrix_A, const std::v
         launch_matmul_naive(d_matrix_A, d_matrix_B, d_output, K, X, Y);
 
         CUDA_CHECK(cudaGetLastError());
+        CUDA_CHECK(cudaDeviceSynchronize());
+
+        CUDA_CHECK(cudaMemcpy(output.data(), d_output, output_bytes, cudaMemcpyDeviceToHost));
+
+        CUDA_CHECK(cudaFree(d_matrix_A));
+        CUDA_CHECK(cudaFree(d_matrix_B));
+        CUDA_CHECK(cudaFree(d_output));
+        
+        return output;
+}
+
+std::vector<float> matmul_cublas(const std::vector<float>& matrix_A, const std::vector<float>& matrix_B, int K, int X, int Y)
+{
+        static cublasHandle_t handle = nullptr;
+        if (handle == nullptr) {
+                CUBLAS_CHECK(cublasCreate(&handle));
+                CUBLAS_CHECK(cublasSetMathMode(handle, CUBLAS_PEDANTIC_MATH));
+        }
+
+        float *d_matrix_A, *d_matrix_B, *d_output;
+        std::vector<float> output(X*Y);
+
+        size_t matrix_A_bytes = Y * K * sizeof(float);
+        size_t matrix_B_bytes = X * K * sizeof(float);
+        size_t output_bytes = Y * X * sizeof(float);
+
+        CUDA_CHECK(cudaMalloc(&d_matrix_A, matrix_A_bytes));
+        CUDA_CHECK(cudaMalloc(&d_matrix_B, matrix_B_bytes));
+        CUDA_CHECK(cudaMalloc(&d_output, output_bytes));
+        CUDA_CHECK(cudaMemcpy(d_matrix_A, matrix_A.data(), matrix_A_bytes, cudaMemcpyHostToDevice));
+        CUDA_CHECK(cudaMemcpy(d_matrix_B, matrix_B.data(), matrix_B_bytes, cudaMemcpyHostToDevice));
+
+        float alpha = 1.0f;
+        float beta = 0.0f;
+
+        // cublas is column-major. We want C(Y, X) = A(Y, K) * B(K, X) in row-major.
+        // This is equivalent to C^T(X, Y) = B^T(X, K) * A^T(K, Y) in column-major.
+        CUBLAS_CHECK(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 
+                                 X, Y, K, 
+                                 &alpha, 
+                                 d_matrix_B, X, 
+                                 d_matrix_A, K, 
+                                 &beta, 
+                                 d_output, X));
+
         CUDA_CHECK(cudaDeviceSynchronize());
 
         CUDA_CHECK(cudaMemcpy(output.data(), d_output, output_bytes, cudaMemcpyDeviceToHost));

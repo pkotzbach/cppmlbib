@@ -75,17 +75,22 @@ void matmul() {
             auto B = generate_random_data(n * n);
             
             auto gpu_res = cuda::matmul(A, B, n, n, n);
+            auto cublas_res = cuda::matmul_cublas(A, B, n, n, n);
             auto cpu_res = cpu::matmul(A, B, n, n, n);
-            bool correct = check_correctness(gpu_res, cpu_res);
+            bool correct = check_correctness(gpu_res, cpu_res) && check_correctness(cublas_res, cpu_res);
 
             float avg_gpu = benchmark([&]() {
                 cuda::matmul(A, B, n, n, n);
+            }, 5);
+            float avg_cublas = benchmark([&]() {
+                cuda::matmul_cublas(A, B, n, n, n);
             }, 5);
             float avg_cpu = benchmark([&]() {
                 cpu::matmul(A, B, n, n, n);
             }, 1);
             long long ops = 2LL * n * n * n;
             print_result("Matmul", n, avg_gpu, avg_cpu, correct, "CUDA", "CPU", ops);
+            print_result("Matmul (vs cuBLAS)", n, avg_gpu, avg_cublas, correct, "GPU", "cuBLAS", ops);
         }
     }
 
@@ -128,6 +133,27 @@ void matmul_opt() {
             }, 10);
             long long ops = 2LL * n * n * n;
             print_result("Matmul (CUDA)", n, avg_opt, avg_naive, correct, "OPT", "NAIVE", ops);
+        }
+    }
+
+void matmul_vs_cublas() {
+        int sizes[] = {128, 256, 1024, 2000, 2048, 4096};
+        for (int n : sizes) {
+            auto A = generate_random_data(n * n);
+            auto B = generate_random_data(n * n);
+            
+            auto opt_res = cuda::matmul(A, B, n, n, n);
+            auto cublas_res = cuda::matmul_cublas(A, B, n, n, n);
+            bool correct = check_correctness(opt_res, cublas_res, 1e-2);
+
+            float avg_opt = benchmark([&]() {
+                cuda::matmul(A, B, n, n, n);
+            }, 10);
+            float avg_cublas = benchmark([&]() {
+                cuda::matmul_cublas(A, B, n, n, n);
+            }, 10);
+            long long ops = 2LL * n * n * n;
+            print_result("Matmul (vs cuBLAS)", n, avg_opt, avg_cublas, correct, "OPT", "cuBLAS", ops);
         }
     }
 
@@ -204,12 +230,14 @@ int main(int argc, char* argv[]) {
             if (strcmp(argv[i], "matmul") == 0) matmul();
             if (strcmp(argv[i], "matmul_cpu") == 0) matmul_cpu();
             if (strcmp(argv[i], "matmul_opt") == 0) matmul_opt();
+            if (strcmp(argv[i], "matmul_cublas") == 0) matmul_vs_cublas();
             if (strcmp(argv[i], "binary") == 0) binary();
             if (strcmp(argv[i], "softmax") == 0) softmax();
             if (strcmp(argv[i], "reduction") == 0) reduction();
         }
     } else {
         matmul();
+        matmul_vs_cublas();
         binary();
         softmax();
         reduction();
