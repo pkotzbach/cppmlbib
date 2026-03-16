@@ -85,12 +85,20 @@ __global__ void matmul_kernel(const float* A, const float* B, float* C, int K, i
     float regA[PER_THREAD] = {0};
     float regB[PER_THREAD] = {0};
 
+    // float4 ids
+    const int a_row = threadIdx.x / 2;
+    const int a_col = (threadIdx.x % 2) * 4;
+    const int b_row = threadIdx.x / 16;
+    const int b_col = (threadIdx.x % 16) * 4;
+
     for (int k = 0; k < K; k += BLOCK_K) {
 
-        for (int y = 0; y < block_steps; ++y) {
-            int offset = y * PER_THREAD;
-            sA[(thread_y + offset) * BLOCK_K + thread_x] = A[(blockIdx.y * BLOCK_Y + thread_y + offset) * K + thread_x + k];
-            sB[y * BLOCK_X + threadIdx.x] = B[(k + y) * X + blockIdx.x * BLOCK_X + threadIdx.x];
+        for (int step = 0; step < 2; ++step) {
+            int a_r = a_row + step * 32;
+            reinterpret_cast<float4*>(&sA[a_r * BLOCK_K + a_col])[0] = reinterpret_cast<const float4*>(&A[(blockIdx.y * BLOCK_Y + a_r) * K + k + a_col])[0];
+
+            int b_r = b_row + step * 4;
+            reinterpret_cast<float4*>(&sB[b_r * BLOCK_X + b_col])[0] = reinterpret_cast<const float4*>(&B[(k + b_r) * X + blockIdx.x * BLOCK_X + b_col])[0];
         }
 
         __syncthreads();

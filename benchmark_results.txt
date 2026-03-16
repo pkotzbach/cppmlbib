@@ -1,0 +1,24 @@
+--- 2d kernel
+Matmul (CUDA)        | Size: 128        | OPT: 0.1792     ms (23.41    GFLOPS) | NAIVE: 0.1541     ms (27.22    GFLOPS) | Speedup: 0.86x | PASSED
+Matmul (CUDA)        | Size: 256        | OPT: 0.6562     ms (51.13    GFLOPS) | NAIVE: 0.4424     ms (75.84    GFLOPS) | Speedup: 0.67x | PASSED
+Matmul (CUDA)        | Size: 1024       | OPT: 4.0520     ms (529.99   GFLOPS) | NAIVE: 6.2893     ms (341.45   GFLOPS) | Speedup: 1.55x | PASSED
+Matmul (CUDA)        | Size: 2000       | OPT: 19.2443    ms (831.41   GFLOPS) | NAIVE: 80.2551    ms (199.36   GFLOPS) | Speedup: 4.17x | FAILED
+Matmul (CUDA)        | Size: 2048       | OPT: 18.0633    ms (951.09   GFLOPS) | NAIVE: 83.3619    ms (206.09   GFLOPS) | Speedup: 4.61x | PASSED
+Matmul (CUDA)        | Size: 4096       | OPT: 141.8474   ms (968.92   GFLOPS) | NAIVE: 767.3181   ms (179.12   GFLOPS) | Speedup: 5.41x | PASSED
+
+
+--- 2d kernel with transposed matrix A
+Matmul (CUDA)        | Size: 128        | OPT: 0.3176     ms (13.20    GFLOPS) | NAIVE: 0.1653     ms (25.38    GFLOPS) | Speedup: 0.52x | PASSED
+Matmul (CUDA)        | Size: 256        | OPT: 0.6377     ms (52.62    GFLOPS) | NAIVE: 0.4137     ms (81.11    GFLOPS) | Speedup: 0.65x | PASSED
+Matmul (CUDA)        | Size: 1024       | OPT: 4.7529     ms (451.83   GFLOPS) | NAIVE: 6.7070     ms (320.18   GFLOPS) | Speedup: 1.41x | PASSED
+Matmul (CUDA)        | Size: 2000       | OPT: 17.4178    ms (918.60   GFLOPS) | NAIVE: 75.7597    ms (211.19   GFLOPS) | Speedup: 4.35x | FAILED
+Matmul (CUDA)        | Size: 2048       | OPT: 17.7773    ms (966.39   GFLOPS) | NAIVE: 84.0408    ms (204.42   GFLOPS) | Speedup: 4.73x | PASSED
+Matmul (CUDA)        | Size: 4096       | OPT: 132.7479   ms (1035.34  GFLOPS) | NAIVE: 789.4471   ms (174.10   GFLOPS) | Speedup: 5.95x | PASSED
+
+--- 2d kernel vectorized
+Matmul (CUDA)        | Size: 128        | OPT: 0.1729     ms (24.26    GFLOPS) | NAIVE: 0.1692     ms (24.79    GFLOPS) | Speedup: 0.98x | PASSED
+Matmul (CUDA)        | Size: 256        | OPT: 0.4664     ms (71.94    GFLOPS) | NAIVE: 0.4561     ms (73.57    GFLOPS) | Speedup: 0.98x | PASSED
+Matmul (CUDA)        | Size: 1024       | OPT: 4.0212     ms (534.04   GFLOPS) | NAIVE: 6.1925     ms (346.79   GFLOPS) | Speedup: 1.54x | PASSED
+Matmul (CUDA)        | Size: 2000       | OPT: 15.7517    ms (1015.76  GFLOPS) | NAIVE: 74.0341    ms (216.12   GFLOPS) | Speedup: 4.70x | FAILED
+Matmul (CUDA)        | Size: 2048       | OPT: 14.9280    ms (1150.85  GFLOPS) | NAIVE: 75.0279    ms (228.98   GFLOPS) | Speedup: 5.03x | PASSED
+Matmul (CUDA)        | Size: 4096       | OPT: 125.3594   ms (1096.36  GFLOPS) | NAIVE: 717.8262   ms (191.47   GFLOPS) | Speedup: 5.73x | PASSED
