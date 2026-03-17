@@ -1,8 +1,7 @@
 #include "loss.hpp"
 #include <stdexcept>
 
-Tensor_ptr MSELoss(Tensor_ptr input, Tensor_ptr target)
-{
+Tensor_ptr MSELoss(Tensor_ptr input, Tensor_ptr target) {
     if (input->get_shape() != target->get_shape()) throw std::invalid_argument("input and target must have same shape");
     if (input->get_device() != target->get_device()) throw std::invalid_argument("input and target must have same device");
     if (input->get_shape().size() != 2) throw std::invalid_argument("invalid input size");

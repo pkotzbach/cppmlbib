@@ -12,8 +12,7 @@ int g_cuda_kernel_launches = 0;
 #endif
 
 template <char Op>
-__global__ void binary_op_kernel(const float* input_A, const float* input_B, float* output, int size)
-{
+__global__ void binary_op_kernel(const float* input_A, const float* input_B, float* output, int size) {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
     if (idx < size) {
         if constexpr (Op == '+') output[idx] = input_A[idx] + input_B[idx];
@@ -41,8 +40,7 @@ void launch_binary_op(const char op, const float* input_A, const float* input_B,
 
 // -------------------
 
-__global__ void matmul_kernel_naive(const float* A, const float* B, float* C, int K, int X, int Y)
-{
+__global__ void matmul_kernel_naive(const float* A, const float* B, float* C, int K, int X, int Y) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -72,8 +70,7 @@ void launch_matmul_naive(const float* d_A, const float* d_B, float* d_C, int K, 
 #define BLOCK_K 8
 #define BLOCK_X 64
 #define BLOCK_Y 64
-__global__ void matmul_kernel(const float* A, const float* B, float* C, int K, int X, int Y)
-{
+__global__ void matmul_kernel(const float* A, const float* B, float* C, int K, int X, int Y) {
     __shared__ float sA[BLOCK_Y * BLOCK_K];
     __shared__ float sB[BLOCK_K * BLOCK_X];
 
@@ -185,32 +182,31 @@ void launch_matmul(const float* d_A, const float* d_B, float* d_C, int K, int X,
 
 // TODO: could be faster https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
 template <ReductionOp op>
-__global__ void reduction_kernel(const float* input, float* output, int size)
-{
-    extern __shared__ float sharedArray[];
+__global__ void reduction_kernel(const float* input, float* output, int size) {
+    extern __shared__ float shared_array[];
 
-    int bidx = blockDim.x * blockIdx.x + threadIdx.x;
-    int tidx = threadIdx.x;
+    int b_idx = blockDim.x * blockIdx.x + threadIdx.x;
+    int t_idx = threadIdx.x;
 
-    sharedArray[tidx] = bidx < size? input[bidx]: 0;
+    shared_array[t_idx] = b_idx < size? input[b_idx]: 0;
     __syncthreads();
 
     for (int i = blockDim.x / 2; i > 0; i >>= 1) {
-        if (tidx < i) {
+        if (t_idx < i) {
             if constexpr (op == ReductionOp::MAX) {
-                if (sharedArray[tidx] < sharedArray[tidx + i]) sharedArray[tidx] = sharedArray[tidx + i];
+                if (shared_array[t_idx] < shared_array[t_idx + i]) shared_array[t_idx] = shared_array[t_idx + i];
             }
             if constexpr (op == ReductionOp::MIN) {
-                if (sharedArray[tidx] > sharedArray[tidx + i]) sharedArray[tidx] = sharedArray[tidx + i];
+                if (shared_array[t_idx] > shared_array[t_idx + i]) shared_array[t_idx] = shared_array[t_idx + i];
             }
             if constexpr (op == ReductionOp::SUM) {
-                sharedArray[tidx] += sharedArray[tidx + i];
+                shared_array[t_idx] += shared_array[t_idx + i];
             }
         }
         __syncthreads();
     }
 
-    if (tidx == 0) output[blockIdx.x] = sharedArray[0];
+    if (t_idx == 0) output[blockIdx.x] = shared_array[0];
 }
 
 int launch_reduction(const ReductionOp op, const float* input, float* output, int size) {
@@ -242,26 +238,26 @@ int launch_reduction(const ReductionOp op, const float* input, float* output, in
 template <ReductionOp op>
 __global__ void reduction_kernel2(const float* input, float* output, int size)
 {
-    extern __shared__ float sharedArray[];
-    int tidx = threadIdx.x;
+    extern __shared__ float shared_array[];
+    int t_idx = threadIdx.x;
     
     float local_max = -DBL_MAX;
-    for (int i = tidx; i < size; i += blockDim.x)
+    for (int i = t_idx; i < size; i += blockDim.x)
         local_max = fmax(local_max, input[i]);
 
-    sharedArray[tidx] = local_max;
+    shared_array[t_idx] = local_max;
     
     __syncthreads();
 
     for (int i = blockDim.x / 2; i > 0; i >>= 1) {
         if constexpr (op == ReductionOp::MAX) {
-            if (tidx < i && sharedArray[tidx] < sharedArray[tidx + i])
-                sharedArray[tidx] = sharedArray[tidx + i];
+            if (t_idx < i && shared_array[t_idx] < shared_array[t_idx + i])
+                shared_array[t_idx] = shared_array[t_idx + i];
         }
         __syncthreads();
     }
 
-    if (tidx == 0) *output = sharedArray[0];
+    if (t_idx == 0) *output = shared_array[0];
 }
 
 void launch_full_reduction(const ReductionOp op, const float* input, float* output, int size) {
@@ -340,43 +336,43 @@ void launch_matmul_wmma(const float* d_A, const float* d_B, float* d_C, int K, i
 // -----------------
 
 __global__ void softmax_kernel2(const float* input, float* output, int N, int C) {
-    extern __shared__ float sharedArray[];
+    extern __shared__ float shared_array[];
     int n = blockIdx.x;
     int c = threadIdx.x;
     
     bool active = c < C;
-    sharedArray[c] = active? input[n * C + c]: -DBL_MAX;
+    shared_array[c] = active? input[n * C + c]: -DBL_MAX;
     __syncthreads();
 
     for (int i = blockDim.x / 2; i > 0; i >>= 1) {
-        if (c < i && c + i < C && sharedArray[c] < sharedArray[c + i])
-            sharedArray[c] = sharedArray[c + i];
+        if (c < i && c + i < C && shared_array[c] < shared_array[c + i])
+            shared_array[c] = shared_array[c + i];
         __syncthreads();
     }
 
-    float max_val = sharedArray[0];
+    float max_val = shared_array[0];
     // printf("%d: %f\n", c, max_val);
     __syncthreads();
 
     float exp_val;
     if (active) {
         exp_val = exp(input[n * C + c] - max_val);
-        sharedArray[c] = exp_val;
+        shared_array[c] = exp_val;
         // printf("%d: %f\n", c, exp_val);
     }
     __syncthreads();
 
     for (int i = blockDim.x / 2; i > 0; i >>= 1) {
         if (c < i && c + i < C) {
-            // printf("%d: %f += %f\n", c, sharedArray[c], sharedArray[c + i]);
-            sharedArray[c] += sharedArray[c + i];
+            // printf("%d: %f += %f\n", c, shared_array[c], shared_array[c + i]);
+            shared_array[c] += shared_array[c + i];
         }
         __syncthreads();
     }
     
     if (active) {
-        // printf("%d: %f / %f\n", c, exp_val, sharedArray[0]);
-        output[n * C + c] = exp_val / sharedArray[0];
+        // printf("%d: %f / %f\n", c, exp_val, shared_array[0]);
+        output[n * C + c] = exp_val / shared_array[0];
     }
 }
 

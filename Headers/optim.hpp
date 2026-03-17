@@ -2,8 +2,7 @@
 
 #include "tensor.hpp"
 
-class Optimizer
-{
+class Optimizer {
 protected:
     std::vector<Tensor_ptr> parameters;
     float lr;
@@ -16,8 +15,7 @@ public:
     void zero_grad();
 };
 
-class SGD : public Optimizer
-{
+class SGD : public Optimizer {
 public:
     SGD(std::vector<std::vector<Tensor_ptr>> params, float lr) : Optimizer{params, lr} {}
     SGD(std::vector<Tensor_ptr> params, float lr) : Optimizer{params, lr} {}

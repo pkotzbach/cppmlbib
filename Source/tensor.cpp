@@ -7,15 +7,13 @@
 #include <random>
 #include <string>
 
-float sample_kaiming(float n)
-{
+float sample_kaiming(float n) {
     std::mt19937 gen(std::random_device{}());
     std::normal_distribution<float> dist(0.0, std::sqrt(2/n));
     return dist(gen);
 }
 
-Tensor &Tensor::init_internal(std::vector<int> shape, std::vector<float> init_values, std::vector<float> init_grads, bool init_zero, std::string device)
-{
+Tensor& Tensor::init_internal(std::vector<int> shape, std::vector<float> init_values, std::vector<float> init_grads, bool init_zero, std::string device) {
     if (shape.size() == 0) throw std::runtime_error("shape 0");
     if (device.compare("cuda") != 0 && device.compare("cpu") != 0) throw std::runtime_error("invalid device!");
     this->shape = shape;
@@ -23,8 +21,7 @@ Tensor &Tensor::init_internal(std::vector<int> shape, std::vector<float> init_va
 
     // calc total_count TODO: remove?
     total_count = shape[0];
-    for (size_t i = 1; i < shape.size(); ++i)
-    {
+    for (size_t i = 1; i < shape.size(); ++i) {
         if (shape[i] <= 0) throw std::runtime_error("shape <= 0");
         total_count *= shape[i];
     }
@@ -44,14 +41,12 @@ Tensor &Tensor::init_internal(std::vector<int> shape, std::vector<float> init_va
     values = std::shared_ptr<float[]>(new float[total_count], std::default_delete<float[]>());
     grads  = std::shared_ptr<float[]>(new float[total_count], std::default_delete<float[]>());
 
-    for (int i = 0; i < total_count; ++i)
-    {
+    for (int i = 0; i < total_count; ++i) {
         if (init_values.size() > 0) values[i] = init_values[i];
         else values[i] = init_zero? 0: sample_kaiming(total_count);
     }
 
-    for (int i = 0; i < total_count; ++i)
-    {
+    for (int i = 0; i < total_count; ++i) {
         if (init_grads.size() > 0) grads[i] = init_grads[i];
         else grads[i] = 0;
     }
@@ -71,8 +66,7 @@ std::vector<float> Tensor::values_vec(int count, std::vector<int>& strides, std:
     return vec;
 }
 
-std::vector<float> Tensor::grads_vec()
-{
+std::vector<float> Tensor::grads_vec() {
     std::vector<float> vec;
     vec.resize(total_count);
     for (int i = 0; i < total_count; ++i) vec[i] = grad_at(i);
@@ -80,15 +74,13 @@ std::vector<float> Tensor::grads_vec()
 }
 
 
-Tensor_ptr Tensor::init(std::vector<int> shape, bool init_zero, std::string device)
-{
+Tensor_ptr Tensor::init(std::vector<int> shape, bool init_zero, std::string device) {
     auto t = std::make_shared<Tensor>();
     t->init_internal(shape, {}, {}, init_zero, device);
     return t;
 }
 
-Tensor_ptr Tensor::init(std::vector<int> shape, std::vector<float> values, std::string device)
-{
+Tensor_ptr Tensor::init(std::vector<int> shape, std::vector<float> values, std::string device) {
     auto t = std::make_shared<Tensor>();
     t->init_internal(shape, values, {}, false, device);
     return t;
@@ -101,8 +93,7 @@ Tensor_ptr Tensor::init(std::vector<int> shape, std::vector<float> values, std::
 //     return t;
 // }
 
-int Tensor::strided_idx(std::vector<int> indices)
-{
+int Tensor::strided_idx(std::vector<int> indices) {
     if (indices.size() != shape.size()) throw std::runtime_error("wrong indices vector");
 
     int strided_idx = 0;
@@ -114,13 +105,11 @@ int Tensor::strided_idx(std::vector<int> indices)
     return strided_idx;
 }
 
-int Tensor::strided_idx(int shape_idx, const std::vector<int>& strides, const std::vector<int>& shape)
-{
+int Tensor::strided_idx(int shape_idx, const std::vector<int>& strides, const std::vector<int>& shape) {
     if (strides == shape) return shape_idx;
     
     int strided_idx = 0, temp;
-    for (int i = shape.size() - 1; i >= 0; --i)
-    {
+    for (int i = shape.size() - 1; i >= 0; --i) {
         temp = shape_idx % shape[i];
         shape_idx = shape_idx / shape[i];
         strided_idx += temp * strides[i];
@@ -128,8 +117,7 @@ int Tensor::strided_idx(int shape_idx, const std::vector<int>& strides, const st
     return strided_idx;
 }
 
-Tensor_ptr Tensor::relu()
-{
+Tensor_ptr Tensor::relu() {
     auto result = Tensor::init(shape, true, device);
     result->parents = std::pair{shared_from_this(), nullptr};
     
@@ -148,8 +136,7 @@ Tensor_ptr Tensor::relu()
     return result;
 }
 
-Tensor_ptr Tensor::argmax(int axis)
-{
+Tensor_ptr Tensor::argmax(int axis) {
     // assume 2d matrix
     if (axis != 1) throw std::invalid_argument("Only for dim 1 now");
     if (shape.size() != 2) throw std::invalid_argument("Only for 2d matrix now");
@@ -179,8 +166,7 @@ Tensor_ptr Tensor::argmax(int axis)
     return result;
 }
 
-Tensor_ptr Tensor::max()
-{
+Tensor_ptr Tensor::max() {
     Tensor_ptr result = Tensor::init({1}, true, device);
     result->parents = std::pair{shared_from_this(), nullptr};
     float max = -INFINITY;
@@ -189,9 +175,7 @@ Tensor_ptr Tensor::max()
         for (int i = 0; i < total_count; ++i) {
             if (values[i] > max) max = values[i];
         }
-    }
-    else if (device == "cuda")
-    {
+    } else if (device == "cuda") {
         max = cuda::reduction(ReductionOp::MAX, std::span<float>(values.get(), total_count));
     }
 
@@ -200,8 +184,7 @@ Tensor_ptr Tensor::max()
     return result;
 }
 
-std::vector<int> broadcast_shape(std::vector<int> &a, std::vector<int> &b)
-{
+std::vector<int> broadcast_shape(std::vector<int>& a, std::vector<int>& b) {
     int ndim = std::max(a.size(), b.size());
     std::vector<int> result(ndim);
 
@@ -217,33 +200,27 @@ std::vector<int> broadcast_shape(std::vector<int> &a, std::vector<int> &b)
     return result;
 }
 
-std::vector<int> Tensor::broadcast_strides(int ndim)
-{
+std::vector<int> Tensor::broadcast_strides(int ndim) {
     std::vector<int> result(ndim, 0);
     int offset = ndim - shape.size();
 
-    for (int i = 0; i < shape.size(); ++i)
-    {
+    for (int i = 0; i < shape.size(); ++i) {
         if (shape[i] != 1) result[offset + i] = strides[i];
     }
 
     return result;
 }
 
-Tensor_ptr Tensor::sum()
-{
+Tensor_ptr Tensor::sum() {
     auto result = Tensor::init({1}, true, device);
     result->parents = std::pair{shared_from_this(), nullptr};
     result->op = "sum";
 
-    if (device == "cpu")
-    {
+    if (device == "cpu") {
         for (int i = 0; i < total_count; ++i) {
             result->values[0] += at(i);
         }
-    }
-    else if (device == "cuda")
-    {
+    } else if (device == "cuda") {
         result->values[0] = cuda::reduction(ReductionOp::SUM, std::span<float>(values.get(), total_count));
     }
 
@@ -258,8 +235,7 @@ Tensor_ptr Tensor::sum()
     return result;
 }
 
-Tensor_ptr Tensor::sum(int axis)
-{
+Tensor_ptr Tensor::sum(int axis) {
     if (shape.size() != 2) throw std::invalid_argument("sum(axis) only implemented for 2D");
     int N = shape[0];
     int C = shape[1];
@@ -286,13 +262,11 @@ Tensor_ptr Tensor::sum(int axis)
 }
 
 
-Tensor_ptr Tensor::exp()
-{
+Tensor_ptr Tensor::exp() {
     auto result = Tensor::init(shape, true, device);
     result->parents = std::pair{shared_from_this(), nullptr};
     result->op = "exp";
 
-    // TODO: at not needed here i think, could use buffer explicitly
     for (int i = 0; i < total_count; ++i) {
         result->at(i) = std::exp(at(i));
     }
@@ -350,8 +324,7 @@ struct BinaryOpContext {
     }
 };
 
-Tensor_ptr operator+(Tensor_ptr first, Tensor_ptr second)
-{
+Tensor_ptr operator+(Tensor_ptr first, Tensor_ptr second) {
     BinaryOpContext ctx(first, second);
 
     auto result = Tensor::init(ctx.out_shape, true, ctx.device);
@@ -372,8 +345,7 @@ Tensor_ptr operator+(Tensor_ptr first, Tensor_ptr second)
     return result;
 }
 
-Tensor_ptr operator-(Tensor_ptr first, Tensor_ptr second)
-{
+Tensor_ptr operator-(Tensor_ptr first, Tensor_ptr second) {
     BinaryOpContext ctx(first, second);
 
     auto result = Tensor::init(ctx.out_shape, true, ctx.device);
@@ -393,8 +365,7 @@ Tensor_ptr operator-(Tensor_ptr first, Tensor_ptr second)
     return result;
 }
 
-Tensor_ptr operator*(Tensor_ptr first, Tensor_ptr second)
-{
+Tensor_ptr operator*(Tensor_ptr first, Tensor_ptr second) {
     BinaryOpContext ctx(first, second);
 
     auto result = Tensor::init(ctx.out_shape, true, ctx.device);
@@ -414,8 +385,7 @@ Tensor_ptr operator*(Tensor_ptr first, Tensor_ptr second)
     return result;
 }
 
-Tensor_ptr operator/(Tensor_ptr first, Tensor_ptr second)
-{
+Tensor_ptr operator/(Tensor_ptr first, Tensor_ptr second) {
     BinaryOpContext ctx(first, second);
 
     auto result = Tensor::init(ctx.out_shape, true, ctx.device);
@@ -446,8 +416,7 @@ Tensor_ptr operator/(Tensor_ptr first, Tensor_ptr second)
 //     return shared_from_this();
 // }
 
-Tensor_ptr Tensor::matmul(Tensor_ptr tensor)
-{
+Tensor_ptr Tensor::matmul(Tensor_ptr tensor) {
     if (shape.size() != 2 || tensor->shape.size() != 2) throw std::invalid_argument("Matmul defined only for 2d tensors");
     if (shape[1] != tensor->shape[0]) throw std::invalid_argument("Invalid shapes for matmul");
     if (device != tensor->device) throw std::invalid_argument("different devices");
@@ -491,8 +460,7 @@ Tensor_ptr Tensor::matmul(Tensor_ptr tensor)
     return result;
 }
 
-Tensor_ptr Tensor::softmax()
-{
+Tensor_ptr Tensor::softmax() {
     if (shape.size() != 2) throw std::invalid_argument("Softmax defined only for 2d tensors");
     
     int N = shape[0];
@@ -542,29 +510,22 @@ Tensor_ptr Tensor::transpose()
     return result;
 }
 
-void Tensor::backward()
-{
+void Tensor::backward() {
     if (total_count != 1) throw std::invalid_argument("backward only possible on 1x1 tensor");
     std::unordered_set<Tensor_ptr> visited{};
     std::vector<Tensor_ptr> topo{};
-    toposort(shared_from_this(), visited, topo); // weakptr?
+    toposort(shared_from_this(), visited, topo);
     std::reverse(topo.begin(), topo.end());
     grads[0] = 1.0f;
-    for (auto t : topo)
-    {
-        if (t->backward_fn)
-        {
-            // printf("grad %s before %f\n", t->op.c_str(), t->grads[0]);
+    for (auto t : topo) {
+        if (t->backward_fn) {
             t->backward_fn();
-            // printf("grad %s after %f\n", t->op.c_str(), t->grads[0]);
         }
     }
 }
 
-void Tensor::toposort(Tensor_ptr t, std::unordered_set<Tensor_ptr> &visited, std::vector<Tensor_ptr> &res)
-{
-    if (visited.find(t) == visited.end())
-    {
+void Tensor::toposort(Tensor_ptr t, std::unordered_set<Tensor_ptr>& visited, std::vector<Tensor_ptr>& res) {
+    if (visited.find(t) == visited.end()) {
         visited.insert(t);
         if (t->parents.first)
             toposort(t->parents.first, visited, res);
@@ -574,8 +535,7 @@ void Tensor::toposort(Tensor_ptr t, std::unordered_set<Tensor_ptr> &visited, std
     }
 }
 
-void Tensor::zero_grad()
-{
+void Tensor::zero_grad() {
     for (int i = 0; i < total_count; ++i) grad_at(i) = 0;
     if (parents.first && parents.first.get() != this)   parents.first->zero_grad();
     if (parents.second && parents.second.get() != this) parents.second->zero_grad();

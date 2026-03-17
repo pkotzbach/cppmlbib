@@ -27,9 +27,10 @@
 // TODO: copied code
 namespace cuda {
 
-std::vector<float> matmul(const std::vector<float>& matrix_A, const std::vector<float>& matrix_B, int K, int X, int Y)
-{
-        float *d_matrix_A, *d_matrix_B, *d_output;
+std::vector<float> matmul(const std::vector<float>& matrix_A, const std::vector<float>& matrix_B, int K, int X, int Y) {
+        float* d_matrix_A;
+        float* d_matrix_B;
+        float* d_output;
         std::vector<float> output(X*Y);
 
         size_t matrix_A_bytes = Y * K * sizeof(float);
@@ -61,9 +62,10 @@ std::vector<float> matmul(const std::vector<float>& matrix_A, const std::vector<
         return output;
 }
 
-std::vector<float> matmul_wmma(const std::vector<float>& matrix_A, const std::vector<float>& matrix_B, int K, int X, int Y)
-{
-        float *d_matrix_A, *d_matrix_B, *d_output;
+std::vector<float> matmul_wmma(const std::vector<float>& matrix_A, const std::vector<float>& matrix_B, int K, int X, int Y) {
+        float* d_matrix_A;
+        float* d_matrix_B;
+        float* d_output;
         std::vector<float> output(X*Y);
 
         size_t matrix_A_bytes = Y * K * sizeof(float);
@@ -90,9 +92,10 @@ std::vector<float> matmul_wmma(const std::vector<float>& matrix_A, const std::ve
         return output;
 }
 
-std::vector<float> matmul_naive(const std::vector<float>& matrix_A, const std::vector<float>& matrix_B, int K, int X, int Y)
-{
-        float *d_matrix_A, *d_matrix_B, *d_output;
+std::vector<float> matmul_naive(const std::vector<float>& matrix_A, const std::vector<float>& matrix_B, int K, int X, int Y) {
+        float* d_matrix_A;
+        float* d_matrix_B;
+        float* d_output;
         std::vector<float> output(X*Y);
 
         size_t matrix_A_bytes = Y * K * sizeof(float);
@@ -119,15 +122,16 @@ std::vector<float> matmul_naive(const std::vector<float>& matrix_A, const std::v
         return output;
 }
 
-std::vector<float> matmul_cublas(const std::vector<float>& matrix_A, const std::vector<float>& matrix_B, int K, int X, int Y)
-{
+std::vector<float> matmul_cublas(const std::vector<float>& matrix_A, const std::vector<float>& matrix_B, int K, int X, int Y) {
         static cublasHandle_t handle = nullptr;
         if (handle == nullptr) {
                 CUBLAS_CHECK(cublasCreate(&handle));
                 CUBLAS_CHECK(cublasSetMathMode(handle, CUBLAS_PEDANTIC_MATH));
         }
 
-        float *d_matrix_A, *d_matrix_B, *d_output;
+        float* d_matrix_A;
+        float* d_matrix_B;
+        float* d_output;
         std::vector<float> output(X*Y);
 
         size_t matrix_A_bytes = Y * K * sizeof(float);
@@ -143,15 +147,8 @@ std::vector<float> matmul_cublas(const std::vector<float>& matrix_A, const std::
         float alpha = 1.0f;
         float beta = 0.0f;
 
-        // cublas is column-major. We want C(Y, X) = A(Y, K) * B(K, X) in row-major.
-        // This is equivalent to C^T(X, Y) = B^T(X, K) * A^T(K, Y) in column-major.
-        CUBLAS_CHECK(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 
-                                 X, Y, K, 
-                                 &alpha, 
-                                 d_matrix_B, X, 
-                                 d_matrix_A, K, 
-                                 &beta, 
-                                 d_output, X));
+        // C = alpha * A * B + beta * C
+        CUBLAS_CHECK(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, X, Y, K, &alpha, d_matrix_B, X, d_matrix_A, K, &beta, d_output, X));
 
         CUDA_CHECK(cudaDeviceSynchronize());
 
@@ -164,10 +161,10 @@ std::vector<float> matmul_cublas(const std::vector<float>& matrix_A, const std::
         return output;
 }
 
-// TODO: as template with "op"? then i need to store it in .hpp and i dont know if i want that
-std::vector<float> binary_op(const char op, const std::vector<float>& matrix_A, const std::vector<float>& matrix_B, int size)
-{
-        float *d_matrix_A, *d_matrix_B, *d_output;
+std::vector<float> binary_op(const char op, const std::vector<float>& matrix_A, const std::vector<float>& matrix_B, int size) {
+        float* d_matrix_A;
+        float* d_matrix_B;
+        float* d_output;
         std::vector<float> output(size);
 
         size_t size_bytes = sizeof(float) * size;
@@ -192,13 +189,13 @@ std::vector<float> binary_op(const char op, const std::vector<float>& matrix_A, 
         return output;
 }
 
-void softmax(const std::vector<float>& input, float* output, int N, int C)
-{
+void softmax(const std::vector<float>& input, float* output, int N, int C) {
         if (C > 1024) {
                 // TODO: fix this - its because max thread block size is 1024
                 throw std::invalid_argument("CUDA softmax currently implemented for C <= 1024");
         }
-        float *d_input, *d_output;
+        float* d_input;
+        float* d_output;
         int size = N*C;
 
         size_t size_bytes = sizeof(float) * size;
@@ -218,9 +215,9 @@ void softmax(const std::vector<float>& input, float* output, int N, int C)
         CUDA_CHECK(cudaFree(d_output));
 }
 
-float reduction(const ReductionOp op, const std::span<const float>& input)
-{
-        float *d_input, *d_output;
+float reduction(const ReductionOp op, const std::span<const float>& input) {
+        float* d_input;
+        float* d_output;
         int size = input.size();
         
         size_t size_bytes = sizeof(float) * size;
@@ -247,9 +244,9 @@ float reduction(const ReductionOp op, const std::span<const float>& input)
         return output;
 }
 
-float full_reduction(const ReductionOp op, const std::span<const float>& input)
-{
-        float *d_input, *d_output;
+float full_reduction(const ReductionOp op, const std::span<const float>& input) {
+        float* d_input;
+        float* d_output;
         int size = input.size();
         
         size_t size_bytes = sizeof(float) * size;

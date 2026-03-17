@@ -3,19 +3,16 @@
 #include "tensor.hpp"
 #include <stdexcept>
 
-class Component
-{
+class Component {
 protected:
     std::string device;
 public:
-    virtual Tensor_ptr forward(Tensor_ptr input)
-    {
+    virtual Tensor_ptr forward(Tensor_ptr input) {
         throw std::runtime_error("forward not implemented");
     }
 };
 
-class Linear : public Component
-{
+class Linear : public Component {
 private:
     int in_size, out_size;
 
@@ -36,8 +33,7 @@ public:
 
 };
 
-class Softmax : public Component
-{
+class Softmax : public Component {
 public:
     Softmax() {};
     Tensor_ptr forward(Tensor_ptr input) override;
