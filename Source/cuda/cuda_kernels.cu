@@ -3,6 +3,8 @@
 #include <float.h>
 #include <cuda/cmath>
 #include "cuda_ops.hpp"
+#include <mma.h>
+#include <cuda_fp16.h>
 
 #ifdef CUDA_TEST
 #include "cuda_debug.h"
@@ -239,6 +241,63 @@ void launch_full_reduction(const ReductionOp op, const float* input, float* outp
             break;
         default: throw std::invalid_argument("Unknown op");
     }
+}
+
+const int WMMA_Y = 16;
+const int WMMA_X = 16;
+const int WMMA_K = 16;
+
+__global__ void convert_fp32_to_fp16(const float* in, half* out, int size) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < size) out[idx] = __float2half(in[idx]);
+}
+
+__global__ void matmul_wmma_kernel(const half* A, const half* B, float* C, int K, int X, int Y) {
+    int warp_idx_x = (threadIdx.x / 32) % 2;
+    int warp_idx_y = (threadIdx.x / 32) / 2;
+
+    int y = (blockIdx.y * 2 + warp_idx_y) * WMMA_Y;
+    int x = (blockIdx.x * 2 + warp_idx_x) * WMMA_X;
+
+    if (y >= Y || x >= X) return;
+
+    nvcuda::wmma::fragment<nvcuda::wmma::matrix_a, WMMA_Y, WMMA_X, WMMA_K, half, nvcuda::wmma::row_major> a_frag;
+    nvcuda::wmma::fragment<nvcuda::wmma::matrix_b, WMMA_Y, WMMA_X, WMMA_K, half, nvcuda::wmma::row_major> b_frag;
+    nvcuda::wmma::fragment<nvcuda::wmma::accumulator, WMMA_Y, WMMA_X, WMMA_K, float> acc_frag;
+
+    nvcuda::wmma::fill_fragment(acc_frag, 0.0f);
+
+    for (int k = 0; k < K; k += WMMA_K) {
+        nvcuda::wmma::load_matrix_sync(a_frag, A + y * K + k, K);
+        nvcuda::wmma::load_matrix_sync(b_frag, B + k * X + x, X);
+
+        nvcuda::wmma::mma_sync(acc_frag, a_frag, b_frag, acc_frag);
+    }
+
+    nvcuda::wmma::store_matrix_sync(C + y * X + x, acc_frag, X, nvcuda::wmma::mem_row_major);
+}
+
+void launch_matmul_wmma(const float* d_A, const float* d_B, float* d_C, int K, int X, int Y) {
+    if (K % 16 != 0 || X % 16 != 0 || Y % 16 != 0) {
+        launch_matmul(d_A, d_B, d_C, K, X, Y);
+        return;
+    }
+
+    half *d_A_half, *d_B_half;
+    cudaMalloc(&d_A_half, Y * K * sizeof(half));
+    cudaMalloc(&d_B_half, K * X * sizeof(half));
+
+    int threads = 256;
+    convert_fp32_to_fp16<<<cuda::ceil_div(Y * K, threads), threads>>>(d_A, d_A_half, Y * K);
+    convert_fp32_to_fp16<<<cuda::ceil_div(K * X, threads), threads>>>(d_B, d_B_half, K * X);
+
+    dim3 block(128); 
+    dim3 grid(cuda::ceil_div(X, 32), cuda::ceil_div(Y, 32));
+
+    matmul_wmma_kernel<<<grid, block>>>(d_A_half, d_B_half, d_C, K, X, Y);
+
+    cudaFree(d_A_half);
+    cudaFree(d_B_half);
 }
 
 // -----------------
