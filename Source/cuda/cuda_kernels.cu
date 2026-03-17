@@ -68,8 +68,8 @@ void launch_matmul_naive(const float* d_A, const float* d_B, float* d_C, int K, 
 }
 
 
-#define BLOCK_K 8
 #define PER_THREAD 8
+#define BLOCK_K 8
 #define BLOCK_X 64
 #define BLOCK_Y 64
 __global__ void matmul_kernel(const float* A, const float* B, float* C, int K, int X, int Y)
@@ -82,31 +82,64 @@ __global__ void matmul_kernel(const float* A, const float* B, float* C, int K, i
     const int thread_x = threadIdx.x % block_steps;
     const int thread_y = threadIdx.x / block_steps;
 
+    const int VEC_SIZE = 4; // float4
+    const int NUM_THREADS = (BLOCK_X / PER_THREAD) * (BLOCK_Y / PER_THREAD);
+
+    const int SA_VECS_PER_ROW = BLOCK_K / VEC_SIZE;
+    const int SA_ROWS_PER_STEP = NUM_THREADS / SA_VECS_PER_ROW;
+    const int SA_STEPS = (BLOCK_Y * BLOCK_K) / (VEC_SIZE * NUM_THREADS);
+
+    const int SB_VECS_PER_ROW = BLOCK_X / VEC_SIZE;
+    const int SB_ROWS_PER_STEP = NUM_THREADS / SB_VECS_PER_ROW;
+    const int SB_STEPS = (BLOCK_K * BLOCK_X) / (VEC_SIZE * NUM_THREADS);
+
+    const int a_row = threadIdx.x / SA_VECS_PER_ROW;
+    const int a_col = (threadIdx.x % SA_VECS_PER_ROW) * VEC_SIZE;
+    const int b_row = threadIdx.x / SB_VECS_PER_ROW;
+    const int b_col = (threadIdx.x % SB_VECS_PER_ROW) * VEC_SIZE;
+
     float sum[PER_THREAD * PER_THREAD] = {0};
 
     float regA[PER_THREAD] = {0};
     float regB[PER_THREAD] = {0};
 
-    // float4 ids
-    const int a_row = threadIdx.x / 2;
-    const int a_col = (threadIdx.x % 2) * 4;
-    const int b_row = threadIdx.x / 16;
-    const int b_col = (threadIdx.x % 16) * 4;
-
     for (int k = 0; k < K; k += BLOCK_K) {
 
-        for (int step = 0; step < 2; ++step) {
-            int a_r = a_row + step * 32;
-            reinterpret_cast<float4*>(&sA[a_r * BLOCK_K + a_col])[0] = reinterpret_cast<const float4*>(&A[(blockIdx.y * BLOCK_Y + a_r) * K + k + a_col])[0];
+        for (int step = 0; step < SA_STEPS; ++step) {
+            int a_r = a_row + step * SA_ROWS_PER_STEP;
+            int global_a_r = blockIdx.y * BLOCK_Y + a_r;
+            int global_a_c = k + a_col;
 
-            int b_r = b_row + step * 4;
-            reinterpret_cast<float4*>(&sB[b_r * BLOCK_X + b_col])[0] = reinterpret_cast<const float4*>(&B[(k + b_r) * X + blockIdx.x * BLOCK_X + b_col])[0];
+            if (global_a_r < Y && global_a_c < K) {
+                // sA is transposed
+                reinterpret_cast<float4*>(&sA[a_r * BLOCK_K + a_col])[0] = reinterpret_cast<const float4*>(&A[global_a_r * K + global_a_c])[0];
+            } else {
+                sA[a_r * BLOCK_K + a_col + 0] = 0;
+                sA[a_r * BLOCK_K + a_col + 1] = 0;
+                sA[a_r * BLOCK_K + a_col + 2] = 0;
+                sA[a_r * BLOCK_K + a_col + 3] = 0;
+            }
+        }
+
+        for (int step = 0; step < SB_STEPS; ++step) {
+            int b_r = b_row + step * SB_ROWS_PER_STEP;
+            int global_b_r = k + b_r;
+            int global_b_c = blockIdx.x * BLOCK_X + b_col;
+
+            if (global_b_r < K && global_b_c < X) {
+                reinterpret_cast<float4*>(&sB[b_r * BLOCK_X + b_col])[0] = reinterpret_cast<const float4*>(&B[global_b_r * X + global_b_c])[0];
+            } else {
+                sB[b_r * BLOCK_X + b_col + 0] = 0;
+                sB[b_r * BLOCK_X + b_col + 1] = 0;
+                sB[b_r * BLOCK_X + b_col + 2] = 0;
+                sB[b_r * BLOCK_X + b_col + 3] = 0;
+            }
         }
 
         __syncthreads();
 
         // inner loop
-        for (int k_in = 0; k_in < PER_THREAD; ++k_in) {
+        for (int k_in = 0; k_in < BLOCK_K; ++k_in) {
             for (int i = 0; i < PER_THREAD; ++i) {
                 regA[i] = sA[(thread_y * PER_THREAD + i) * BLOCK_K + k_in];
                 regB[i] = sB[k_in * BLOCK_X + thread_x * PER_THREAD + i];
@@ -122,13 +155,17 @@ __global__ void matmul_kernel(const float* A, const float* B, float* C, int K, i
         __syncthreads();
     }
 
-    for (int y = 0; y < PER_THREAD; ++y)
-        for (int x = 0; x < PER_THREAD; ++x) {
-            int C_y = blockIdx.y * BLOCK_Y + thread_y * PER_THREAD + y;
-            int C_x = blockIdx.x * BLOCK_X + thread_x * PER_THREAD + x;
+    for (int y = 0; y < PER_THREAD; ++y) {
+        int C_y = blockIdx.y * BLOCK_Y + thread_y * PER_THREAD + y;
+        if (C_y >= Y) continue;
 
-            C[C_y * X + C_x] = sum[y * PER_THREAD + x];
+        for (int x = 0; x < PER_THREAD; ++x) {
+            int C_x = blockIdx.x * BLOCK_X + thread_x * PER_THREAD + x;
+            if (C_x < X) {
+                C[C_y * X + C_x] = sum[y * PER_THREAD + x];
+            }
         }
+    }
 }
 
 void launch_matmul(const float* d_A, const float* d_B, float* d_C, int K, int X, int Y)
