@@ -189,30 +189,19 @@ std::vector<float> binary_op(const char op, const std::vector<float>& matrix_A, 
         return output;
 }
 
-void softmax(const std::vector<float>& input, float* output, int N, int C) {
+void softmax(const float* d_input, float* d_output, int N, int C) {
         if (C > 1024) {
                 // TODO: fix this - its because max thread block size is 1024
                 throw std::invalid_argument("CUDA softmax currently implemented for C <= 1024");
         }
-        float* d_input;
-        float* d_output;
         int size = N*C;
 
         size_t size_bytes = sizeof(float) * size;
-
-        CUDA_CHECK(cudaMalloc(&d_input, size_bytes));
-        CUDA_CHECK(cudaMalloc(&d_output, size_bytes));
-        CUDA_CHECK(cudaMemcpy(d_input, input.data(), size_bytes, cudaMemcpyHostToDevice));
 
         launch_softmax2(d_input, d_output, N, C);
 
         CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaDeviceSynchronize());
-
-        CUDA_CHECK(cudaMemcpy(output, d_output, size_bytes, cudaMemcpyDeviceToHost));
-
-        CUDA_CHECK(cudaFree(d_input));
-        CUDA_CHECK(cudaFree(d_output));
 }
 
 float reduction(const ReductionOp op, const std::span<const float>& input) {
@@ -267,6 +256,22 @@ float full_reduction(const ReductionOp op, const std::span<const float>& input) 
         CUDA_CHECK(cudaFree(d_output));
         
         return output;
+}
+
+void make_continous(Storage &storage, std::vector<int> &strides, std::vector<int> &shape)
+{
+        float* d_output;
+        int count = storage.size;
+        int buffer_size = sizeof(float) * count;
+        cudaMalloc(&d_output, buffer_size);
+
+        launch_make_continous(storage.get(), d_output, count, strides, shape);
+
+        CUDA_CHECK(cudaGetLastError());
+        CUDA_CHECK(cudaDeviceSynchronize());
+
+        cudaMemcpy(storage.get(), d_output, buffer_size, cudaMemcpyDeviceToDevice);
+        cudaFree(d_output);
 }
 
 } // namespace cuda

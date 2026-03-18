@@ -1,3 +1,4 @@
+#include <string>
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include <float.h>
@@ -276,9 +277,9 @@ void launch_full_reduction(const ReductionOp op, const float* input, float* outp
     }
 }
 
-const int WMMA_Y = 16;
-const int WMMA_X = 16;
-const int WMMA_K = 16;
+#define WMMA_Y 16
+#define WMMA_X 16
+#define WMMA_K 16
 
 __global__ void convert_fp32_to_fp16(const float* in, half* out, int size) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -386,4 +387,45 @@ void launch_softmax2(const float* input, float* output, int N, int C) {
     int grid = N;
 
     softmax_kernel2<<<grid, block, shared_memory_bytes>>>(input, output, N, C);
+}
+
+// -----------------------------------
+
+// TODO: remove MAX_DIMS
+#define MAX_DIMS 16
+struct StorageMeta {
+    int shape[MAX_DIMS];
+    int strides[MAX_DIMS];
+    int dims;
+};
+
+__global__ void apply_strided_idx(const float* input, float* output, int count, StorageMeta meta) {
+    // int strided_idx = 0, temp;
+    // int output_idx = blockIdx.x * blockDim.x + threadIdx.x;
+    // int current_idx = output_idx;
+    // if (current_idx >= count) return;
+
+    // for (int i = meta.dims - 1; i >= 0; --i) {
+    //         temp = current_idx % meta.shape[i];
+    //         current_idx = current_idx / meta.shape[i];
+    //         strided_idx += temp * meta.strides[i];
+    //     }
+
+    // output[output_idx] = input[strided_idx];
+}
+
+void launch_make_continous(const float* input, float* output, int count, std::vector<int> &strides, std::vector<int> &shape) {
+    // int block = 32;
+    // int grid = cuda::ceil_div(count, block);
+    // int dims = shape.size();
+
+    // StorageMeta meta = {};
+    // meta.dims = shape.size();
+
+    // for (int i = 0; i < meta.dims; ++i) {
+    //     meta.shape[i] = shape[i];
+    //     meta.strides[i] = strides[i];
+    // }
+
+    // apply_strided_idx<<<grid, block>>>(input, output, count, meta);
 }

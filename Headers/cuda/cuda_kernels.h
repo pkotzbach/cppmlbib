@@ -10,3 +10,5 @@ void launch_binary_op(const char op, const float* input_A, const float* input_B,
 void launch_softmax2(const float* input_A, float* output, int N, int C);
 int launch_reduction(const ReductionOp op, const float* input, float* output, int size);
 void launch_full_reduction(const ReductionOp op, const float* input, float* output, int size);
+
+void launch_make_continous(const float* val, float* output, int count, std::vector<int> &strides, std::vector<int> &shape);
