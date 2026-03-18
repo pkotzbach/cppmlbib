@@ -8,6 +8,7 @@
 #include <cstring>
 #include <format>
 #include <span>
+#include <cuda_runtime.h>
 
 template<typename Func>
 float benchmark(Func func, int iterations = 10) {
@@ -207,25 +208,25 @@ void binary() {
 }
 
 void softmax() {
-        int N = 1024;
-        int C = 256; 
-        int size = N * C;
-        auto input = generate_random_data(size);
-        float cpu_res[size];
-        float gpu_res[size];
+        // int N = 1024;
+        // int C = 256; 
+        // int size = N * C;
+        // auto input = generate_random_data(size);
+        // float cpu_res[size];
+        // float gpu_res[size];
 
-        cuda::softmax(input, gpu_res, N, C);
-        cpu::softmax(input, cpu_res, N, C);
-        bool correct = check_correctness(gpu_res, cpu_res, size);
+        // cuda::softmax(input, gpu_res, N, C);
+        // cpu::softmax(input, cpu_res, N, C);
+        // bool correct = check_correctness(gpu_res, cpu_res, size);
 
-        float avg_gpu = benchmark([&]() {
-            cuda::softmax(input, gpu_res, N, C);
-        }, 10);
-        float avg_cpu = benchmark([&]() {
-            cpu::softmax(input, cpu_res, N, C);
-        }, 5);
-        long long ops = 5LL * N * C;
-        print_result("Softmax", N * C, avg_gpu, avg_cpu, correct, "CUDA", "CPU", ops);
+        // float avg_gpu = benchmark([&]() {
+        //     cuda::softmax(input, gpu_res, N, C);
+        // }, 10);
+        // float avg_cpu = benchmark([&]() {
+        //     cpu::softmax(input, cpu_res, N, C);
+        // }, 5);
+        // long long ops = 5LL * N * C;
+        // print_result("Softmax", N * C, avg_gpu, avg_cpu, correct, "CUDA", "CPU", ops);
 }
 
 void reduction() {

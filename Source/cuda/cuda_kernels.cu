@@ -1,11 +1,13 @@
-#include <string>
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include <float.h>
 #include <cuda/cmath>
-#include "cuda_ops.hpp"
+#include <vector>
+#include <stdexcept>
 #include <mma.h>
 #include <cuda_fp16.h>
+
+#include "globals.hpp"
 
 #ifdef CUDA_TEST
 #include "cuda_debug.h"
@@ -400,32 +402,34 @@ struct StorageMeta {
 };
 
 __global__ void apply_strided_idx(const float* input, float* output, int count, StorageMeta meta) {
-    // int strided_idx = 0, temp;
-    // int output_idx = blockIdx.x * blockDim.x + threadIdx.x;
-    // int current_idx = output_idx;
-    // if (current_idx >= count) return;
+    int strided_idx = 0, temp;
+    int output_idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int current_idx = output_idx;
+    if (current_idx >= count) return;
 
-    // for (int i = meta.dims - 1; i >= 0; --i) {
-    //         temp = current_idx % meta.shape[i];
-    //         current_idx = current_idx / meta.shape[i];
-    //         strided_idx += temp * meta.strides[i];
-    //     }
+    for (int i = meta.dims - 1; i >= 0; --i) {
+            temp = current_idx % meta.shape[i];
+            current_idx = current_idx / meta.shape[i];
+            strided_idx += temp * meta.strides[i];
+        }
 
-    // output[output_idx] = input[strided_idx];
+    output[output_idx] = input[strided_idx];
 }
 
 void launch_make_continous(const float* input, float* output, int count, std::vector<int> &strides, std::vector<int> &shape) {
-    // int block = 32;
-    // int grid = cuda::ceil_div(count, block);
-    // int dims = shape.size();
+#ifdef CUDA_TEST
+    g_cuda_kernel_launches++;
+#endif
+    int block = 256;
+    int grid = cuda::ceil_div(count, block);
 
-    // StorageMeta meta = {};
-    // meta.dims = shape.size();
+    StorageMeta meta = {};
+    meta.dims = shape.size();
 
-    // for (int i = 0; i < meta.dims; ++i) {
-    //     meta.shape[i] = shape[i];
-    //     meta.strides[i] = strides[i];
-    // }
+    for (int i = 0; i < meta.dims; ++i) {
+        meta.shape[i] = shape[i];
+        meta.strides[i] = strides[i];
+    }
 
-    // apply_strided_idx<<<grid, block>>>(input, output, count, meta);
+    apply_strided_idx<<<grid, block>>>(input, output, count, meta);
 }

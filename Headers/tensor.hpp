@@ -60,7 +60,7 @@ public:
     std::string get_device() {return device;}
 
     std::vector<float> values_vec(int count, std::vector<int>& strides, std::vector<int>& shape);
-    std::vector<float> values_vec() {return values_vec(total_count, strides, shape);};
+    std::vector<float> values_vec();
     std::vector<float> grads_vec();
 
     float& at(std::vector<int> indicies) { return values[stride::strided_idx(indicies, strides, shape)]; }

@@ -15,17 +15,17 @@ float sample_kaiming(float n) {
     return dist(gen);
 }
 
-Storage::Storage(std::string device, std::vector<float> values, int size)
+Storage::Storage(std::string i_device, std::vector<float> i_values, int i_size) : device(i_device), size(i_size)
 {
     int memory = size * sizeof(float);
     if (device == "cpu") {
         data = std::shared_ptr<float[]>(new float[size], std::default_delete<float[]>());
-        std::memcpy(data.get(), values.data(), memory);
+        std::memcpy(data.get(), i_values.data(), memory);
     }
     else {
         float* raw_values = nullptr;
         cudaMalloc(&raw_values, memory);
-        cudaMemcpy(raw_values, values.data(), memory, cudaMemcpyHostToDevice);
+        cudaMemcpy(raw_values, i_values.data(), memory, cudaMemcpyHostToDevice);
         data = std::shared_ptr<float[]>(raw_values, [](float* ptr) {cudaFree(ptr);});
     }
 }
@@ -81,8 +81,6 @@ Tensor& Tensor::init_internal(std::vector<int> shape, std::vector<float> init_va
     return *this;
 }
 
-// TODO: dont copy code
-
 // returns continous values
 std::vector<float> Tensor::values_vec(int count, std::vector<int>& strides, std::vector<int>& shape)
 {
@@ -90,6 +88,17 @@ std::vector<float> Tensor::values_vec(int count, std::vector<int>& strides, std:
     vec.resize(count);
     for (int i = 0; i < count; ++i) vec[i] = at(i, strides, shape);
     return vec;
+}
+
+std::vector<float> Tensor::values_vec()
+{
+    // TODO: idk if i like that
+    if (device == "cuda") {
+        cuda::make_continous(values, strides, shape);
+        return values.cpu();
+    }
+    
+    return values_vec(total_count, strides, shape);
 }
 
 std::vector<float> Tensor::grads_vec() {
