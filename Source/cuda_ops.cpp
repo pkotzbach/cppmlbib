@@ -258,20 +258,30 @@ float full_reduction(const ReductionOp op, const std::span<const float>& input) 
         return output;
 }
 
-void make_continous(Storage &storage, std::vector<int> &strides, std::vector<int> &shape)
+void make_continous(Tensor_ptr tensor)
 {
+        float* values_ptr = tensor->raw_values();
+        float* grads_ptr = tensor->raw_grads();
+        int count = tensor->get_total_count();
         float* d_output;
-        int count = storage.size;
         int buffer_size = sizeof(float) * count;
         cudaMalloc(&d_output, buffer_size);
 
-        launch_make_continous(storage.get(), d_output, count, strides, shape);
-
+        // values
+        launch_make_continous(values_ptr, d_output, count, tensor->get_strides(), tensor->get_shape());
         CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaDeviceSynchronize());
+        cudaMemcpy(values_ptr, d_output, buffer_size, cudaMemcpyDeviceToDevice);
 
-        cudaMemcpy(storage.get(), d_output, buffer_size, cudaMemcpyDeviceToDevice);
+        // grads
+        launch_make_continous(grads_ptr, d_output, count, tensor->get_strides(), tensor->get_shape());
+        CUDA_CHECK(cudaGetLastError());
+        CUDA_CHECK(cudaDeviceSynchronize());
+        cudaMemcpy(grads_ptr, d_output, buffer_size, cudaMemcpyDeviceToDevice);
+
         cudaFree(d_output);
+
+        tensor->set_strides(stride::calc_strides(tensor->get_shape()));
 }
 
 } // namespace cuda

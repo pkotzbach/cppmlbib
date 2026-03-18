@@ -17,7 +17,7 @@ typedef std::shared_ptr<Tensor> Tensor_ptr;
 struct Storage {
     // TODO: should be aligned?
     std::shared_ptr<float[]> data;
-    int size;
+    int size; // TODO: duplication of total_count
     std::string device;
 
     Storage() {}
@@ -25,6 +25,8 @@ struct Storage {
 
     float& operator[](int idx) { return data[idx]; }
     float* get() { return data.get(); }
+    void set(int idx, float val);
+    float at(int idx);
 
     std::vector<float> cpu();
 };
@@ -53,15 +55,22 @@ public:
     Tensor() {}
     ~Tensor() {}
 
-    // getters
+    // getters setters
     std::vector<int>& get_shape() {return shape;}
     int get_shape(int idx) {return shape[idx];}
+    void set_shape(std::vector<int> shp) { shape = shp; }
+
+    std::vector<int>& get_strides() {return strides;}
+    void set_strides(std::vector<int> str) { strides = str; }
+
     int get_total_count() {return total_count;}
     std::string get_device() {return device;}
 
     std::vector<float> values_vec(int count, std::vector<int>& strides, std::vector<int>& shape);
     std::vector<float> values_vec();
     std::vector<float> grads_vec();
+    float* raw_values() { return values.get(); }
+    float* raw_grads() { return grads.get(); }
 
     float& at(std::vector<int> indicies) { return values[stride::strided_idx(indicies, strides, shape)]; }
     float& at(int shape_idx)              { return values[stride::strided_idx(shape_idx, strides, shape)]; }

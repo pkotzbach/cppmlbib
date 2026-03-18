@@ -15,5 +15,5 @@ namespace cuda {
     float reduction(const ReductionOp op, const ::std::span<const float>& input);
     float full_reduction(const ReductionOp op, const ::std::span<const float>& input);
 
-    void make_continous(Storage& storage, ::std::vector<int>& strides, ::std::vector<int>& shape);
+    void make_continous(Tensor_ptr tensor);
 }

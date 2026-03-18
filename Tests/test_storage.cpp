@@ -19,9 +19,11 @@ TEST(StorageCudaTest, MakeContinous) {
     std::vector<int> transposed_shape = {3, 2};
     std::vector<int> transposed_strides = {1, 3};
     
-    Storage storage("cuda", values, 6);
-    cuda::make_continous(storage, transposed_strides, transposed_shape);
-    auto result = storage.cpu();
+    Tensor_ptr tensor = Tensor::init(shape, values, "cuda");
+    tensor->set_shape(transposed_shape);
+    tensor->set_strides(transposed_strides);
+    cuda::make_continous(tensor);
+    auto result = tensor->values_vec();
     
     std::vector<float> expected = {1, 4, 2, 5, 3, 6};
     for (int i = 0; i < 6; ++i) {

@@ -36,8 +36,6 @@ namespace stride {
     }
 
     inline int strided_idx(int shape_idx, const std::vector<int>& strides, const std::vector<int>& shape) {
-        if (strides == shape) return shape_idx;
-        
         int strided_idx = 0, temp;
         int current_idx = shape_idx;
         for (int i = (int)shape.size() - 1; i >= 0; --i) {

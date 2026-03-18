@@ -40,6 +40,26 @@ std::vector<float> Storage::cpu()
     return {};
 }
 
+void Storage::set(int idx, float val) {
+    if (device == "cpu") {
+        data[idx] = val;
+    } else if (device == "cuda") {
+        cudaMemcpy(data.get() + idx, &val, sizeof(float), cudaMemcpyHostToDevice);
+    }
+}
+
+float Storage::at(int idx) {
+    if (device == "cpu") {
+        return data[idx];
+    } else if (device == "cuda") {
+        float val;
+        cudaMemcpy(&val, data.get() + idx, sizeof(float), cudaMemcpyDeviceToHost);
+        return val;
+    }
+    return 0;
+}
+
+
 Tensor& Tensor::init_internal(std::vector<int> shape, std::vector<float> init_values, std::vector<float> init_grads, bool init_zero, std::string device) {
     if (shape.size() == 0) throw std::runtime_error("shape 0");
     if (device.compare("cuda") != 0 && device.compare("cpu") != 0) throw std::runtime_error("invalid device!");
@@ -94,7 +114,7 @@ std::vector<float> Tensor::values_vec()
 {
     // TODO: idk if i like that
     if (device == "cuda") {
-        cuda::make_continous(values, strides, shape);
+        cuda::make_continous(shared_from_this());
         return values.cpu();
     }
     
@@ -458,7 +478,7 @@ Tensor_ptr Tensor::softmax() {
     if (device == "cpu") {
         cpu::softmax(values_vec(), result->values.get(), N, C);
     } else if (device == "cuda") {
-        cuda::make_continous(values, strides, shape);
+        cuda::make_continous(shared_from_this());
         cuda::softmax(values.get(), result->values.get(), N, C);
     }
 
