@@ -6,16 +6,31 @@
 #include <vector>
 #include <span>
 #include <unordered_set>
+#include "globals.hpp"
 
 class Tensor;
 struct BinaryOpContext;
 typedef std::shared_ptr<Tensor> Tensor_ptr;
 
+struct Storage {
+    // TODO: should be aligned?
+    std::shared_ptr<float[]> data;
+    int size;
+    std::string device;
+
+    Storage() {}
+    Storage(std::string device, std::vector<float> values, int size);
+
+    float& operator[](int idx) { return data[idx]; }
+    float* get() { return data.get(); }
+
+    std::vector<float> cpu();
+};
+
 class Tensor : public std::enable_shared_from_this<Tensor> {
 private:
-    // TODO: should be aligned?
-    std::shared_ptr<float[]> values;
-    std::shared_ptr<float[]> grads;
+    Storage values;
+    Storage grads;
 
     std::vector<int> strides;
     std::pair<Tensor_ptr, Tensor_ptr> parents;
@@ -38,7 +53,7 @@ public:
     // static Tensor_ptr init(std::vector<int> shape, std::vector<float> values, std::vector<float> grads, std::string device = "cpu") {init_internal(shape, values, grads, false, device);}
 
     Tensor() {}
-    ~Tensor() {};
+    ~Tensor() {}
 
     // getters
     std::vector<int>& get_shape() {return shape;}

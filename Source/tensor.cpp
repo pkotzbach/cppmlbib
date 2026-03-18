@@ -6,11 +6,37 @@
 #include <cassert>
 #include <random>
 #include <string>
+#include <cstring>
+#include <cuda_runtime.h>
 
 float sample_kaiming(float n) {
     std::mt19937 gen(std::random_device{}());
     std::normal_distribution<float> dist(0.0, std::sqrt(2/n));
     return dist(gen);
+}
+
+Storage::Storage(std::string device, std::vector<float> values, int size)
+{
+    int memory = size * sizeof(float);
+    if (device == "cpu") {
+        data = std::shared_ptr<float[]>(new float[size], std::default_delete<float[]>());
+        std::memcpy(data.get(), values.data(), memory);
+    }
+    else {
+        float* raw_values = nullptr;
+        cudaMalloc(&raw_values, memory);
+        cudaMemcpy(raw_values, values.data(), memory, cudaMemcpyHostToDevice);
+        data = std::shared_ptr<float[]>(raw_values, [](float* ptr) {cudaFree(ptr);});
+    }
+}
+
+std::vector<float> Storage::cpu()
+{
+    if (device == "cuda") {
+        std::vector<float> result(size);
+        cudaMemcpy(result.data(), data.get(), size * sizeof(float), cudaMemcpyDeviceToHost);
+        return result;
+    }
 }
 
 Tensor& Tensor::init_internal(std::vector<int> shape, std::vector<float> init_values, std::vector<float> init_grads, bool init_zero, std::string device) {
@@ -38,18 +64,22 @@ Tensor& Tensor::init_internal(std::vector<int> shape, std::vector<float> init_va
     if (init_values.size() > 0 && init_values.size() != total_count) throw std::runtime_error("init values doesnt match shape");
     if (init_grads.size() > 0 && init_grads.size() != total_count) throw std::runtime_error("init grads doesnt match shape");
 
-    values = std::shared_ptr<float[]>(new float[total_count], std::default_delete<float[]>());
-    grads  = std::shared_ptr<float[]>(new float[total_count], std::default_delete<float[]>());
-
-    for (int i = 0; i < total_count; ++i) {
-        if (init_values.size() > 0) values[i] = init_values[i];
-        else values[i] = init_zero? 0: sample_kaiming(total_count);
+    if (init_values.size() == 0) { 
+        init_values.resize(total_count);
+        if (init_zero) {
+            std::fill(init_values.begin(), init_values.end(), 0);
+        } else {
+            for (auto& v : init_values) {
+                v = sample_kaiming(total_count);
+            }
+        }
     }
+    if (init_grads.size() == 0) {
+        init_grads.assign(total_count, 0);
+    }    
 
-    for (int i = 0; i < total_count; ++i) {
-        if (init_grads.size() > 0) grads[i] = init_grads[i];
-        else grads[i] = 0;
-    }
+    values = Storage(device, init_values, total_count);
+    grads = Storage(device, init_grads, total_count);
 
     return *this;
 }
@@ -60,6 +90,7 @@ Tensor& Tensor::init_internal(std::vector<int> shape, std::vector<float> init_va
 // TODO: could be faster i think, dont have to take every value, could use span
 std::vector<float> Tensor::values_vec(int count, std::vector<int>& strides, std::vector<int>& shape)
 {
+    
     std::vector<float> vec;
     vec.resize(count);
     for (int i = 0; i < count; ++i) vec[i] = at(i, strides, shape);
