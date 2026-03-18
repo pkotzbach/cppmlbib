@@ -37,6 +37,7 @@ std::vector<float> Storage::cpu()
         cudaMemcpy(result.data(), data.get(), size * sizeof(float), cudaMemcpyDeviceToHost);
         return result;
     }
+    return {};
 }
 
 Tensor& Tensor::init_internal(std::vector<int> shape, std::vector<float> init_values, std::vector<float> init_grads, bool init_zero, std::string device) {
@@ -53,12 +54,7 @@ Tensor& Tensor::init_internal(std::vector<int> shape, std::vector<float> init_va
     }
 
     // calc strides
-    strides.resize(shape.size());
-    strides.back() = 1;
-
-    for (int i = shape.size() - 2; i >= 0; --i) {
-        strides[i] = strides[i + 1] * shape[i + 1];
-    }
+    strides = stride::calc_strides(shape);
 
     // init values
     if (init_values.size() > 0 && init_values.size() != total_count) throw std::runtime_error("init values doesnt match shape");
@@ -79,7 +75,8 @@ Tensor& Tensor::init_internal(std::vector<int> shape, std::vector<float> init_va
     }    
 
     values = Storage(device, init_values, total_count);
-    grads = Storage(device, init_grads, total_count);
+    // TODO: make grads on CUDA
+    grads = Storage("cpu", init_grads, total_count);
 
     return *this;
 }
@@ -87,10 +84,8 @@ Tensor& Tensor::init_internal(std::vector<int> shape, std::vector<float> init_va
 // TODO: dont copy code
 
 // returns continous values
-// TODO: could be faster i think, dont have to take every value, could use span
 std::vector<float> Tensor::values_vec(int count, std::vector<int>& strides, std::vector<int>& shape)
 {
-    
     std::vector<float> vec;
     vec.resize(count);
     for (int i = 0; i < count; ++i) vec[i] = at(i, strides, shape);
@@ -123,30 +118,6 @@ Tensor_ptr Tensor::init(std::vector<int> shape, std::vector<float> values, std::
 //     t->init_internal(shape, values, {}, false, device);
 //     return t;
 // }
-
-int Tensor::strided_idx(std::vector<int> indices) {
-    if (indices.size() != shape.size()) throw std::runtime_error("wrong indices vector");
-
-    int strided_idx = 0;
-    for (int i = shape.size() - 1; i >= 0; --i) {
-        if (indices[i] >= shape[i]) throw std::runtime_error("wrong indices vector");
-        strided_idx += indices[i] * strides[i];
-    }
-
-    return strided_idx;
-}
-
-int Tensor::strided_idx(int shape_idx, const std::vector<int>& strides, const std::vector<int>& shape) {
-    if (strides == shape) return shape_idx;
-    
-    int strided_idx = 0, temp;
-    for (int i = shape.size() - 1; i >= 0; --i) {
-        temp = shape_idx % shape[i];
-        shape_idx = shape_idx / shape[i];
-        strided_idx += temp * strides[i];
-    }
-    return strided_idx;
-}
 
 Tensor_ptr Tensor::relu() {
     auto result = Tensor::init(shape, true, device);
@@ -215,32 +186,6 @@ Tensor_ptr Tensor::max() {
     return result;
 }
 
-std::vector<int> broadcast_shape(std::vector<int>& a, std::vector<int>& b) {
-    int ndim = std::max(a.size(), b.size());
-    std::vector<int> result(ndim);
-
-    for (int i = 0; i < ndim; ++i) {
-            int ai = i < a.size() ? a[a.size() - 1 - i] : 1;
-            int bi = i < b.size() ? b[b.size() - 1 - i] : 1;
-
-            if (ai != bi && ai != 1 && bi != 1) throw std::invalid_argument("Incompatible broadcast shapes");
-
-            result[ndim - 1 - i] = std::max(ai, bi);
-        }
-
-    return result;
-}
-
-std::vector<int> Tensor::broadcast_strides(int ndim) {
-    std::vector<int> result(ndim, 0);
-    int offset = ndim - shape.size();
-
-    for (int i = 0; i < shape.size(); ++i) {
-        if (shape[i] != 1) result[offset + i] = strides[i];
-    }
-
-    return result;
-}
 
 Tensor_ptr Tensor::sum() {
     auto result = Tensor::init({1}, true, device);
@@ -329,11 +274,11 @@ struct BinaryOpContext {
         }
         
         device = first->device;
-        out_shape = broadcast_shape(first->shape, second->shape);
+        out_shape = stride::broadcast_shape(first->shape, second->shape);
         int ndim = out_shape.size();
         
-        first_strides = first->broadcast_strides(ndim);
-        second_strides = second->broadcast_strides(ndim);
+        first_strides = stride::broadcast_strides(first->shape, first->strides, ndim);
+        second_strides = stride::broadcast_strides(second->shape, second->strides, ndim);
     }
 
     template <typename CPU_Op>
@@ -472,13 +417,13 @@ Tensor_ptr Tensor::matmul(Tensor_ptr tensor) {
             Tensor_ptr secondT = r->parents.second->transpose();
             std::vector<float> grad_first;
             std::vector<float> grad_second;
-            if (r->get_device() == "cpu") {
+            // if (r->get_device() == "cpu") {
                 grad_first = cpu::matmul(r->grads_vec(), secondT->values_vec(), r->shape[1], secondT->shape[1], r->shape[0]);
                 grad_second = cpu::matmul(firstT->values_vec(), r->grads_vec(), firstT->shape[1], r->shape[1], firstT->shape[0]);
-            } else if (r->get_device() == "cuda") {
-                grad_first = cuda::matmul(r->grads_vec(), secondT->values_vec(), r->shape[1], secondT->shape[1], r->shape[0]);
-                grad_second = cuda::matmul(firstT->values_vec(), r->grads_vec(), firstT->shape[1], r->shape[1], firstT->shape[0]);
-            }
+            // } else if (r->get_device() == "cuda") {
+            //     grad_first = cuda::matmul(r->grads_vec(), secondT->values_vec(), r->shape[1], secondT->shape[1], r->shape[0]);
+            //     grad_second = cuda::matmul(firstT->values_vec(), r->grads_vec(), firstT->shape[1], r->shape[1], firstT->shape[0]);
+            // }
             for (int i = 0; i < r->parents.first->total_count; ++i) {
                 r->parents.first->grad_at(i) += grad_first[i];
             }
@@ -504,7 +449,8 @@ Tensor_ptr Tensor::softmax() {
     if (device == "cpu") {
         cpu::softmax(values_vec(), result->values.get(), N, C);
     } else if (device == "cuda") {
-        cuda::softmax(values_vec(), result->values.get(), N, C);
+        cuda::make_continous(values, strides, shape);
+        cuda::softmax(values.get(), result->values.get(), N, C);
     }
 
     result->backward_fn = [res = std::weak_ptr<Tensor>(result), N, C](){

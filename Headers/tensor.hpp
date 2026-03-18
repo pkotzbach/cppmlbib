@@ -1,12 +1,14 @@
 #pragma once
 
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <string>
 #include <vector>
 #include <span>
 #include <unordered_set>
 #include "globals.hpp"
+#include "stride.hpp"
 
 class Tensor;
 struct BinaryOpContext;
@@ -32,18 +34,14 @@ private:
     Storage values;
     Storage grads;
 
-    std::vector<int> strides;
     std::pair<Tensor_ptr, Tensor_ptr> parents;
     std::function<void()> backward_fn;
     std::string op;
-
+    
+    std::vector<int> strides;
     std::vector<int> shape;
-    std::string device;
     int total_count;
-
-    std::vector<int> broadcast_strides(int ndim);
-    int strided_idx(int shape_idx, const std::vector<int>& strides, const std::vector<int>& shape);
-    int strided_idx(std::vector<int> idx);
+    std::string device;
 
     Tensor& init_internal(std::vector<int> shape, std::vector<float> init_values, std::vector<float> init_grads, bool init_zero, std::string device);
 
@@ -65,15 +63,15 @@ public:
     std::vector<float> values_vec() {return values_vec(total_count, strides, shape);};
     std::vector<float> grads_vec();
 
-    float& at(std::vector<int> shape_idx) { return values[strided_idx(shape_idx)]; }
-    float& at(int shape_idx)              { return values[strided_idx(shape_idx, strides, shape)]; }
+    float& at(std::vector<int> indicies) { return values[stride::strided_idx(indicies, strides, shape)]; }
+    float& at(int shape_idx)              { return values[stride::strided_idx(shape_idx, strides, shape)]; }
     float& at(int shape_idx, const std::vector<int>& strides, const std::vector<int>& shape) {
-        return values[strided_idx(shape_idx, strides, shape)]; }
+        return values[stride::strided_idx(shape_idx, strides, shape)]; }
 
-    float& grad_at(std::vector<int> shape_idx) { return grads[strided_idx(shape_idx)]; }
-    float& grad_at(int shape_idx)              { return grads[strided_idx(shape_idx, strides, shape)]; }
+    float& grad_at(std::vector<int> shape_idx) { return grads[stride::strided_idx(shape_idx, strides, shape)]; }
+    float& grad_at(int shape_idx)              { return grads[stride::strided_idx(shape_idx, strides, shape)]; }
     float& grad_at(int shape_idx, std::vector<int> strides, std::vector<int> shape) {
-        return grads[strided_idx(shape_idx, strides, shape)]; }
+        return grads[stride::strided_idx(shape_idx, strides, shape)]; }
 
     //// operators (grad)
     Tensor_ptr relu();
@@ -105,6 +103,3 @@ public:
 
     // Tensor_ptr operator=(Tensor_ptr tensor);
 };
-
-// TODO: not here
-std::vector<int> broadcast_shape(std::vector<int>& a, std::vector<int>& b);
