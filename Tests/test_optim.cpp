@@ -11,9 +11,9 @@ class SGDTest : public ::testing::TestWithParam<std::string> {};
 TEST_P(SGDTest, Step) {
     std::string device = GetParam();
     Tensor_ptr input = Tensor::init({3}, {0.1, 0.2, -0.1}, device);
-    input->grad_at(0) = 0.1;
-    input->grad_at(1) = -0.1;
-    input->grad_at(2) = 0.5;
+    input->grad_set(0, 0.1);
+    input->grad_set(1, -0.1);
+    input->grad_set(2, 0.5);
 
     SGD optim({input}, 0.01);
     optim.step();

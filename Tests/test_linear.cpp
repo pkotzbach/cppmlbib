@@ -26,9 +26,9 @@ protected:
 //     Linear l1(5, 5, device);
 
 //     for (int o = 0; o < l1.get_out_size(); ++o) {
-//         l1.get_biases()->at(o) = 0.1;
+//         l1.get_biases()->set(o, 0.1);
 //         for (int i = 0; i < l1.get_in_size(); ++i)
-//             l1.get_weights()->at({i, o}) = 0.1 * o + 0.01 * i;
+//             l1.get_weights()->set({i, o}, 0.1 * o + 0.01 * i);
 //     }
 
 //     Tensor_ptr input = Tensor::init({2, 5}, {0.1, 0.2, 0.3, 0.4, 0.5, 

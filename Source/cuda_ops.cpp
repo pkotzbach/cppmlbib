@@ -268,6 +268,7 @@ float full_reduction(const ReductionOp op, const std::span<const float>& input) 
         return output;
 }
 
+// it breaks strides
 void make_continous(Tensor_ptr tensor)
 {
         float* values_ptr = tensor->raw_values();

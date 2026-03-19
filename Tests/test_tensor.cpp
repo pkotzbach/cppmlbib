@@ -33,13 +33,13 @@ TEST_P(TensorTest, ConstructionAndIndexing)
     EXPECT_EQ(t->get_shape(), std::vector<int>({2, 3, 4}));
     EXPECT_EQ(t->get_total_count(), 24);
 
-    EXPECT_THROW(t->at(std::vector<int>{5}), std::exception);
+    EXPECT_THROW(t->get(std::vector<int>{5}), std::exception);
 
-    t->at({0, 0, 0}) = 1.5;
-    t->at({1, 1, 3}) = 3.7;
+    t->set({0, 0, 0}, 1.5);
+    t->set({1, 1, 3}, 3.7);
 
-    EXPECT_NEAR(t->at(0), 1.5, 1e-5);
-    EXPECT_NEAR(t->at(19), 3.7, 1e-5);
+    EXPECT_NEAR(t->get(0), 1.5, 1e-5);
+    EXPECT_NEAR(t->get(19), 3.7, 1e-5);
 }
 
 TEST_P(TensorTest, ArgmaxLastDim)
@@ -133,9 +133,9 @@ TEST_P(TensorTest, AssignmentOperator)
     EXPECT_EQ(a.get(), b.get());
     EXPECT_EQ(b->get_shape(), std::vector<int>({2, 2}));
 
-    b->at({0, 0}) = 42.0;
+    b->set({0, 0}, 42.0);
 
-    EXPECT_NEAR(a->at({0, 0}), 42.0, 1e-5);
+    EXPECT_NEAR(a->get({0, 0}), 42.0, 1e-5);
 }
 
 TEST_P(TensorTest, DivisionOperator)
@@ -369,12 +369,12 @@ TEST_P(TensorTest, Transpose)
                           std::vector<float>{1.0, 3.0, 5.0, 2.0, 4.0, 6.0}));
     
     xT->zero_grad();
-    xT->grad_at({0, 0}) = 1;
-    xT->grad_at({0, 1}) = 2;
-    xT->grad_at({0, 2}) = 3;
-    xT->grad_at({1, 0}) = 4;
-    xT->grad_at({1, 1}) = 5;
-    xT->grad_at({1, 2}) = 6;
+    xT->grad_set({0, 0}, 1);
+    xT->grad_set({0, 1}, 2);
+    xT->grad_set({0, 2}, 3);
+    xT->grad_set({1, 0}, 4);
+    xT->grad_set({1, 1}, 5);
+    xT->grad_set({1, 2}, 6);
     xT->sum()->backward();
     
     // TODO: not sure if this test is correct

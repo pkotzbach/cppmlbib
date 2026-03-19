@@ -23,7 +23,7 @@ TEST_P(LossTest, MSE) {
 
     Tensor_ptr loss = MSELoss(input, target);
 
-    EXPECT_NEAR(loss->at(0), 1.3950, 1e-4);
+    EXPECT_NEAR(loss->values_vec()[0], 1.3950, 1e-4);
 
     loss->backward();
     EXPECT_EQ(input->grads_vec(), std::vector<float>({-0.9, 0.2, 0.9, -0.7, 0, -0.8}));

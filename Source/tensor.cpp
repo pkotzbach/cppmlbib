@@ -59,6 +59,13 @@ float Storage::at(int idx) {
     return 0;
 }
 
+float& Storage::operator[](int idx)
+{
+    if (device != "cpu") {
+        throw std::runtime_error("operator[] not supported for CUDA storage");
+    }
+    return data[idx];
+}
 
 Tensor& Tensor::init_internal(std::vector<int> shape, std::vector<float> init_values, std::vector<float> init_grads, bool init_zero, std::string device) {
     if (shape.size() == 0) throw std::runtime_error("shape 0");
@@ -105,31 +112,15 @@ std::vector<float> Tensor::values_vec(int count, std::vector<int>& strides, std:
 {
     std::vector<float> vec;
     vec.resize(count);
-    for (int i = 0; i < count; ++i) vec[i] = at(i, strides, shape);
+    for (int i = 0; i < count; ++i) vec[i] = get(i, strides, shape);
     return vec;
 }
 
-std::vector<float> Tensor::values_vec()
-{
-    // TODO: idk if i like that
-    if (device == "cuda") {
-        cuda::make_continous(shared_from_this());
-        return values.cpu();
-    }
-    
-    return values_vec(total_count, strides, shape);
-}
-
 std::vector<float> Tensor::grads_vec() {
-    if (device == "cuda") {
-        cuda::make_continous(shared_from_this());
-        return grads.cpu();
-    } else {
-        std::vector<float> vec;
-        vec.resize(total_count);
-        for (int i = 0; i < total_count; ++i) vec[i] = grad_at(i);
-        return vec;
-    }
+    std::vector<float> vec;
+    vec.resize(total_count);
+    for (int i = 0; i < total_count; ++i) vec[i] = grad_get(i);
+    return vec;
 }
 
 
@@ -158,7 +149,7 @@ Tensor_ptr Tensor::relu() {
     
     if (device == "cpu") {
         for (int i = 0; i < total_count; ++i) {
-            result->at(i) = at(i) > 0? at(i): 0;
+            result->set(i, get(i) > 0? get(i): 0);
         }
     } else if (device == "cuda") {
         cuda::relu(values.get(), result->values.get(), total_count);
@@ -168,7 +159,7 @@ Tensor_ptr Tensor::relu() {
         if(auto r = res.lock()){
             if (r->device == "cpu") {
                 for (int i = 0; i < r->total_count; ++i) {
-                    r->parents.first->grad_at(i) += (r->at(i) > 0 ? 1 : 0) * r->grad_at(i);
+                    r->parents.first->grad_set(i, r->parents.first->grad_get(i) + (r->get(i) > 0 ? 1 : 0) * r->grad_get(i));
                 }
             } else if (r->device == "cuda") {
                 cuda::relu_backward(r->parents.first->values.get(), r->parents.first->grads.get(), r->grads.get(), r->total_count);
@@ -192,18 +183,18 @@ Tensor_ptr Tensor::argmax(int axis) {
     result->parents = std::pair{shared_from_this(), nullptr};
 
     int idx = -1;
-    float max, data;
+    float max_val, data_val;
     for (int i = 0; i < shape[0]; ++i) {
-        max = -INFINITY;
+        max_val = -INFINITY;
         idx = -1;
         for (int j = 0; j < shape[axis]; ++j) {
-            data = at({i, j});
-            if (data > max) {
-                max = data;
+            data_val = get({i, j});
+            if (data_val > max_val) {
+                max_val = data_val;
                 idx = j;
             }
         }
-        result->at({i, 0}) = idx;
+        result->set({i, 0}, (float)idx);
     }
     
     return result;
@@ -212,17 +203,17 @@ Tensor_ptr Tensor::argmax(int axis) {
 Tensor_ptr Tensor::max() {
     Tensor_ptr result = Tensor::init({1}, true, device);
     result->parents = std::pair{shared_from_this(), nullptr};
-    float max = -INFINITY;
+    float max_val = -INFINITY;
 
     if (device == "cpu") {
         for (int i = 0; i < total_count; ++i) {
-            if (values[i] > max) max = values[i];
+            if (values.at(i) > max_val) max_val = values.at(i);
         }
     } else if (device == "cuda") {
-        max = cuda::reduction(ReductionOp::MAX, std::span<float>(values.get(), total_count));
+        max_val = cuda::reduction(ReductionOp::MAX, std::span<float>(values.get(), total_count));
     }
 
-    result->values.set(0, max);
+    result->values.set(0, max_val);
 
     return result;
 }
@@ -235,7 +226,7 @@ Tensor_ptr Tensor::sum() {
 
     if (device == "cpu") {
         for (int i = 0; i < total_count; ++i) {
-            result->values.set(0, result->values.at(0) + at(i));
+            result->values.set(0, result->values.at(0) + get(i));
         }
     } else if (device == "cuda") {
         result->values.set(0, cuda::reduction(ReductionOp::SUM, std::span<float>(values.get(), total_count)));
@@ -245,7 +236,7 @@ Tensor_ptr Tensor::sum() {
         if(auto r = res.lock()){
             if (r->device == "cpu") {
                 for (int i = 0; i < r->parents.first->total_count; ++i) {
-                    r->parents.first->grad_at(i) += r->grads[0];
+                    r->parents.first->grad_set(i, r->parents.first->grad_get(i) + r->grads.at(0));
                 }
             } else if (r->device == "cuda") {
                 cuda::sum_backward(r->parents.first->grads.get(), r->grads.get(), r->parents.first->total_count);
@@ -266,7 +257,7 @@ Tensor_ptr Tensor::sum(int axis) {
 
     for (int n = 0; n < N; ++n) {
         for (int c = 0; c < C; ++c) {
-            result->values[axis == 0? c: n] += values[n * C + c];
+            result->values.set(axis == 0? c: n, result->values.at(axis == 0? c: n) + values.at(n * C + c));
         }
     }
 
@@ -275,7 +266,7 @@ Tensor_ptr Tensor::sum(int axis) {
             if (r->device == "cpu") {
                 for (int n = 0; n < N; ++n) {
                     for (int c = 0; c < C; ++c) {
-                        r->parents.first->grads[n * C + c] += r->grads[axis == 0? c: n];
+                        r->parents.first->grad_set(n * C + c, r->parents.first->grad_get(n * C + c) + r->grad_get(axis == 0? c: n));
                     }
                 }
             } else if (r->device == "cuda") {
@@ -294,7 +285,7 @@ Tensor_ptr Tensor::exp() {
 
     if (device == "cpu") {
         for (int i = 0; i < total_count; ++i) {
-            result->at(i) = std::exp(at(i));
+            result->set(i, std::exp(get(i)));
         }
     } else if (device == "cuda") {
         cuda::exp(values.get(), result->values.get(), total_count);
@@ -304,7 +295,7 @@ Tensor_ptr Tensor::exp() {
         if(auto r = res.lock()){
             if (r->device == "cpu") {
                 for (int i = 0; i < r->total_count; ++i) {
-                    r->parents.first->grad_at(i) += r->grad_at(i) * r->at(i);
+                    r->parents.first->grad_set(i, r->parents.first->grad_get(i) + r->grad_get(i) * r->get(i));
                 }
             } else if (r->device == "cuda") {
                 cuda::exp_backward(r->values.get(), r->parents.first->grads.get(), r->grads.get(), r->total_count);
@@ -343,7 +334,7 @@ struct BinaryOpContext {
     {
         if (device == "cpu") {
             for (int i = 0; i < result->total_count; ++i) {
-                result->at(i) = cpu_op(first->at(i, first_strides, out_shape), second->at(i, second_strides, out_shape));
+                result->set(i, cpu_op(first->get(i, first_strides, out_shape), second->get(i, second_strides, out_shape)));
             }
         }
         else if (device == "cuda") {
@@ -377,8 +368,8 @@ Tensor_ptr operator+(Tensor_ptr first, Tensor_ptr second) {
         if(auto r = res.lock()){
             if (r->device == "cpu") {
                 for (int i = 0; i < r->total_count; ++i) {
-                    r->parents.first->grad_at(i, ctx.first_strides, ctx.out_shape) += r->grad_at(i);
-                    r->parents.second->grad_at(i, ctx.second_strides, ctx.out_shape) += r->grad_at(i);
+                    r->parents.first->grad_set(i, ctx.first_strides, ctx.out_shape, r->parents.first->grad_get(i, ctx.first_strides, ctx.out_shape) + r->grad_get(i));
+                    r->parents.second->grad_set(i, ctx.second_strides, ctx.out_shape, r->parents.second->grad_get(i, ctx.second_strides, ctx.out_shape) + r->grad_get(i));
                 }
             } else if (r->device == "cuda") {
                 // TODO: handle broadcasting on CUDA backward
@@ -409,8 +400,8 @@ Tensor_ptr operator-(Tensor_ptr first, Tensor_ptr second) {
         if(auto r = res.lock()){
             if (r->device == "cpu") {
                 for (int i = 0; i < r->total_count; ++i) {
-                    r->parents.first->grad_at(i, ctx.first_strides, ctx.out_shape) += r->grad_at(i);
-                    r->parents.second->grad_at(i, ctx.second_strides, ctx.out_shape) -= r->grad_at(i);
+                    r->parents.first->grad_set(i, ctx.first_strides, ctx.out_shape, r->parents.first->grad_get(i, ctx.first_strides, ctx.out_shape) + r->grad_get(i));
+                    r->parents.second->grad_set(i, ctx.second_strides, ctx.out_shape, r->parents.second->grad_get(i, ctx.second_strides, ctx.out_shape) - r->grad_get(i));
                 }
             } else if (r->device == "cuda") {
                 if (r->parents.first->total_count == r->total_count && r->parents.second->total_count == r->total_count) {
@@ -435,8 +426,8 @@ Tensor_ptr operator*(Tensor_ptr first, Tensor_ptr second) {
         if(auto r = res.lock()){
             if (r->device == "cpu") {
                 for (int i = 0; i < r->total_count; ++i) {
-                    r->parents.first->grad_at(i, ctx.first_strides, ctx.out_shape) += r->grad_at(i) * r->parents.second->at(i, ctx.second_strides, ctx.out_shape);
-                    r->parents.second->grad_at(i, ctx.second_strides, ctx.out_shape) += r->grad_at(i) * r->parents.first->at(i, ctx.first_strides, ctx.out_shape);
+                    r->parents.first->grad_set(i, ctx.first_strides, ctx.out_shape, r->parents.first->grad_get(i, ctx.first_strides, ctx.out_shape) + r->grad_get(i) * r->parents.second->get(i, ctx.second_strides, ctx.out_shape));
+                    r->parents.second->grad_set(i, ctx.second_strides, ctx.out_shape, r->parents.second->grad_get(i, ctx.second_strides, ctx.out_shape) + r->grad_get(i) * r->parents.first->get(i, ctx.first_strides, ctx.out_shape));
                 }
             } else if (r->device == "cuda") {
                 if (r->parents.first->total_count == r->total_count && r->parents.second->total_count == r->total_count) {
@@ -461,9 +452,9 @@ Tensor_ptr operator/(Tensor_ptr first, Tensor_ptr second) {
         if(auto r = res.lock()){
             if (r->device == "cpu") {
                 for (int i = 0; i < r->total_count; ++i) {
-                    r->parents.first->grad_at(i, ctx.first_strides, ctx.out_shape) += r->grad_at(i) * (1.0f / r->parents.second->at(i, ctx.second_strides, ctx.out_shape));
-                    r->parents.second->grad_at(i, ctx.second_strides, ctx.out_shape) += r->grad_at(i) * 
-                        -(r->parents.first->at(i, ctx.first_strides, ctx.out_shape) / (r->parents.second->at(i, ctx.second_strides, ctx.out_shape) * r->parents.second->at(i, ctx.second_strides, ctx.out_shape)));
+                    r->parents.first->grad_set(i, ctx.first_strides, ctx.out_shape, r->parents.first->grad_get(i, ctx.first_strides, ctx.out_shape) + r->grad_get(i) * (1.0f / r->parents.second->get(i, ctx.second_strides, ctx.out_shape)));
+                    r->parents.second->grad_set(i, ctx.second_strides, ctx.out_shape, r->parents.second->grad_get(i, ctx.second_strides, ctx.out_shape) + r->grad_get(i) * 
+                        -(r->parents.first->get(i, ctx.first_strides, ctx.out_shape) / (r->parents.second->get(i, ctx.second_strides, ctx.out_shape) * r->parents.second->get(i, ctx.second_strides, ctx.out_shape))));
                 }
             } else if (r->device == "cuda") {
                 if (r->parents.first->total_count == r->total_count && r->parents.second->total_count == r->total_count) {
@@ -514,10 +505,10 @@ Tensor_ptr Tensor::matmul(Tensor_ptr tensor) {
                 grad_first = cpu::matmul(r->grads_vec(), secondT->values_vec(), r->shape[1], secondT->shape[1], r->shape[0]);
                 grad_second = cpu::matmul(firstT->values_vec(), r->grads_vec(), firstT->shape[1], r->shape[1], firstT->shape[0]);
                 for (int i = 0; i < r->parents.first->total_count; ++i) {
-                    r->parents.first->grad_at(i) += grad_first[i];
+                    r->parents.first->grad_set(i, r->parents.first->grad_get(i) + grad_first[i]);
                 }
                 for (int i = 0; i < r->parents.second->total_count; ++i) {
-                    r->parents.second->grad_at(i) += grad_second[i];
+                    r->parents.second->grad_set(i, r->parents.second->grad_get(i) + grad_second[i]);
                 }
             } else if (r->device == "cuda") {
                 cuda::matmul_backward(r->parents.first->values.get(), r->parents.second->values.get(), 
@@ -553,10 +544,10 @@ Tensor_ptr Tensor::softmax() {
                 for (int n = 0; n < N; ++n) {
                     float sum = 0.0;
                     for (int c = 0; c < C; ++c) {
-                        sum += r->grad_at({n, c}) * r->at({n, c});
+                        sum += r->grad_get({n, c}) * r->get({n, c});
                     }
                     for (int c1 = 0; c1 < C; ++c1) {
-                        r->parents.first->grad_at({n, c1}) += r->at({n, c1}) * (r->grad_at({n, c1}) - sum);
+                        r->parents.first->grad_set({n, c1}, r->parents.first->grad_get({n, c1}) + r->get({n, c1}) * (r->grad_get({n, c1}) - sum));
                     }
                 }
             } else if (r->device == "cuda") {
@@ -613,7 +604,7 @@ void Tensor::toposort(Tensor_ptr t, std::unordered_set<Tensor_ptr>& visited, std
 
 void Tensor::zero_grad() {
     if (device == "cpu") {
-        for (int i = 0; i < total_count; ++i) grad_at(i) = 0;
+        for (int i = 0; i < total_count; ++i) grad_set(i, 0);
     } else if (device == "cuda") {
         cudaMemset(grads.get(), 0, total_count * sizeof(float));
     }

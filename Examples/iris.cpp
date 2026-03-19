@@ -36,11 +36,11 @@ int main()
     Tensor_ptr target = Tensor::init({rows, classes}, true, device);
     for (int i = 0; i < csv.size(); ++i) {
         for (int j = 1; j < features; ++j) {
-            df->at({i, j-1}) = std::stod(csv[i][j]); // ignore id
+            df->set({i, j-1}, std::stod(csv[i][j])); // ignore id
         }
         std::vector<int> onehot = class_onehot[csv[i][features+1]];
         for (int j = 0; j < onehot.size(); ++j) {
-            target->at({i,j}) = onehot[j];
+            target->set({i,j}, onehot[j]);
         }
     }
 
@@ -53,19 +53,19 @@ int main()
 
     for (int i = 0; i < train; ++i) {
         for (int j = 0; j < features; ++j) {
-            df_train->at({i, j}) = df->at({i, j});
+            df_train->set({i, j}, df->get({i, j}));
         }
         for (int j = 0; j < classes; ++j) {
-            target_train->at({i,j}) = target->at({i,j});
+            target_train->set({i,j}, target->get({i,j}));
         }
     }
 
     for (int i = 0; i < test; ++i) {
         for (int j = 0; j < features; ++j) {
-            df_test->at({i,j}) = df->at({i + train, j});
+            df_test->set({i,j}, df->get({i + train, j}));
         }
         for (int j = 0; j < classes; ++j) {
-            target_test->at({i,j}) = target->at({i + train, j});
+            target_test->set({i,j}, target->get({i + train, j}));
         }
     }
 
@@ -87,7 +87,7 @@ int main()
         Tensor_ptr loss = MSELoss(x2, target_train);
         loss->backward();
         optim.step();
-        printf("epoch: %i, loss: %f\n", i, loss->at(0));
+        printf("epoch: %i, loss: %f\n", i, loss->get(0));
     }
 
     // test
@@ -99,11 +99,11 @@ int main()
     int correct = 0;
     for (int i = 0; i < target_test->get_shape(0); ++i)
     {
-        int result_idx = result->at({i, 0}), target_idx = -1;
+        int result_idx = result->get({i, 0}), target_idx = -1;
         printf("pred: %i, ", result_idx);
         for (int j = 0; j < classes; ++j)
         {
-            if (target_test->at({i,j}) == 1.0) {
+            if (target_test->get({i,j}) == 1.0) {
                 target_idx = j;
                 printf("target: %i", j);
             }

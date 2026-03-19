@@ -61,14 +61,20 @@ __device__ __forceinline__ int strided_idx_device(int idx, const int strides[MAX
     return res;
 }
 
+struct BinaryOpMeta {
+    int strides_A[MAX_DIMS];
+    int strides_B[MAX_DIMS];
+    int shape[MAX_DIMS];
+    int dims;
+    int size;
+};
+
 template <char Op>
-__global__ void binary_op_strided_kernel(const float* input_A, const int strides_A[MAX_DIMS], 
-                                         const float* input_B, const int strides_B[MAX_DIMS], 
-                                         const int shape[MAX_DIMS], float* output, int size, int dims) {
+__global__ void binary_op_strided_kernel(const float* input_A, const float* input_B, float* output, BinaryOpMeta meta) {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
-    if (idx < size) {
-        int idx_a = strided_idx_device(idx, strides_A, shape, dims);
-        int idx_b = strided_idx_device(idx, strides_B, shape, dims);
+    if (idx < meta.size) {
+        int idx_a = strided_idx_device(idx, meta.strides_A, meta.shape, meta.dims);
+        int idx_b = strided_idx_device(idx, meta.strides_B, meta.shape, meta.dims);
         if constexpr (Op == '+') output[idx] = input_A[idx_a] + input_B[idx_b];
         else if constexpr (Op == '-') output[idx] = input_A[idx_a] - input_B[idx_b];
         else if constexpr (Op == '*') output[idx] = input_A[idx_a] * input_B[idx_b];
@@ -86,11 +92,20 @@ void launch_binary_op_strided(const char op, const float* input_A, std::array<in
     int threads = 256;
     int blocks = cuda::ceil_div(size, threads);
 
+    BinaryOpMeta meta;
+    meta.size = size;
+    meta.dims = dims;
+    for (int i = 0; i < dims; ++i) {
+        meta.strides_A[i] = strides_A[i];
+        meta.strides_B[i] = strides_B[i];
+        meta.shape[i] = shape[i];
+    }
+
     switch (op) {
-        case '+': binary_op_strided_kernel<'+'><<<blocks, threads>>>(input_A, strides_A.data(), input_B, strides_B.data(), shape.data(), output, size, dims); break;
-        case '-': binary_op_strided_kernel<'-'><<<blocks, threads>>>(input_A, strides_A.data(), input_B, strides_B.data(), shape.data(), output, size, dims); break;
-        case '*': binary_op_strided_kernel<'*'><<<blocks, threads>>>(input_A, strides_A.data(), input_B, strides_B.data(), shape.data(), output, size, dims); break;
-        case '/': binary_op_strided_kernel<'/'><<<blocks, threads>>>(input_A, strides_A.data(), input_B, strides_B.data(), shape.data(), output, size, dims); break;
+        case '+': binary_op_strided_kernel<'+'><<<blocks, threads>>>(input_A, input_B, output, meta); break;
+        case '-': binary_op_strided_kernel<'-'><<<blocks, threads>>>(input_A, input_B, output, meta); break;
+        case '*': binary_op_strided_kernel<'*'><<<blocks, threads>>>(input_A, input_B, output, meta); break;
+        case '/': binary_op_strided_kernel<'/'><<<blocks, threads>>>(input_A, input_B, output, meta); break;
         default: throw std::invalid_argument("Unknown op");
     }
 }
