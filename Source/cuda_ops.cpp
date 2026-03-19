@@ -62,7 +62,7 @@ std::vector<float> matmul(const std::vector<float>& matrix_A, const std::vector<
         return output;
 }
 
-std::vector<float> matmul_wmma(const std::vector<float>& matrix_A, const std::vector<float>& matrix_B, int K, int X, int Y) {
+std::vector<float> matmul_tc(const std::vector<float>& matrix_A, const std::vector<float>& matrix_B, int K, int X, int Y) {
         float* d_matrix_A;
         float* d_matrix_B;
         float* d_output;
@@ -78,7 +78,7 @@ std::vector<float> matmul_wmma(const std::vector<float>& matrix_A, const std::ve
         CUDA_CHECK(cudaMemcpy(d_matrix_A, matrix_A.data(), matrix_A_bytes, cudaMemcpyHostToDevice));
         CUDA_CHECK(cudaMemcpy(d_matrix_B, matrix_B.data(), matrix_B_bytes, cudaMemcpyHostToDevice));
 
-        launch_matmul_wmma(d_matrix_A, d_matrix_B, d_output, K, X, Y);
+        launch_matmul_tc(d_matrix_A, d_matrix_B, d_output, K, X, Y);
 
         CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaDeviceSynchronize());
@@ -214,10 +214,6 @@ void softmax(const float* d_input, float* d_output, int N, int C) {
                 // TODO: fix this - its because max thread block size is 1024
                 throw std::invalid_argument("CUDA softmax currently implemented for C <= 1024");
         }
-        int size = N*C;
-
-        size_t size_bytes = sizeof(float) * size;
-
         launch_softmax2(d_input, d_output, N, C);
 
         CUDA_CHECK(cudaGetLastError());
@@ -342,48 +338,43 @@ void exp_backward(const float* output, float* grad_input, const float* grad_outp
 }
 
 void matmul_backward(const float* A, const float* B, float* grad_A, float* grad_B, const float* grad_output, int K, int X, int Y) {
-    // A: (Y, K), B: (K, X), grad_output: (Y, X)
     // grad_A (Y, K) = grad_output (Y, X) * B^T (X, K)
     // grad_B (K, X) = A^T (K, Y) * grad_output (Y, X)
 
-    // float *d_BT, *d_AT;
-    // CUDA_CHECK(cudaMalloc(&d_BT, X * K * sizeof(float)));
-    // CUDA_CHECK(cudaMalloc(&d_AT, K * Y * sizeof(float)));
+    float *d_BT, *d_AT;
+    CUDA_CHECK(cudaMalloc(&d_BT, X * K * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(&d_AT, K * Y * sizeof(float)));
 
-    // std::vector<int> shape_A = {Y, K};
-    // std::vector<int> strides_A = {K, 1};
-    // std::vector<int> shape_AT = {K, Y};
-    // std::vector<int> strides_AT = {1, K};
+    std::vector<int> shape_A = {Y, K};
+    std::vector<int> strides_A = {K, 1};
+    std::vector<int> shape_AT = {K, Y};
+    std::vector<int> strides_AT = {1, K};
 
-    // std::vector<int> shape_B = {K, X};
-    // std::vector<int> strides_B = {X, 1};
-    // std::vector<int> shape_BT = {X, K};
-    // std::vector<int> strides_BT = {1, X};
+    std::vector<int> shape_B = {K, X};
+    std::vector<int> strides_B = {X, 1};
+    std::vector<int> shape_BT = {X, K};
+    std::vector<int> strides_BT = {1, X};
 
-    // launch_make_continous(A, d_AT, K * Y, strides_AT, shape_AT);
-    // launch_make_continous(B, d_BT, X * K, strides_BT, shape_BT);
+    launch_make_continous(A, d_AT, K * Y, strides_AT, shape_AT);
+    launch_make_continous(B, d_BT, X * K, strides_BT, shape_BT);
 
-    // // Temp buffers for gradients to add them later
-    // float *d_grad_A_temp, *d_grad_B_temp;
-    // CUDA_CHECK(cudaMalloc(&d_grad_A_temp, Y * K * sizeof(float)));
-    // CUDA_CHECK(cudaMalloc(&d_grad_B_temp, K * X * sizeof(float)));
+    float *d_grad_A_temp, *d_grad_B_temp;
+    CUDA_CHECK(cudaMalloc(&d_grad_A_temp, Y * K * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(&d_grad_B_temp, K * X * sizeof(float)));
 
-    // // grad_A_temp = grad_output (Y, X) * B^T (X, K)
-    // launch_matmul_naive(grad_output, d_BT, d_grad_A_temp, X, K, Y);
-    // // grad_B_temp = A^T (K, Y) * grad_output (Y, X)
-    // launch_matmul_naive(d_AT, grad_output, d_grad_B_temp, Y, X, K);
+    launch_matmul_naive(grad_output, d_BT, d_grad_A_temp, X, K, Y);
+    launch_matmul_naive(d_AT, grad_output, d_grad_B_temp, Y, X, K);
 
-    // // Add temp gradients to existing ones
-    // launch_binary_op('+', grad_A, d_grad_A_temp, grad_A, Y * K);
-    // launch_binary_op('+', grad_B, d_grad_B_temp, grad_B, K * X);
+    launch_binary_op('+', grad_A, d_grad_A_temp, grad_A, Y * K);
+    launch_binary_op('+', grad_B, d_grad_B_temp, grad_B, K * X);
 
-    // CUDA_CHECK(cudaFree(d_BT));
-    // CUDA_CHECK(cudaFree(d_AT));
-    // CUDA_CHECK(cudaFree(d_grad_A_temp));
-    // CUDA_CHECK(cudaFree(d_grad_B_temp));
+    CUDA_CHECK(cudaFree(d_BT));
+    CUDA_CHECK(cudaFree(d_AT));
+    CUDA_CHECK(cudaFree(d_grad_A_temp));
+    CUDA_CHECK(cudaFree(d_grad_B_temp));
 
-    // CUDA_CHECK(cudaGetLastError());
-    // CUDA_CHECK(cudaDeviceSynchronize());
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaDeviceSynchronize());
 }
 
 void softmax_backward(const float* output, float* grad_input, const float* grad_output, int N, int C) {

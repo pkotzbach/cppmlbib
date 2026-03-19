@@ -410,7 +410,7 @@ __global__ void convert_fp32_to_fp16(const float* in, half* out, int size) {
     if (idx < size) out[idx] = __float2half(in[idx]);
 }
 
-__global__ void matmul_wmma_kernel(const half* A, const half* B, float* C, int K, int X, int Y) {
+__global__ void matmul_tc_kernel(const half* A, const half* B, float* C, int K, int X, int Y) {
     int warp_idx_x = (threadIdx.x / 32) % 2;
     int warp_idx_y = (threadIdx.x / 32) / 2;
 
@@ -435,7 +435,7 @@ __global__ void matmul_wmma_kernel(const half* A, const half* B, float* C, int K
     nvcuda::wmma::store_matrix_sync(C + y * X + x, acc_frag, X, nvcuda::wmma::mem_row_major);
 }
 
-void launch_matmul_wmma(const float* d_A, const float* d_B, float* d_C, int K, int X, int Y) {
+void launch_matmul_tc(const float* d_A, const float* d_B, float* d_C, int K, int X, int Y) {
     if (K % 16 != 0 || X % 16 != 0 || Y % 16 != 0) {
         launch_matmul(d_A, d_B, d_C, K, X, Y);
         return;
@@ -452,7 +452,7 @@ void launch_matmul_wmma(const float* d_A, const float* d_B, float* d_C, int K, i
     dim3 block(128); 
     dim3 grid(cuda::ceil_div(X, 32), cuda::ceil_div(Y, 32));
 
-    matmul_wmma_kernel<<<grid, block>>>(d_A_half, d_B_half, d_C, K, X, Y);
+    matmul_tc_kernel<<<grid, block>>>(d_A_half, d_B_half, d_C, K, X, Y);
 
     cudaFree(d_A_half);
     cudaFree(d_B_half);
@@ -660,8 +660,8 @@ __global__ void softmax_backward_kernel(const float* output, float* grad_input, 
 }
 
 void launch_softmax_backward(const float* output, float* grad_input, const float* grad_output, int N, int C) {
-    // int block = (C + 31) / 32 * 32;
-    // size_t shared_memory_bytes = block * sizeof(float);
-    // int grid = N;
-    // softmax_backward_kernel<<<grid, block, shared_memory_bytes>>>(output, grad_input, grad_output, N, C);
+    int block = (C + 31) / 32 * 32;
+    size_t shared_memory_bytes = block * sizeof(float);
+    int grid = N;
+    softmax_backward_kernel<<<grid, block, shared_memory_bytes>>>(output, grad_input, grad_output, N, C);
 }
