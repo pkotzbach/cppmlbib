@@ -2,13 +2,30 @@
 #include "cuda_ops.hpp"
 #include "globals.hpp"
 
+
 void launch_matmul(const float* d_A, const float* d_B, float* d_C, int K, int X, int Y);
 void launch_matmul_wmma(const float* d_A, const float* d_B, float* d_C, int K, int X, int Y);
 void launch_matmul_naive(const float* d_A, const float* d_B, float* d_C, int K, int X, int Y);
 
 void launch_binary_op(const char op, const float* input_A, const float* input_B, float* output, int size);
+void launch_binary_op_strided(const char op, const float* input_A, std::array<int, MAX_DIMS> strides_A,
+                              const float* input_B, std::array<int, MAX_DIMS> strides_B, std::array<int, MAX_DIMS> shape,
+                              float* output, int size, int dims);
 void launch_softmax2(const float* input_A, float* output, int N, int C);
 int launch_reduction(const ReductionOp op, const float* input, float* output, int size);
 void launch_full_reduction(const ReductionOp op, const float* input, float* output, int size);
 
 void launch_make_continous(const float* val, float* output, int count, std::vector<int> &strides, std::vector<int> &shape);
+
+void launch_relu(const float* input, float* output, int size);
+void launch_exp(const float* input, float* output, int size);
+
+void launch_relu_backward(const float* input, float* grad_input, const float* grad_output, int size);
+void launch_sum_backward(float* grad_input, const float* grad_output, int size);
+void launch_sum_axis_backward(float* grad_input, const float* grad_output, int N, int C, int axis);
+void launch_exp_backward(const float* output, float* grad_input, const float* grad_output, int size);
+void launch_add_backward(float* grad_A, float* grad_B, const float* grad_output, int size);
+void launch_sub_backward(float* grad_A, float* grad_B, const float* grad_output, int size);
+void launch_mul_backward(const float* A, const float* B, float* grad_A, float* grad_B, const float* grad_output, int size);
+void launch_div_backward(const float* A, const float* B, float* grad_A, float* grad_B, const float* grad_output, int size);
+void launch_softmax_backward(const float* output, float* grad_input, const float* grad_output, int N, int C);
