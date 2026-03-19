@@ -199,6 +199,16 @@ void binary_op_strided(const char op, const float* d_matrix_A, std::array<int, M
         CUDA_CHECK(cudaDeviceSynchronize());
 }
 
+void binary_op_backward_strided(const char op, const float* input_A, std::array<int, MAX_DIMS> strides_A,
+                                   const float* input_B, std::array<int, MAX_DIMS> strides_B,
+                                   float* grad_A, float* grad_B, const float* grad_output,
+                                   std::array<int, MAX_DIMS> shape, int size, int dims) {
+    launch_binary_op_backward_strided(op, input_A, strides_A, input_B, strides_B, grad_A, grad_B, grad_output, shape, size, dims);
+
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaDeviceSynchronize());
+}
+
 void softmax(const float* d_input, float* d_output, int N, int C) {
         if (C > 1024) {
                 // TODO: fix this - its because max thread block size is 1024
@@ -327,30 +337,6 @@ void sum_axis_backward(float* grad_input, const float* grad_output, int N, int C
 
 void exp_backward(const float* output, float* grad_input, const float* grad_output, int size) {
     launch_exp_backward(output, grad_input, grad_output, size);
-    CUDA_CHECK(cudaGetLastError());
-    CUDA_CHECK(cudaDeviceSynchronize());
-}
-
-void add_backward(float* grad_A, float* grad_B, const float* grad_output, int size) {
-    launch_add_backward(grad_A, grad_B, grad_output, size);
-    CUDA_CHECK(cudaGetLastError());
-    CUDA_CHECK(cudaDeviceSynchronize());
-}
-
-void sub_backward(float* grad_A, float* grad_B, const float* grad_output, int size) {
-    launch_sub_backward(grad_A, grad_B, grad_output, size);
-    CUDA_CHECK(cudaGetLastError());
-    CUDA_CHECK(cudaDeviceSynchronize());
-}
-
-void mul_backward(const float* A, const float* B, float* grad_A, float* grad_B, const float* grad_output, int size) {
-    launch_mul_backward(A, B, grad_A, grad_B, grad_output, size);
-    CUDA_CHECK(cudaGetLastError());
-    CUDA_CHECK(cudaDeviceSynchronize());
-}
-
-void div_backward(const float* A, const float* B, float* grad_A, float* grad_B, const float* grad_output, int size) {
-    launch_div_backward(A, B, grad_A, grad_B, grad_output, size);
     CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaDeviceSynchronize());
 }

@@ -35,6 +35,12 @@ namespace stride {
         return result;
     }
 
+    inline bool is_continous(const std::vector<int>& strides, const std::vector<int>& shape) {
+        if (strides.empty() || shape.empty()) return true;
+        std::vector<int> expected = calc_strides(shape);
+        return strides == expected;
+    }
+
     inline int strided_idx(int shape_idx, const std::vector<int>& strides, const std::vector<int>& shape) {
         int strided_idx = 0, temp;
         int current_idx = shape_idx;

@@ -372,14 +372,20 @@ Tensor_ptr operator+(Tensor_ptr first, Tensor_ptr second) {
                     r->parents.second->grad_set(i, ctx.second_strides, ctx.out_shape, r->parents.second->grad_get(i, ctx.second_strides, ctx.out_shape) + r->grad_get(i));
                 }
             } else if (r->device == "cuda") {
-                // TODO: handle broadcasting on CUDA backward
-                if (r->parents.first->total_count == r->total_count && r->parents.second->total_count == r->total_count) {
-                    cuda::add_backward(r->parents.first->grads.get(), r->parents.second->grads.get(), r->grads.get(), r->total_count);
-                } else {
-                    // fallback to CPU or throw? 
-                    // for now let's just use what we have, but it might be wrong for broadcasting
-                    cuda::add_backward(r->parents.first->grads.get(), r->parents.second->grads.get(), r->grads.get(), r->total_count);
-                }
+                int dims = ctx.out_shape.size();
+                std::array<int, MAX_DIMS> shape_arr;
+                std::copy(ctx.out_shape.begin(), ctx.out_shape.end(), shape_arr.begin());
+
+                std::array<int, MAX_DIMS> first_strides_arr;
+                std::copy(ctx.first_strides.begin(), ctx.first_strides.end(), first_strides_arr.begin());
+
+                std::array<int, MAX_DIMS> second_strides_arr;
+                std::copy(ctx.second_strides.begin(), ctx.second_strides.end(), second_strides_arr.begin());
+
+                cuda::binary_op_backward_strided('+', r->parents.first->raw_values(), first_strides_arr,
+                                               r->parents.second->raw_values(), second_strides_arr,
+                                               r->parents.first->raw_grads(), r->parents.second->raw_grads(),
+                                               r->raw_grads(), shape_arr, r->total_count, dims);
             }
         }
     };
@@ -404,9 +410,20 @@ Tensor_ptr operator-(Tensor_ptr first, Tensor_ptr second) {
                     r->parents.second->grad_set(i, ctx.second_strides, ctx.out_shape, r->parents.second->grad_get(i, ctx.second_strides, ctx.out_shape) - r->grad_get(i));
                 }
             } else if (r->device == "cuda") {
-                if (r->parents.first->total_count == r->total_count && r->parents.second->total_count == r->total_count) {
-                    cuda::sub_backward(r->parents.first->grads.get(), r->parents.second->grads.get(), r->grads.get(), r->total_count);
-                }
+                int dims = ctx.out_shape.size();
+                std::array<int, MAX_DIMS> shape_arr;
+                std::copy(ctx.out_shape.begin(), ctx.out_shape.end(), shape_arr.begin());
+
+                std::array<int, MAX_DIMS> first_strides_arr;
+                std::copy(ctx.first_strides.begin(), ctx.first_strides.end(), first_strides_arr.begin());
+
+                std::array<int, MAX_DIMS> second_strides_arr;
+                std::copy(ctx.second_strides.begin(), ctx.second_strides.end(), second_strides_arr.begin());
+
+                cuda::binary_op_backward_strided('-', r->parents.first->raw_values(), first_strides_arr,
+                                               r->parents.second->raw_values(), second_strides_arr,
+                                               r->parents.first->raw_grads(), r->parents.second->raw_grads(),
+                                               r->raw_grads(), shape_arr, r->total_count, dims);
             }
         }
     };
@@ -430,9 +447,20 @@ Tensor_ptr operator*(Tensor_ptr first, Tensor_ptr second) {
                     r->parents.second->grad_set(i, ctx.second_strides, ctx.out_shape, r->parents.second->grad_get(i, ctx.second_strides, ctx.out_shape) + r->grad_get(i) * r->parents.first->get(i, ctx.first_strides, ctx.out_shape));
                 }
             } else if (r->device == "cuda") {
-                if (r->parents.first->total_count == r->total_count && r->parents.second->total_count == r->total_count) {
-                    cuda::mul_backward(r->parents.first->values.get(), r->parents.second->values.get(), r->parents.first->grads.get(), r->parents.second->grads.get(), r->grads.get(), r->total_count);
-                }
+                int dims = ctx.out_shape.size();
+                std::array<int, MAX_DIMS> shape_arr;
+                std::copy(ctx.out_shape.begin(), ctx.out_shape.end(), shape_arr.begin());
+
+                std::array<int, MAX_DIMS> first_strides_arr;
+                std::copy(ctx.first_strides.begin(), ctx.first_strides.end(), first_strides_arr.begin());
+
+                std::array<int, MAX_DIMS> second_strides_arr;
+                std::copy(ctx.second_strides.begin(), ctx.second_strides.end(), second_strides_arr.begin());
+
+                cuda::binary_op_backward_strided('*', r->parents.first->raw_values(), first_strides_arr,
+                                               r->parents.second->raw_values(), second_strides_arr,
+                                               r->parents.first->raw_grads(), r->parents.second->raw_grads(),
+                                               r->raw_grads(), shape_arr, r->total_count, dims);
             }
         }
     };
@@ -457,9 +485,20 @@ Tensor_ptr operator/(Tensor_ptr first, Tensor_ptr second) {
                         -(r->parents.first->get(i, ctx.first_strides, ctx.out_shape) / (r->parents.second->get(i, ctx.second_strides, ctx.out_shape) * r->parents.second->get(i, ctx.second_strides, ctx.out_shape))));
                 }
             } else if (r->device == "cuda") {
-                if (r->parents.first->total_count == r->total_count && r->parents.second->total_count == r->total_count) {
-                    cuda::div_backward(r->parents.first->values.get(), r->parents.second->values.get(), r->parents.first->grads.get(), r->parents.second->grads.get(), r->grads.get(), r->total_count);
-                }
+                int dims = ctx.out_shape.size();
+                std::array<int, MAX_DIMS> shape_arr;
+                std::copy(ctx.out_shape.begin(), ctx.out_shape.end(), shape_arr.begin());
+
+                std::array<int, MAX_DIMS> first_strides_arr;
+                std::copy(ctx.first_strides.begin(), ctx.first_strides.end(), first_strides_arr.begin());
+
+                std::array<int, MAX_DIMS> second_strides_arr;
+                std::copy(ctx.second_strides.begin(), ctx.second_strides.end(), second_strides_arr.begin());
+
+                cuda::binary_op_backward_strided('/', r->parents.first->raw_values(), first_strides_arr,
+                                               r->parents.second->raw_values(), second_strides_arr,
+                                               r->parents.first->raw_grads(), r->parents.second->raw_grads(),
+                                               r->raw_grads(), shape_arr, r->total_count, dims);
             }
         }
     };

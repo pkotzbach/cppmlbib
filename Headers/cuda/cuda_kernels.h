@@ -11,6 +11,10 @@ void launch_binary_op(const char op, const float* input_A, const float* input_B,
 void launch_binary_op_strided(const char op, const float* input_A, std::array<int, MAX_DIMS> strides_A,
                               const float* input_B, std::array<int, MAX_DIMS> strides_B, std::array<int, MAX_DIMS> shape,
                               float* output, int size, int dims);
+void launch_binary_op_backward_strided(const char op, const float* input_A, std::array<int, MAX_DIMS> strides_A,
+                                      const float* input_B, std::array<int, MAX_DIMS> strides_B,
+                                      float* grad_A, float* grad_B, const float* grad_output,
+                                      std::array<int, MAX_DIMS> shape, int size, int dims);
 void launch_softmax2(const float* input_A, float* output, int N, int C);
 int launch_reduction(const ReductionOp op, const float* input, float* output, int size);
 void launch_full_reduction(const ReductionOp op, const float* input, float* output, int size);
@@ -24,8 +28,4 @@ void launch_relu_backward(const float* input, float* grad_input, const float* gr
 void launch_sum_backward(float* grad_input, const float* grad_output, int size);
 void launch_sum_axis_backward(float* grad_input, const float* grad_output, int N, int C, int axis);
 void launch_exp_backward(const float* output, float* grad_input, const float* grad_output, int size);
-void launch_add_backward(float* grad_A, float* grad_B, const float* grad_output, int size);
-void launch_sub_backward(float* grad_A, float* grad_B, const float* grad_output, int size);
-void launch_mul_backward(const float* A, const float* B, float* grad_A, float* grad_B, const float* grad_output, int size);
-void launch_div_backward(const float* A, const float* B, float* grad_A, float* grad_B, const float* grad_output, int size);
 void launch_softmax_backward(const float* output, float* grad_input, const float* grad_output, int N, int C);

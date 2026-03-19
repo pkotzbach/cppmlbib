@@ -1,32 +1,53 @@
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 #include <cuda_runtime.h>
 #include "tensor.hpp"
 #include "cuda_ops.hpp"
 #include <vector>
 
+using ::testing::FloatNear;
+using ::testing::Pointwise;
+
+// TODO: make test that it breaks strides
 TEST(StorageCudaTest, MakeContinous) {
-    std::vector<int> shape = {2, 3};
-    std::vector<float> values = {1, 2, 3, 4, 5, 6};
-    
     // Original:
+    // 1 2
+    // 3 4
+    // 5 6
+    // Transposed:
+    // 1 3 5
+    // 2 4 6
+    
+    std::vector<int> shape = {3, 2};
+    std::vector<float> values = {1, 2, 3, 4, 5, 6};
+    Tensor_ptr x = Tensor::init(shape, values, "cuda");
+    auto xT = x->transpose();
+    EXPECT_THAT(xT->values_vec(),
+                Pointwise(FloatNear(1e-4),
+                          std::vector<float>{1, 3, 5, 2, 4, 6}));
+    EXPECT_THAT(x->values_vec(),
+                Pointwise(FloatNear(1e-4),
+                          values));
     // 1 2 3
     // 4 5 6
-    // Transposed:
-    // 1 4
+
     // 2 5
     // 3 6
+    // 4 7
+    xT->zero_grad();
+    xT->grad_set({0, 0}, 1);
+    xT->grad_set({0, 1}, 2);
+    xT->grad_set({0, 2}, 3);
+    xT->grad_set({1, 0}, 4);
+    xT->grad_set({1, 1}, 5);
+    xT->grad_set({1, 2}, 6);
+    xT->sum()->backward();
+    cuda::make_continous(x);
     
-    std::vector<int> transposed_shape = {3, 2};
-    std::vector<int> transposed_strides = {1, 3};
-    
-    Tensor_ptr tensor = Tensor::init(shape, values, "cuda");
-    tensor->set_shape(transposed_shape);
-    tensor->set_strides(transposed_strides);
-    cuda::make_continous(tensor);
-    auto result = tensor->values_vec();
-    
-    std::vector<float> expected = {1, 4, 2, 5, 3, 6};
-    for (int i = 0; i < 6; ++i) {
-        EXPECT_EQ(result[i], expected[i]);
-    }
+    EXPECT_THAT(x->grads_vec(),
+                Pointwise(FloatNear(1e-4),
+                          std::vector<float>{2, 5, 3, 6, 4, 7}));
+    EXPECT_THAT(xT->grads_vec(),
+                Pointwise(FloatNear(1e-4),
+                          std::vector<float>{2, 3, 4, 5, 6, 7}));
 }

@@ -110,6 +110,59 @@ void launch_binary_op_strided(const char op, const float* input_A, std::array<in
     }
 }
 
+template <char Op>
+__global__ void binary_op_backward_strided_kernel(const float* input_A, const float* input_B, float* grad_A, float* grad_B, const float* grad_output, BinaryOpMeta meta) {
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    if (idx < meta.size) {
+        int idx_a = strided_idx_device(idx, meta.strides_A, meta.shape, meta.dims);
+        int idx_b = strided_idx_device(idx, meta.strides_B, meta.shape, meta.dims);
+        
+        float g_out = grad_output[idx];
+        
+        if constexpr (Op == '+') {
+            atomicAdd(&grad_A[idx_a], g_out);
+            atomicAdd(&grad_B[idx_b], g_out);
+        } else if constexpr (Op == '-') {
+            atomicAdd(&grad_A[idx_a], g_out);
+            atomicAdd(&grad_B[idx_b], -g_out);
+        } else if constexpr (Op == '*') {
+            atomicAdd(&grad_A[idx_a], g_out * input_B[idx_b]);
+            atomicAdd(&grad_B[idx_b], g_out * input_A[idx_a]);
+        } else if constexpr (Op == '/') {
+            atomicAdd(&grad_A[idx_a], g_out / input_B[idx_b]);
+            atomicAdd(&grad_B[idx_b], -g_out * input_A[idx_a] / (input_B[idx_b] * input_B[idx_b]));
+        }
+    }
+}
+
+void launch_binary_op_backward_strided(const char op, const float* input_A, std::array<int, MAX_DIMS> strides_A,
+                                      const float* input_B, std::array<int, MAX_DIMS> strides_B,
+                                      float* grad_A, float* grad_B, const float* grad_output,
+                                      std::array<int, MAX_DIMS> shape, int size, int dims) {
+#ifdef CUDA_TEST
+    g_cuda_kernel_launches++;
+#endif
+    int threads = 256;
+    int blocks = cuda::ceil_div(size, threads);
+
+    BinaryOpMeta meta;
+    meta.size = size;
+    meta.dims = dims;
+    for (int i = 0; i < dims; ++i) {
+        meta.strides_A[i] = strides_A[i];
+        meta.strides_B[i] = strides_B[i];
+        meta.shape[i] = shape[i];
+    }
+
+    switch (op) {
+        case '+': binary_op_backward_strided_kernel<'+'><<<blocks, threads>>>(input_A, input_B, grad_A, grad_B, grad_output, meta); break;
+        case '-': binary_op_backward_strided_kernel<'-'><<<blocks, threads>>>(input_A, input_B, grad_A, grad_B, grad_output, meta); break;
+        case '*': binary_op_backward_strided_kernel<'*'><<<blocks, threads>>>(input_A, input_B, grad_A, grad_B, grad_output, meta); break;
+        case '/': binary_op_backward_strided_kernel<'/'><<<blocks, threads>>>(input_A, input_B, grad_A, grad_B, grad_output, meta); break;
+        default: throw std::invalid_argument("Unknown op");
+    }
+}
+
 // -------------------
 
 __global__ void matmul_kernel_naive(const float* A, const float* B, float* C, int K, int X, int Y) {
@@ -578,62 +631,6 @@ void launch_exp_backward(const float* output, float* grad_input, const float* gr
     int threads = 256;
     int blocks = cuda::ceil_div(size, threads);
     exp_backward_kernel<<<blocks, threads>>>(output, grad_input, grad_output, size);
-}
-
-__global__ void add_backward_kernel(float* grad_A, float* grad_B, const float* grad_output, int size) {
-    int idx = blockDim.x * blockIdx.x + threadIdx.x;
-    if (idx < size) {
-        grad_A[idx] += grad_output[idx];
-        grad_B[idx] += grad_output[idx];
-    }
-}
-
-void launch_add_backward(float* grad_A, float* grad_B, const float* grad_output, int size) {
-    int threads = 256;
-    int blocks = cuda::ceil_div(size, threads);
-    add_backward_kernel<<<blocks, threads>>>(grad_A, grad_B, grad_output, size);
-}
-
-__global__ void sub_backward_kernel(float* grad_A, float* grad_B, const float* grad_output, int size) {
-    int idx = blockDim.x * blockIdx.x + threadIdx.x;
-    if (idx < size) {
-        grad_A[idx] += grad_output[idx];
-        grad_B[idx] -= grad_output[idx];
-    }
-}
-
-void launch_sub_backward(float* grad_A, float* grad_B, const float* grad_output, int size) {
-    int threads = 256;
-    int blocks = cuda::ceil_div(size, threads);
-    sub_backward_kernel<<<blocks, threads>>>(grad_A, grad_B, grad_output, size);
-}
-
-__global__ void mul_backward_kernel(const float* A, const float* B, float* grad_A, float* grad_B, const float* grad_output, int size) {
-    int idx = blockDim.x * blockIdx.x + threadIdx.x;
-    if (idx < size) {
-        grad_A[idx] += grad_output[idx] * B[idx];
-        grad_B[idx] += grad_output[idx] * A[idx];
-    }
-}
-
-void launch_mul_backward(const float* A, const float* B, float* grad_A, float* grad_B, const float* grad_output, int size) {
-    int threads = 256;
-    int blocks = cuda::ceil_div(size, threads);
-    mul_backward_kernel<<<blocks, threads>>>(A, B, grad_A, grad_B, grad_output, size);
-}
-
-__global__ void div_backward_kernel(const float* A, const float* B, float* grad_A, float* grad_B, const float* grad_output, int size) {
-    int idx = blockDim.x * blockIdx.x + threadIdx.x;
-    if (idx < size) {
-        grad_A[idx] += grad_output[idx] / B[idx];
-        grad_B[idx] -= grad_output[idx] * A[idx] / (B[idx] * B[idx]);
-    }
-}
-
-void launch_div_backward(const float* A, const float* B, float* grad_A, float* grad_B, const float* grad_output, int size) {
-    int threads = 256;
-    int blocks = cuda::ceil_div(size, threads);
-    div_backward_kernel<<<blocks, threads>>>(A, B, grad_A, grad_B, grad_output, size);
 }
 
 __global__ void softmax_backward_kernel(const float* output, float* grad_input, const float* grad_output, int N, int C) {

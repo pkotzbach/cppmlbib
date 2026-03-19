@@ -13,6 +13,10 @@ namespace cuda {
     void binary_op_strided(const char op, const float* input_A, std::array<int, MAX_DIMS> strides_A,
                               const float* input_B, std::array<int, MAX_DIMS> strides_B, std::array<int, MAX_DIMS> shape,
                               int size, int dims, float* output);
+    void binary_op_backward_strided(const char op, const float* input_A, std::array<int, MAX_DIMS> strides_A,
+                                   const float* input_B, std::array<int, MAX_DIMS> strides_B,
+                                   float* grad_A, float* grad_B, const float* grad_output,
+                                   std::array<int, MAX_DIMS> shape, int size, int dims);
     void softmax(const float* input, float* output, int N, int C);
 
     float reduction(const ReductionOp op, const ::std::span<const float>& input);
@@ -28,10 +32,6 @@ namespace cuda {
     void sum_backward(float* grad_input, const float* grad_output, int size);
     void sum_axis_backward(float* grad_input, const float* grad_output, int N, int C, int axis);
     void exp_backward(const float* output, float* grad_input, const float* grad_output, int size);
-    void add_backward(float* grad_A, float* grad_B, const float* grad_output, int size);
-    void sub_backward(float* grad_A, float* grad_B, const float* grad_output, int size);
-    void mul_backward(const float* A, const float* B, float* grad_A, float* grad_B, const float* grad_output, int size);
-    void div_backward(const float* A, const float* B, float* grad_A, float* grad_B, const float* grad_output, int size);
     void matmul_backward(const float* A, const float* B, float* grad_A, float* grad_B, const float* grad_output, int K, int X, int Y);
     void softmax_backward(const float* output, float* grad_input, const float* grad_output, int N, int C);
 }
