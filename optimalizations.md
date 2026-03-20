@@ -14,11 +14,11 @@ The library implements CPU and CUDA backends.
 ### CUDA & GPU Optimizations
 - **Custom Optimized Kernels**: A custom CUDA GEMM implementation that uses shared memory tiling to reduce global memory access, performing within ~15% of cuBLAS.
 - **Tensor Cores (WMMA)**: Accelerated FP16/FP32 matrix multiplication using Tensor Cores.
-- **Strided Indexing**: Element-wise kernels use custom indexing to support non-contiguous tensor views without copies.
 
 ## Memory Management
 - **Zero-Copy Layouts**: Strided indexing allows for slices, transpositions, and broadcasting without duplicating data in many cases.
 - **Unified Interface**: Tensors manage memory automatically via smart pointers for both host and device allocations.
+- **Strided Indexing**: Element-wise kernels use custom indexing to support non-contiguous tensor views without copies.
 
 ## Benchmark Results
 
@@ -27,6 +27,7 @@ The library implements CPU and CUDA backends.
 - **GPU**: NVIDIA RTX (Compute Capability 8.6+)
 
 ### Performance Comparison
+The benchmark test was conducted using an i7-11800H CPU and a GeForce RTX 3070 Mobile GPU.
 
 | Operation | Size | Backend | Time (ms) | GFLOPS |
 |-----------|------|---------|-----------|--------|
@@ -41,3 +42,5 @@ The library implements CPU and CUDA backends.
 | cuBLAS | 77.35 | 1776.8 |
 | WMMA (TC) | 78.10 | 1759.7 |
 | Custom OPT| 89.80 | 1530.4 |
+
+More benchmark results available in [benchmark_results.txt](benchmark_results.txt).
