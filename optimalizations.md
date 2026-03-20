@@ -21,11 +21,6 @@ The library implements CPU and CUDA backends.
 - **Strided Indexing**: Element-wise kernels use custom indexing to support non-contiguous tensor views without copies.
 
 ## Benchmark Results
-
-### Hardware
-- **CPU**: Supporting AVX-512 (Skylake/Icelake+)
-- **GPU**: NVIDIA RTX (Compute Capability 8.6+)
-
 ### Performance Comparison
 The benchmark test was conducted using an i7-11800H CPU and a GeForce RTX 3070 Mobile GPU.
 
