@@ -1,11 +1,43 @@
-# GEMM
-## CPU
-- **Tiling (Blocking):** Implemented tiling for X, Y, and K dimensions (64x32x32) to improve cache locality and minimize cache misses.
-- **Multi-threading:** Utilized OpenMP (`#pragma omp parallel for`) with loop collapsing and a fixed thread count (8) to parallelize the computation across CPU cores.
-- **SIMD Vectorization (AVX-512):** Leveraged AVX-512 intrinsics to process 16 floating-point elements in a single instruction cycle. AVX-512 fully utilizes cache lines.
-- **Fused Multiply-Add (FMA):** Used `_mm512_fmadd_ps` to perform multiplication and addition in a single step, improving performance and numerical precision.
-- **Raw Pointer Access:** Used direct pointer access to vector data to avoid the overhead of `std::vector` bounds checking or iterator abstractions in hot loops.
+# Optimization & Performance Notes
 
-more:
-- manual unrolling with full utility of zmm https://github.com/flame/how-to-optimize-gemm/wiki#computing-a-4-x-4-block-of-c-at-a-time
-- aligned memory
+Detailed implementation details for high-performance training and inference.
+
+## Matrix Multiplication (GEMM) Strategies
+
+The library implements CPU and CUDA backends.
+
+### CPU Optimizations
+- **AVX-512 SIMD**: Uses 512-bit ZMM registers to process 16 floats (FP32) in a single instruction.
+- **Cache-Aware Tiling**: Matrices are subdivided into blocks to maximize L1/L2 cache locality and reduce memory traffic.
+- **OpenMP Parallelization**: Multi-threaded execution via OpenMP.
+
+### CUDA & GPU Optimizations
+- **Custom Optimized Kernels**: A custom CUDA GEMM implementation that uses shared memory tiling to reduce global memory access, performing within ~15% of cuBLAS.
+- **Tensor Cores (WMMA)**: Accelerated FP16/FP32 matrix multiplication using Tensor Cores.
+- **Strided Indexing**: Element-wise kernels use custom indexing to support non-contiguous tensor views without copies.
+
+## Memory Management
+- **Zero-Copy Layouts**: Strided indexing allows for slices, transpositions, and broadcasting without duplicating data in many cases.
+- **Unified Interface**: Tensors manage memory automatically via smart pointers for both host and device allocations.
+
+## Benchmark Results
+
+### Hardware
+- **CPU**: Supporting AVX-512 (Skylake/Icelake+)
+- **GPU**: NVIDIA RTX (Compute Capability 8.6+)
+
+### Performance Comparison
+
+| Operation | Size | Backend | Time (ms) | GFLOPS |
+|-----------|------|---------|-----------|--------|
+| Matmul | 1024 | CPU (OPT) | 11.66 | 184.1 |
+| Matmul | 1024 | CUDA (OPT) | 3.55 | 605.0 |
+| Matmul | 2048 | CPU (OPT) | 183.1 | 93.8 |
+| Matmul | 2048 | CUDA (OPT) | 17.60 | 976.0 |
+
+### cuBLAS vs WMMA vs Custom (N=4096)
+| Backend | Time (ms) | Throughput (GFLOPS) |
+|---------|-----------|--------------------|
+| cuBLAS | 77.35 | 1776.8 |
+| WMMA (TC) | 78.10 | 1759.7 |
+| Custom OPT| 89.80 | 1530.4 |
