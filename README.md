@@ -34,8 +34,8 @@ cmake --build .
 ```
 
 ### Examples
-- **Iris Classification**: `./bin/iris`.
-- **Benchmarking**: `./bin/benchmark` to compare CPU vs GPU performance.
+- **Iris Classification**.
+- **Benchmarking** to compare CPU vs GPU performance.
 
 ## Testing
 Unit tests are implemented using GoogleTest:
