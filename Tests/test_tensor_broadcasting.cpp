@@ -49,7 +49,6 @@ TEST_P(BroadcastingTest, Scalar)
 
     auto r = apply_op(a, b);
 
-    // Dynamic expectation generators for values and gradients
     std::vector<float> exp_v(4), exp_ga(4), exp_gb(1, 0.0);
     for(int i = 0; i < 4; ++i) {
         if (op == Op::ADD) { exp_v[i] = a_vals[i] + b_vals[0]; exp_ga[i] = 1; exp_gb[0] += 1; }
@@ -173,7 +172,7 @@ TEST_P(BroadcastingTest, BroadcastWithTranspose)
     std::vector<float> b_vals = {10, 20, 30};
     Tensor_ptr a = Tensor::init({2, 3}, a_vals, device);
     Tensor_ptr b = Tensor::init({3, 1}, b_vals, device);
-    Tensor_ptr bt = b->transpose();  // shape (1, 3), stride swap
+    Tensor_ptr bt = b->transpose();
 
     auto r = apply_op(a, bt);
 
@@ -197,9 +196,7 @@ TEST_P(BroadcastingTest, BroadcastWithTranspose)
 }
 
 
-// Optional formatter to assign easily readable suffix test names inside Google Test
 std::string PrintTestParamName(const ::testing::TestParamInfo<std::tuple<std::string, Op>>& info) {
-    std::string device = std::get<0>(info.param);
     Op op = std::get<1>(info.param);
     std::string op_str;
     switch (op) {
@@ -208,7 +205,7 @@ std::string PrintTestParamName(const ::testing::TestParamInfo<std::tuple<std::st
         case Op::MUL: op_str = "MUL"; break;
         case Op::DIV: op_str = "DIV"; break;
     }
-    return device + "_" + op_str;
+    return op_str;
 }
 
 INSTANTIATE_TEST_SUITE_P(CPU, BroadcastingTest, 
