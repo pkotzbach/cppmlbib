@@ -165,7 +165,7 @@ void launch_binary_op_backward_strided(const char op, const float* input_A, std:
 
 // -------------------
 
-__global__ void matmul_kernel_naive(const float* A, const float* B, float* C, int K, int X, int Y) {
+__global__ void matmul_kernel_naive(const float* __restrict__ A, const float* __restrict__ B, float* __restrict__ C, int K, int X, int Y) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -178,7 +178,7 @@ __global__ void matmul_kernel_naive(const float* A, const float* B, float* C, in
     }
 }
 
-void launch_matmul_naive(const float* d_A, const float* d_B, float* d_C, int K, int X, int Y)
+void launch_matmul_naive(const float* __restrict__ d_A, const float* __restrict__ d_B, float* __restrict__ d_C, int K, int X, int Y)
 {
 #ifdef CUDA_TEST
     g_cuda_kernel_launches++;
@@ -196,7 +196,7 @@ constexpr int BLOCK_K = 8;
 constexpr int BLOCK_X = 64;
 constexpr int BLOCK_Y = 64;
 
-__global__ void matmul_kernel(const float* A, const float* B, float* C, int K, int X, int Y) {
+__global__ void matmul_kernel(const float* __restrict__ A, const float* __restrict__ B, float* __restrict__ C, int K, int X, int Y) {
     __shared__ float sA[BLOCK_Y * BLOCK_K];
     __shared__ float sB[BLOCK_K * BLOCK_X];
 
@@ -291,7 +291,7 @@ __global__ void matmul_kernel(const float* A, const float* B, float* C, int K, i
     }
 }
 
-void launch_matmul(const float* d_A, const float* d_B, float* d_C, int K, int X, int Y)
+void launch_matmul(const float* __restrict__ d_A, const float* __restrict__ d_B, float* __restrict__ d_C, int K, int X, int Y)
 {
 #ifdef CUDA_TEST
     g_cuda_kernel_launches++;
@@ -411,7 +411,7 @@ __global__ void convert_fp32_to_fp16(const float* in, half* out, int size) {
     if (idx < size) out[idx] = __float2half(in[idx]);
 }
 
-__global__ void matmul_tc_kernel(const half* A, const half* B, float* C, int K, int X, int Y) {
+__global__ void matmul_tc_kernel(const half* __restrict__ A, const half* __restrict__ B, float* __restrict__ C, int K, int X, int Y) {
     int warp_idx_x = (threadIdx.x / 32) % 2;
     int warp_idx_y = (threadIdx.x / 32) / 2;
 
@@ -436,7 +436,7 @@ __global__ void matmul_tc_kernel(const half* A, const half* B, float* C, int K, 
     nvcuda::wmma::store_matrix_sync(C + y * X + x, acc_frag, X, nvcuda::wmma::mem_row_major);
 }
 
-void launch_matmul_tc(const float* d_A, const float* d_B, float* d_C, int K, int X, int Y) {
+void launch_matmul_tc(const float* __restrict__ d_A, const float* __restrict__ d_B, float* __restrict__ d_C, int K, int X, int Y) {
     if (K % 16 != 0 || X % 16 != 0 || Y % 16 != 0) {
         launch_matmul(d_A, d_B, d_C, K, X, Y);
         return;

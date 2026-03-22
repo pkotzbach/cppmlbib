@@ -6,7 +6,6 @@
 - constant memory (`__constant__`) and improved cache utilization
 
 ## Architectural Improvements
-- add `__restrict__`
 - refactor stride calculation logic - isContinous check
 - operations (e.g. `argmax`) support across all dimensions
 - no-grad mode
