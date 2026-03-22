@@ -9,7 +9,7 @@ protected:
 
 public:
     Optimizer(std::vector<std::vector<Tensor_ptr>> params, float lr);
-    Optimizer(std::vector<Tensor_ptr> params, float lr) : parameters(params), lr(lr) {};
+    Optimizer(std::vector<Tensor_ptr> params, float lr) : parameters(std::move(params)), lr(lr) {};
 
     virtual void step() = 0;
     void zero_grad();

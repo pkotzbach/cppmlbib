@@ -121,5 +121,5 @@ public:
     //// autograd
     void backward();
     void zero_grad();
-    void toposort(Tensor_ptr t, std::unordered_set<Tensor_ptr>& visited, std::vector<Tensor_ptr>& res);
+    void toposort(const Tensor_ptr& t, std::unordered_set<Tensor_ptr>& visited, std::vector<Tensor_ptr>& res);
 };

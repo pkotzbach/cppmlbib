@@ -18,12 +18,13 @@ float sample_kaiming(float n) {
     return dist(gen);
 }
 
-Storage::Storage(std::string i_device, std::vector<float> i_values, int i_size) : device(i_device), size(i_size)
+Storage::Storage(std::string i_device, std::vector<float> i_values, int i_size) : device(std::move(i_device)), size(i_size)
 {
     int memory = size * sizeof(float);
     if (device == "cpu") {
+        // TODO: move?
         data = std::shared_ptr<float[]>(new float[size], std::default_delete<float[]>());
-        std::memcpy(data.get(), i_values.data(), memory);
+                std::memcpy(data.get(), i_values.data(), memory);
     }
     else {
         float* raw_values = nullptr;
@@ -73,18 +74,18 @@ float& Storage::operator[](int idx)
 Tensor& Tensor::init_internal(std::vector<int> shape, std::vector<float> init_values, std::vector<float> init_grads, bool init_zero, std::string device) {
     if (shape.empty()) throw std::runtime_error("shape 0");
     if (device != "cuda" && device != "cpu") throw std::runtime_error("invalid device!");
-    this->shape = shape;
-    this->device = device;
+    this->shape = std::move(shape);
+    this->device = std::move(device);
 
     // calc total_count TODO: remove?
-    total_count = shape[0];
-    for (size_t i = 1; i < shape.size(); ++i) {
-        if (shape[i] <= 0) throw std::runtime_error("shape <= 0");
-        total_count *= shape[i];
+    total_count = this->shape[0];
+    for (size_t i = 1; i < this->shape.size(); ++i) {
+        if (this->shape[i] <= 0) throw std::runtime_error("shape <= 0");
+        total_count *= this->shape[i];
     }
 
     // calc strides
-    strides = stride::calc_strides(shape);
+    strides = stride::calc_strides(this->shape);
 
     // init values
     if (!init_values.empty() && init_values.size() != static_cast<size_t>(total_count)) throw std::runtime_error("init values doesnt match shape");
@@ -104,8 +105,8 @@ Tensor& Tensor::init_internal(std::vector<int> shape, std::vector<float> init_va
         init_grads.assign(total_count, 0);
     }    
 
-    values = Storage(device, init_values, total_count);
-    grads = Storage(device, init_grads, total_count);
+    values = Storage(this->device, std::move(init_values), total_count);
+    grads = Storage(this->device, std::move(init_grads), total_count);
 
     return *this;
 }
@@ -127,13 +128,13 @@ std::vector<float> Tensor::grads_vec() {
 
 Tensor_ptr Tensor::init(std::vector<int> shape, bool init_zero, std::string device) {
     auto t = std::make_shared<Tensor>();
-    t->init_internal(shape, {}, {}, init_zero, device);
+    t->init_internal(std::move(shape), {}, {}, init_zero, std::move(device));
     return t;
 }
 
 Tensor_ptr Tensor::init(std::vector<int> shape, std::vector<float> values, std::string device) {
     auto t = std::make_shared<Tensor>();
-    t->init_internal(shape, values, {}, false, device);
+    t->init_internal(std::move(shape), std::move(values), {}, false, std::move(device));
     return t;
 }
 
@@ -309,30 +310,30 @@ struct BinaryOpContext {
     std::vector<int> first_strides;
     std::vector<int> second_strides;
 
-    BinaryOpContext(Tensor_ptr first, Tensor_ptr second)
+    BinaryOpContext(const Tensor_ptr& first, const Tensor_ptr& second)
     {
         if (first->get_device() != second->get_device()) {
             throw std::invalid_argument("Tensors must be on the same device");
         }
         
-        device = first->device;
-        out_shape = stride::broadcast_shape(first->shape, second->shape);
+        device = first->get_device();
+        out_shape = stride::broadcast_shape(first->get_shape(), second->get_shape());
         int ndim = out_shape.size();
         
-        first_strides = stride::broadcast_strides(first->shape, first->strides, ndim);
-        second_strides = stride::broadcast_strides(second->shape, second->strides, ndim);
+        first_strides = stride::broadcast_strides(first->get_shape(), first->get_strides(), ndim);
+        second_strides = stride::broadcast_strides(second->get_shape(), second->get_strides(), ndim);
     }
 
     template <typename CPU_Op>
-    void compute_forward(Tensor_ptr first, Tensor_ptr second, Tensor_ptr result, char cuda_op, CPU_Op cpu_op)
+    void compute_forward(const Tensor_ptr& first, const Tensor_ptr& second, const Tensor_ptr& result, char cuda_op, CPU_Op cpu_op)
     {
         if (device == "cpu") {
-            for (int i = 0; i < result->total_count; ++i) {
+            for (int i = 0; i < result->get_total_count(); ++i) {
                 result->set(i, cpu_op(first->get(i, first_strides, out_shape), second->get(i, second_strides, out_shape)));
             }
         }
         else if (device == "cuda") {
-            int size = result->total_count;
+            int size = result->get_total_count();
             int dims = out_shape.size();
             // TODO: it looks bad
             std::array<int, MAX_DIMS> shape_arr;
@@ -505,19 +506,16 @@ Tensor_ptr Tensor::matmul(Tensor_ptr tensor) {
     if (shape[1] != tensor->shape[0]) throw std::invalid_argument("Invalid shapes for matmul");
     if (device != tensor->device) throw std::invalid_argument("different devices");
 
-    Tensor_ptr result = Tensor::init({shape[0], tensor->shape[1]}, true, device);
-    result->parents = std::pair{shared_from_this(), tensor};
-    result->op = "matmul";
-    
     std::vector<float> matmul_output;
     if (device == "cpu") {
         matmul_output = cpu::matmul(values_vec(), tensor->values_vec(), shape[1], tensor->shape[1], shape[0]);
     } else if (device == "cuda") {
         matmul_output = cuda::matmul(values_vec(), tensor->values_vec(), shape[1], tensor->shape[1], shape[0]);
     }
-
-    for (int i = 0; i < matmul_output.size(); ++i)
-        result->values.set(i, matmul_output[i]);
+    
+    Tensor_ptr result = Tensor::init({shape[0], tensor->shape[1]}, matmul_output, device);
+    result->parents = std::pair{shared_from_this(), tensor};
+    result->op = "matmul";
     
     result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){
         if(auto r = res.lock()){
@@ -614,7 +612,7 @@ void Tensor::backward() {
     }
 }
 
-void Tensor::toposort(Tensor_ptr t, std::unordered_set<Tensor_ptr>& visited, std::vector<Tensor_ptr>& res) {
+void Tensor::toposort(const Tensor_ptr& t, std::unordered_set<Tensor_ptr>& visited, std::vector<Tensor_ptr>& res) {
     if (!visited.contains(t)) {
         visited.insert(t);
         if (t->parents.first)
