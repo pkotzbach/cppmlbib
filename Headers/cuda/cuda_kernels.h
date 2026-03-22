@@ -19,7 +19,7 @@ void launch_softmax2(const float* input_A, float* output, int N, int C);
 int launch_reduction(const ReductionOp op, const float* input, float* output, int size);
 void launch_full_reduction(const ReductionOp op, const float* input, float* output, int size);
 
-void launch_make_continous(const float* val, float* output, int count, std::vector<int> &strides, std::vector<int> &shape);
+void launch_make_continous(const float* val, float* output, int count, const std::vector<int> &strides, const std::vector<int> &shape);
 
 void launch_relu(const float* input, float* output, int size);
 void launch_exp(const float* input, float* output, int size);

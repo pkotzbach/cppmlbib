@@ -8,7 +8,7 @@
 
 #define CUDA_CHECK(x) do { \
     cudaError_t err = x; \
-    if (err != cudaSuccess) { \
+    if (err != cudaSuccess) [[unlikely]] { \
         printf("CUDA error %s at %s:%d\n", \
                cudaGetErrorString(err), __FILE__, __LINE__); \
         exit(1); \
@@ -17,7 +17,7 @@
 
 #define CUBLAS_CHECK(x) do { \
     cublasStatus_t status = x; \
-    if (status != CUBLAS_STATUS_SUCCESS) { \
+    if (status != CUBLAS_STATUS_SUCCESS) [[unlikely]] { \
         printf("cuBLAS error %d at %s:%d\n", \
                status, __FILE__, __LINE__); \
         exit(1); \

@@ -4,16 +4,17 @@
 #include <algorithm>
 #include <immintrin.h>
 #include <omp.h>
+#include <ranges>
 
 namespace cpu {
 
 std::vector<float> matmul(const std::vector<float> &A, const std::vector<float> &B, int K, int X, int Y)
 {
-    std::vector<float> C(X * Y, 0.0);
+    std::vector<float> C(X * Y, 0.0f);
     const int tile_size_X = 64;
     const int tile_size_Y = 32;
     const int tile_size_K = 32;
-    float a;
+    
     const float* A_ptr = A.data();
     const float* B_ptr = B.data();
     float* C_ptr = C.data();
@@ -77,12 +78,10 @@ std::vector<float> matmul_naive(const std::vector<float> &A, const std::vector<f
 
 void softmax(const std::vector<float>& input, float* output, int N, int C) {
     for (int i = 0; i < N; ++i) {
-        float max_val = input[i * C];
-        for (int j = 1; j < C; ++j) {
-            max_val = std::max(max_val, input[i * C + j]);
-        }
+        auto row_view = input | std::views::drop(i * C) | std::views::take(C);
+        float max_val = std::ranges::max(row_view);
 
-        float sum = 0.0;
+        float sum = 0.0f;
         for (int j = 0; j < C; ++j) {
             output[i * C + j] = std::exp(input[i * C + j] - max_val);
             sum += output[i * C + j];

@@ -2,9 +2,10 @@
 #include <vector>
 #include <stdexcept>
 #include <algorithm>
+#include <ranges>
 
 namespace stride {
-    inline std::vector<int> calc_strides(const std::vector<int>& shape) {
+        inline std::vector<int> calc_strides(const std::vector<int>& shape) {
         if (shape.empty()) return {};
         std::vector<int> strides(shape.size());
         strides.back() = 1;
@@ -15,11 +16,11 @@ namespace stride {
     }
 
     inline std::vector<int> broadcast_shape(const std::vector<int>& a, const std::vector<int>& b) {
-        int ndim = std::max((int)a.size(), (int)b.size());
+        size_t ndim = std::max(a.size(), b.size());
         std::vector<int> result(ndim);
-        for (int i = 0; i < ndim; ++i) {
-            int ai = i < (int)a.size() ? a[a.size() - 1 - i] : 1;
-            int bi = i < (int)b.size() ? b[b.size() - 1 - i] : 1;
+        for (size_t i = 0; i < ndim; ++i) {
+            int ai = i < a.size() ? a[a.size() - 1 - i] : 1;
+            int bi = i < b.size() ? b[b.size() - 1 - i] : 1;
             if (ai != bi && ai != 1 && bi != 1) throw std::invalid_argument("Incompatible broadcast shapes");
             result[ndim - 1 - i] = std::max(ai, bi);
         }
@@ -37,8 +38,7 @@ namespace stride {
 
     inline bool is_continous(const std::vector<int>& strides, const std::vector<int>& shape) {
         if (strides.empty() || shape.empty()) return true;
-        std::vector<int> expected = calc_strides(shape);
-        return strides == expected;
+        return std::ranges::equal(strides, calc_strides(shape));
     }
 
     inline int strided_idx(int shape_idx, const std::vector<int>& strides, const std::vector<int>& shape) {

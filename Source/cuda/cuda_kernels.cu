@@ -343,14 +343,14 @@ int launch_reduction(const ReductionOp op, const float* input, float* output, in
     int grid = cuda::ceil_div(size, block);
     int shared_memory = sizeof(float) * block; 
     switch (op) {
-        case MAX: 
-            reduction_kernel<MAX><<<grid, block, shared_memory>>>(input, output, size); 
+        case ReductionOp::MAX: 
+            reduction_kernel<ReductionOp::MAX><<<grid, block, shared_memory>>>(input, output, size); 
             break;
-        case MIN: 
-            reduction_kernel<MIN><<<grid, block, shared_memory>>>(input, output, size); 
+        case ReductionOp::MIN: 
+            reduction_kernel<ReductionOp::MIN><<<grid, block, shared_memory>>>(input, output, size); 
             break;
-        case SUM: 
-            reduction_kernel<SUM><<<grid, block, shared_memory>>>(input, output, size); 
+        case ReductionOp::SUM: 
+            reduction_kernel<ReductionOp::SUM><<<grid, block, shared_memory>>>(input, output, size); 
             break;
         default: throw std::invalid_argument("Unknown op");
     }
@@ -530,7 +530,7 @@ __global__ void apply_strided_idx(const float* input, float* output, int count, 
     output[output_idx] = input[strided_idx];
 }
 
-void launch_make_continous(const float* input, float* output, int count, std::vector<int> &strides, std::vector<int> &shape) {
+void launch_make_continous(const float* input, float* output, int count, const std::vector<int> &strides, const std::vector<int> &shape) {
 #ifdef CUDA_TEST
     g_cuda_kernel_launches++;
 #endif

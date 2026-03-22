@@ -12,7 +12,7 @@
 
 class Tensor;
 struct BinaryOpContext;
-typedef std::shared_ptr<Tensor> Tensor_ptr;
+using Tensor_ptr = std::shared_ptr<Tensor>;
 
 struct Storage {
     // TODO: should be aligned?
@@ -50,25 +50,24 @@ private:
 public:
     static Tensor_ptr init(std::vector<int> shape, bool init_zero = false, std::string device = "cpu");
     static Tensor_ptr init(std::vector<int> shape, std::vector<float> values, std::string device = "cpu");
-    // static Tensor_ptr init(std::vector<int> shape, std::vector<float> values, std::vector<float> grads, std::string device = "cpu") {init_internal(shape, values, grads, false, device);}
 
     Tensor() {}
     ~Tensor() {}
 
     //// getters setters
-    std::vector<int>& get_shape() {return shape;}
-    int get_shape(int idx) {return shape[idx];}
+    const std::vector<int>& get_shape() const {return shape;}
+    int get_shape(int idx) const {return shape[idx];}
     void set_shape(std::vector<int> shp) { 
-        shape = shp; 
+        shape = std::move(shp); 
         total_count = 1;
         for (auto s : shape) total_count *= s;
     }
 
-    std::vector<int>& get_strides() {return strides;}
-    void set_strides(std::vector<int> str) { strides = str; }
+    const std::vector<int>& get_strides() const {return strides;}
+    void set_strides(std::vector<int> str) { strides = std::move(str); }
 
-    int get_total_count() {return total_count;}
-    std::string get_device() {return device;}
+    int get_total_count() const {return total_count;}
+    std::string get_device() const {return device;}
 
     // storage
     std::vector<float> values_vec(int count, std::vector<int>& strides, std::vector<int>& shape);
@@ -98,10 +97,10 @@ public:
         return grads.at(stride::strided_idx(shape_idx, strides, shape)); }
 
     //// operators (grad)
-    Tensor_ptr relu();
-    Tensor_ptr exp();
-    Tensor_ptr matmul(Tensor_ptr tensor);
-    Tensor_ptr softmax();
+    [[nodiscard]] Tensor_ptr relu();
+    [[nodiscard]] Tensor_ptr exp();
+    [[nodiscard]] Tensor_ptr matmul(Tensor_ptr tensor);
+    [[nodiscard]] Tensor_ptr softmax();
     //// binary operations
     friend BinaryOpContext;
     friend Tensor_ptr operator+(Tensor_ptr self, Tensor_ptr other);
@@ -110,20 +109,17 @@ public:
     friend Tensor_ptr operator/(Tensor_ptr self, Tensor_ptr other);
     
     //// reduction
-    // no grad (for sure?)
-    Tensor_ptr argmax(int axis = 1);
-    Tensor_ptr max();
+    [[nodiscard]] Tensor_ptr argmax(int axis = 1);
+    [[nodiscard]] Tensor_ptr max();
     // grad
-    Tensor_ptr sum();
-    Tensor_ptr sum(int axis);
+    [[nodiscard]] Tensor_ptr sum();
+    [[nodiscard]] Tensor_ptr sum(int axis);
 
     //// transformation
-    Tensor_ptr transpose();
+    [[nodiscard]] Tensor_ptr transpose();
 
     //// autograd
     void backward();
     void zero_grad();
     void toposort(Tensor_ptr t, std::unordered_set<Tensor_ptr>& visited, std::vector<Tensor_ptr>& res);
-
-    // Tensor_ptr operator=(Tensor_ptr tensor);
 };
