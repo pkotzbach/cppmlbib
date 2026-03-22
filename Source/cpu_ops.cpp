@@ -11,14 +11,14 @@ namespace cpu {
 std::vector<float> matmul(const std::vector<float> &A, const std::vector<float> &B, int K, int X, int Y)
 {
     std::vector<float> C(X * Y, 0.0f);
-    const int tile_size_X = 64;
-    const int tile_size_Y = 32;
-    const int tile_size_K = 32;
+    constexpr int tile_size_X = 64;
+    constexpr int tile_size_Y = 32;
+    constexpr int tile_size_K = 32;
     
     const float* A_ptr = A.data();
     const float* B_ptr = B.data();
     float* C_ptr = C.data();
-    const int simd_step = 16; // AVX-512
+    constexpr int simd_step = 16; // AVX-512
 
     #pragma omp parallel for shared(A_ptr, B_ptr, C_ptr) collapse(2) num_threads(8)
     for (int tile_y = 0; tile_y < Y; tile_y += tile_size_Y) {

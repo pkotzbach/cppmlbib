@@ -39,7 +39,7 @@ void launch_binary_op(const char op, const float* input_A, const float* input_B,
 #ifdef CUDA_TEST
     g_cuda_kernel_launches++;
 #endif
-    int threads = 256;
+    constexpr int threads = 256;
     int blocks = cuda::ceil_div(size, threads);
 
     switch (op) {
@@ -89,7 +89,7 @@ void launch_binary_op_strided(const char op, const float* input_A, std::array<in
 #ifdef CUDA_TEST
     g_cuda_kernel_launches++;
 #endif
-    int threads = 256;
+    constexpr int threads = 256;
     int blocks = cuda::ceil_div(size, threads);
 
     BinaryOpMeta meta;
@@ -142,7 +142,7 @@ void launch_binary_op_backward_strided(const char op, const float* input_A, std:
 #ifdef CUDA_TEST
     g_cuda_kernel_launches++;
 #endif
-    int threads = 256;
+    constexpr int threads = 256;
     int blocks = cuda::ceil_div(size, threads);
 
     BinaryOpMeta meta;
@@ -191,29 +191,30 @@ void launch_matmul_naive(const float* d_A, const float* d_B, float* d_C, int K, 
 }
 
 
-#define PER_THREAD 8
-#define BLOCK_K 8
-#define BLOCK_X 64
-#define BLOCK_Y 64
+constexpr int PER_THREAD = 8;
+constexpr int BLOCK_K = 8;
+constexpr int BLOCK_X = 64;
+constexpr int BLOCK_Y = 64;
+
 __global__ void matmul_kernel(const float* A, const float* B, float* C, int K, int X, int Y) {
     __shared__ float sA[BLOCK_Y * BLOCK_K];
     __shared__ float sB[BLOCK_K * BLOCK_X];
 
-    const int block_steps = BLOCK_X / PER_THREAD; // or BLOCK_Y
+    constexpr int block_steps = BLOCK_X / PER_THREAD; // or BLOCK_Y
     
     const int thread_x = threadIdx.x % block_steps;
     const int thread_y = threadIdx.x / block_steps;
 
-    const int VEC_SIZE = 4; // float4
-    const int NUM_THREADS = (BLOCK_X / PER_THREAD) * (BLOCK_Y / PER_THREAD);
+    constexpr int VEC_SIZE = 4; // float4
+    constexpr int NUM_THREADS = (BLOCK_X / PER_THREAD) * (BLOCK_Y / PER_THREAD);
 
-    const int SA_VECS_PER_ROW = BLOCK_K / VEC_SIZE;
-    const int SA_ROWS_PER_STEP = NUM_THREADS / SA_VECS_PER_ROW;
-    const int SA_STEPS = (BLOCK_Y * BLOCK_K) / (VEC_SIZE * NUM_THREADS);
+    constexpr int SA_VECS_PER_ROW = BLOCK_K / VEC_SIZE;
+    constexpr int SA_ROWS_PER_STEP = NUM_THREADS / SA_VECS_PER_ROW;
+    constexpr int SA_STEPS = (BLOCK_Y * BLOCK_K) / (VEC_SIZE * NUM_THREADS);
 
-    const int SB_VECS_PER_ROW = BLOCK_X / VEC_SIZE;
-    const int SB_ROWS_PER_STEP = NUM_THREADS / SB_VECS_PER_ROW;
-    const int SB_STEPS = (BLOCK_K * BLOCK_X) / (VEC_SIZE * NUM_THREADS);
+    constexpr int SB_VECS_PER_ROW = BLOCK_X / VEC_SIZE;
+    constexpr int SB_ROWS_PER_STEP = NUM_THREADS / SB_VECS_PER_ROW;
+    constexpr int SB_STEPS = (BLOCK_K * BLOCK_X) / (VEC_SIZE * NUM_THREADS);
 
     const int a_row = threadIdx.x / SA_VECS_PER_ROW;
     const int a_col = (threadIdx.x % SA_VECS_PER_ROW) * VEC_SIZE;
@@ -339,7 +340,7 @@ int launch_reduction(const ReductionOp op, const float* input, float* output, in
     g_cuda_kernel_launches++; 
 #endif 
 
-    int block = 256; 
+    constexpr int block = 256; 
     int grid = cuda::ceil_div(size, block);
     int shared_memory = sizeof(float) * block; 
     switch (op) {
@@ -390,7 +391,7 @@ void launch_full_reduction(const ReductionOp op, const float* input, float* outp
     g_cuda_kernel_launches++; 
 #endif 
 
-    int block = 256; 
+    constexpr int block = 256; 
     int grid = cuda::ceil_div(size, block);
     int shared_memory = sizeof(float) * block; 
     switch (op) {
@@ -401,9 +402,9 @@ void launch_full_reduction(const ReductionOp op, const float* input, float* outp
     }
 }
 
-#define WMMA_Y 16
-#define WMMA_X 16
-#define WMMA_K 16
+constexpr int WMMA_Y = 16;
+constexpr int WMMA_X = 16;
+constexpr int WMMA_K = 16;
 
 __global__ void convert_fp32_to_fp16(const float* in, half* out, int size) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -445,7 +446,7 @@ void launch_matmul_tc(const float* d_A, const float* d_B, float* d_C, int K, int
     cudaMalloc(&d_A_half, Y * K * sizeof(half));
     cudaMalloc(&d_B_half, K * X * sizeof(half));
 
-    int threads = 256;
+    constexpr int threads = 256;
     convert_fp32_to_fp16<<<cuda::ceil_div(Y * K, threads), threads>>>(d_A, d_A_half, Y * K);
     convert_fp32_to_fp16<<<cuda::ceil_div(K * X, threads), threads>>>(d_B, d_B_half, K * X);
 
@@ -534,7 +535,7 @@ void launch_make_continous(const float* input, float* output, int count, const s
 #ifdef CUDA_TEST
     g_cuda_kernel_launches++;
 #endif
-    int block = 256;
+    constexpr int block = 256;
     int grid = cuda::ceil_div(count, block);
 
     LayoutMeta meta = {};
@@ -558,7 +559,7 @@ __global__ void relu_kernel(const float* input, float* output, int size) {
 }
 
 void launch_relu(const float* input, float* output, int size) {
-    int threads = 256;
+    constexpr int threads = 256;
     int blocks = cuda::ceil_div(size, threads);
     relu_kernel<<<blocks, threads>>>(input, output, size);
 }
@@ -571,7 +572,7 @@ __global__ void exp_kernel(const float* input, float* output, int size) {
 }
 
 void launch_exp(const float* input, float* output, int size) {
-    int threads = 256;
+    constexpr int threads = 256;
     int blocks = cuda::ceil_div(size, threads);
     exp_kernel<<<blocks, threads>>>(input, output, size);
 }
@@ -587,7 +588,7 @@ __global__ void relu_backward_kernel(const float* input, float* grad_input, cons
 }
 
 void launch_relu_backward(const float* input, float* grad_input, const float* grad_output, int size) {
-    int threads = 256;
+    constexpr int threads = 256;
     int blocks = cuda::ceil_div(size, threads);
     relu_backward_kernel<<<blocks, threads>>>(input, grad_input, grad_output, size);
 }
@@ -600,7 +601,7 @@ __global__ void sum_backward_kernel(float* grad_input, const float* grad_output,
 }
 
 void launch_sum_backward(float* grad_input, const float* grad_output, int size) {
-    int threads = 256;
+    constexpr int threads = 256;
     int blocks = cuda::ceil_div(size, threads);
     sum_backward_kernel<<<blocks, threads>>>(grad_input, grad_output, size);
 }
@@ -615,7 +616,7 @@ __global__ void sum_axis_backward_kernel(float* grad_input, const float* grad_ou
 }
 
 void launch_sum_axis_backward(float* grad_input, const float* grad_output, int N, int C, int axis) {
-    int threads = 256;
+    constexpr int threads = 256;
     int blocks = cuda::ceil_div(N * C, threads);
     sum_axis_backward_kernel<<<blocks, threads>>>(grad_input, grad_output, N, C, axis);
 }
@@ -628,7 +629,7 @@ __global__ void exp_backward_kernel(const float* output, float* grad_input, cons
 }
 
 void launch_exp_backward(const float* output, float* grad_input, const float* grad_output, int size) {
-    int threads = 256;
+    constexpr int threads = 256;
     int blocks = cuda::ceil_div(size, threads);
     exp_backward_kernel<<<blocks, threads>>>(output, grad_input, grad_output, size);
 }
