@@ -306,9 +306,14 @@ Tensor_ptr Tensor::exp() {
 // TODO: should this struct be here?
 struct BinaryOpContext {
     std::string device;
-    std::vector<int> out_shape;
-    std::vector<int> first_strides;
-    std::vector<int> second_strides;
+    std::vector<int> out_shape_vec;
+    std::vector<int> first_strides_vec;
+    std::vector<int> second_strides_vec;
+
+    std::array<int, MAX_DIMS> out_shape{};
+    std::array<int, MAX_DIMS> first_strides{};
+    std::array<int, MAX_DIMS> second_strides{};
+    int ndim;
 
     BinaryOpContext(const Tensor_ptr& first, const Tensor_ptr& second)
     {
@@ -317,11 +322,15 @@ struct BinaryOpContext {
         }
         
         device = first->get_device();
-        out_shape = stride::broadcast_shape(first->get_shape(), second->get_shape());
-        int ndim = out_shape.size();
+        out_shape_vec = stride::broadcast_shape(first->get_shape(), second->get_shape());
+        ndim = out_shape_vec.size();
         
-        first_strides = stride::broadcast_strides(first->get_shape(), first->get_strides(), ndim);
-        second_strides = stride::broadcast_strides(second->get_shape(), second->get_strides(), ndim);
+        first_strides_vec = stride::broadcast_strides(first->get_shape(), first->get_strides(), ndim);
+        second_strides_vec = stride::broadcast_strides(second->get_shape(), second->get_strides(), ndim);
+
+        std::ranges::copy(out_shape_vec, out_shape.begin());
+        std::ranges::copy(first_strides_vec, first_strides.begin());
+        std::ranges::copy(second_strides_vec, second_strides.begin());
     }
 
     template <typename CPU_Op>
@@ -329,23 +338,12 @@ struct BinaryOpContext {
     {
         if (device == "cpu") {
             for (int i = 0; i < result->get_total_count(); ++i) {
-                result->set(i, cpu_op(first->get(i, first_strides, out_shape), second->get(i, second_strides, out_shape)));
+                result->set(i, cpu_op(first->get(i, first_strides_vec, out_shape_vec), second->get(i, second_strides_vec, out_shape_vec)));
             }
         }
         else if (device == "cuda") {
-            int size = result->get_total_count();
-            int dims = out_shape.size();
-            // TODO: it looks bad
-            std::array<int, MAX_DIMS> shape_arr;
-            std::ranges::copy(out_shape, shape_arr.begin());
-
-            std::array<int, MAX_DIMS> first_strides_arr;
-            std::ranges::copy(first_strides, first_strides_arr.begin());
-
-            std::array<int, MAX_DIMS> second_strides_arr;
-            std::ranges::copy(second_strides, second_strides_arr.begin());
-            cuda::binary_op_strided(cuda_op, first->raw_values(), first_strides_arr, second->raw_values(), second_strides_arr,
-                                    shape_arr, size, dims, result->raw_values());
+            cuda::binary_op_strided(cuda_op, first->raw_values(), first_strides, second->raw_values(), second_strides,
+                                    out_shape, result->get_total_count(), ndim, result->raw_values());
         }
     }
 };
@@ -353,7 +351,7 @@ struct BinaryOpContext {
 Tensor_ptr operator+(Tensor_ptr first, Tensor_ptr second) {
     BinaryOpContext ctx(first, second);
 
-    auto result = Tensor::init(ctx.out_shape, true, ctx.device);
+    auto result = Tensor::init(ctx.out_shape_vec, true, ctx.device);
     result->parents = std::pair{first, second};
     result->op = "add";
 
@@ -363,24 +361,14 @@ Tensor_ptr operator+(Tensor_ptr first, Tensor_ptr second) {
         if(auto r = res.lock()){
             if (r->device == "cpu") {
                 for (int i = 0; i < r->total_count; ++i) {
-                    r->parents.first->grad_set(i, ctx.first_strides, ctx.out_shape, r->parents.first->grad_get(i, ctx.first_strides, ctx.out_shape) + r->grad_get(i));
-                    r->parents.second->grad_set(i, ctx.second_strides, ctx.out_shape, r->parents.second->grad_get(i, ctx.second_strides, ctx.out_shape) + r->grad_get(i));
+                    r->parents.first->grad_set(i, ctx.first_strides_vec, ctx.out_shape_vec, r->parents.first->grad_get(i, ctx.first_strides_vec, ctx.out_shape_vec) + r->grad_get(i));
+                    r->parents.second->grad_set(i, ctx.second_strides_vec, ctx.out_shape_vec, r->parents.second->grad_get(i, ctx.second_strides_vec, ctx.out_shape_vec) + r->grad_get(i));
                 }
             } else if (r->device == "cuda") {
-                int dims = ctx.out_shape.size();
-                std::array<int, MAX_DIMS> shape_arr;
-                std::ranges::copy(ctx.out_shape, shape_arr.begin());
-
-                std::array<int, MAX_DIMS> first_strides_arr;
-                std::ranges::copy(ctx.first_strides, first_strides_arr.begin());
-
-                std::array<int, MAX_DIMS> second_strides_arr;
-                std::ranges::copy(ctx.second_strides, second_strides_arr.begin());
-
-                cuda::binary_op_backward_strided('+', r->parents.first->raw_values(), first_strides_arr,
-                                               r->parents.second->raw_values(), second_strides_arr,
+                cuda::binary_op_backward_strided('+', r->parents.first->raw_values(), ctx.first_strides,
+                                               r->parents.second->raw_values(), ctx.second_strides,
                                                r->parents.first->raw_grads(), r->parents.second->raw_grads(),
-                                               r->raw_grads(), shape_arr, r->total_count, dims);
+                                               r->raw_grads(), ctx.out_shape, r->total_count, ctx.ndim);
             }
         }
     };
@@ -391,7 +379,7 @@ Tensor_ptr operator+(Tensor_ptr first, Tensor_ptr second) {
 Tensor_ptr operator-(Tensor_ptr first, Tensor_ptr second) {
     BinaryOpContext ctx(first, second);
 
-    auto result = Tensor::init(ctx.out_shape, true, ctx.device);
+    auto result = Tensor::init(ctx.out_shape_vec, true, ctx.device);
     result->parents = std::pair{first, second};
     result->op = "sub";
 
@@ -401,24 +389,14 @@ Tensor_ptr operator-(Tensor_ptr first, Tensor_ptr second) {
         if(auto r = res.lock()){
             if (r->device == "cpu") {
                 for (int i = 0; i < r->total_count; ++i) {
-                    r->parents.first->grad_set(i, ctx.first_strides, ctx.out_shape, r->parents.first->grad_get(i, ctx.first_strides, ctx.out_shape) + r->grad_get(i));
-                    r->parents.second->grad_set(i, ctx.second_strides, ctx.out_shape, r->parents.second->grad_get(i, ctx.second_strides, ctx.out_shape) - r->grad_get(i));
+                    r->parents.first->grad_set(i, ctx.first_strides_vec, ctx.out_shape_vec, r->parents.first->grad_get(i, ctx.first_strides_vec, ctx.out_shape_vec) + r->grad_get(i));
+                    r->parents.second->grad_set(i, ctx.second_strides_vec, ctx.out_shape_vec, r->parents.second->grad_get(i, ctx.second_strides_vec, ctx.out_shape_vec) - r->grad_get(i));
                 }
             } else if (r->device == "cuda") {
-                int dims = ctx.out_shape.size();
-                std::array<int, MAX_DIMS> shape_arr;
-                std::ranges::copy(ctx.out_shape, shape_arr.begin());
-
-                std::array<int, MAX_DIMS> first_strides_arr;
-                std::ranges::copy(ctx.first_strides, first_strides_arr.begin());
-
-                std::array<int, MAX_DIMS> second_strides_arr;
-                std::ranges::copy(ctx.second_strides, second_strides_arr.begin());
-
-                cuda::binary_op_backward_strided('-', r->parents.first->raw_values(), first_strides_arr,
-                                               r->parents.second->raw_values(), second_strides_arr,
+                cuda::binary_op_backward_strided('-', r->parents.first->raw_values(), ctx.first_strides,
+                                               r->parents.second->raw_values(), ctx.second_strides,
                                                r->parents.first->raw_grads(), r->parents.second->raw_grads(),
-                                               r->raw_grads(), shape_arr, r->total_count, dims);
+                                               r->raw_grads(), ctx.out_shape, r->total_count, ctx.ndim);
             }
         }
     };
@@ -428,7 +406,7 @@ Tensor_ptr operator-(Tensor_ptr first, Tensor_ptr second) {
 Tensor_ptr operator*(Tensor_ptr first, Tensor_ptr second) {
     BinaryOpContext ctx(first, second);
 
-    auto result = Tensor::init(ctx.out_shape, true, ctx.device);
+    auto result = Tensor::init(ctx.out_shape_vec, true, ctx.device);
     result->parents = std::pair{first, second};
     result->op = "mul";
 
@@ -438,24 +416,14 @@ Tensor_ptr operator*(Tensor_ptr first, Tensor_ptr second) {
         if(auto r = res.lock()){
             if (r->device == "cpu") {
                 for (int i = 0; i < r->total_count; ++i) {
-                    r->parents.first->grad_set(i, ctx.first_strides, ctx.out_shape, r->parents.first->grad_get(i, ctx.first_strides, ctx.out_shape) + r->grad_get(i) * r->parents.second->get(i, ctx.second_strides, ctx.out_shape));
-                    r->parents.second->grad_set(i, ctx.second_strides, ctx.out_shape, r->parents.second->grad_get(i, ctx.second_strides, ctx.out_shape) + r->grad_get(i) * r->parents.first->get(i, ctx.first_strides, ctx.out_shape));
+                    r->parents.first->grad_set(i, ctx.first_strides_vec, ctx.out_shape_vec, r->parents.first->grad_get(i, ctx.first_strides_vec, ctx.out_shape_vec) + r->grad_get(i) * r->parents.second->get(i, ctx.second_strides_vec, ctx.out_shape_vec));
+                    r->parents.second->grad_set(i, ctx.second_strides_vec, ctx.out_shape_vec, r->parents.second->grad_get(i, ctx.second_strides_vec, ctx.out_shape_vec) + r->grad_get(i) * r->parents.first->get(i, ctx.first_strides_vec, ctx.out_shape_vec));
                 }
             } else if (r->device == "cuda") {
-                int dims = ctx.out_shape.size();
-                std::array<int, MAX_DIMS> shape_arr;
-                std::ranges::copy(ctx.out_shape, shape_arr.begin());
-
-                std::array<int, MAX_DIMS> first_strides_arr;
-                std::ranges::copy(ctx.first_strides, first_strides_arr.begin());
-
-                std::array<int, MAX_DIMS> second_strides_arr;
-                std::ranges::copy(ctx.second_strides, second_strides_arr.begin());
-
-                cuda::binary_op_backward_strided('*', r->parents.first->raw_values(), first_strides_arr,
-                                               r->parents.second->raw_values(), second_strides_arr,
+                cuda::binary_op_backward_strided('*', r->parents.first->raw_values(), ctx.first_strides,
+                                               r->parents.second->raw_values(), ctx.second_strides,
                                                r->parents.first->raw_grads(), r->parents.second->raw_grads(),
-                                               r->raw_grads(), shape_arr, r->total_count, dims);
+                                               r->raw_grads(), ctx.out_shape, r->total_count, ctx.ndim);
             }
         }
     };
@@ -465,7 +433,7 @@ Tensor_ptr operator*(Tensor_ptr first, Tensor_ptr second) {
 Tensor_ptr operator/(Tensor_ptr first, Tensor_ptr second) {
     BinaryOpContext ctx(first, second);
 
-    auto result = Tensor::init(ctx.out_shape, true, ctx.device);
+    auto result = Tensor::init(ctx.out_shape_vec, true, ctx.device);
     result->parents = std::pair{first, second};
     result->op = "div";
 
@@ -475,26 +443,16 @@ Tensor_ptr operator/(Tensor_ptr first, Tensor_ptr second) {
         if(auto r = res.lock()){
             if (r->device == "cpu") {
                 for (int i = 0; i < r->total_count; ++i) {
-                    float s_val = r->parents.second->get(i, ctx.second_strides, ctx.out_shape);
-                    r->parents.first->grad_set(i, ctx.first_strides, ctx.out_shape, r->parents.first->grad_get(i, ctx.first_strides, ctx.out_shape) + r->grad_get(i) * (1.0f / s_val));
-                    r->parents.second->grad_set(i, ctx.second_strides, ctx.out_shape, r->parents.second->grad_get(i, ctx.second_strides, ctx.out_shape) + r->grad_get(i) * 
-                        -(r->parents.first->get(i, ctx.first_strides, ctx.out_shape) / (s_val * s_val)));
+                    float s_val = r->parents.second->get(i, ctx.second_strides_vec, ctx.out_shape_vec);
+                    r->parents.first->grad_set(i, ctx.first_strides_vec, ctx.out_shape_vec, r->parents.first->grad_get(i, ctx.first_strides_vec, ctx.out_shape_vec) + r->grad_get(i) * (1.0f / s_val));
+                    r->parents.second->grad_set(i, ctx.second_strides_vec, ctx.out_shape_vec, r->parents.second->grad_get(i, ctx.second_strides_vec, ctx.out_shape_vec) + r->grad_get(i) * 
+                        -(r->parents.first->get(i, ctx.first_strides_vec, ctx.out_shape_vec) / (s_val * s_val)));
                 }
             } else if (r->device == "cuda") {
-                int dims = ctx.out_shape.size();
-                std::array<int, MAX_DIMS> shape_arr;
-                std::ranges::copy(ctx.out_shape, shape_arr.begin());
-
-                std::array<int, MAX_DIMS> first_strides_arr;
-                std::ranges::copy(ctx.first_strides, first_strides_arr.begin());
-
-                std::array<int, MAX_DIMS> second_strides_arr;
-                std::ranges::copy(ctx.second_strides, second_strides_arr.begin());
-
-                cuda::binary_op_backward_strided('/', r->parents.first->raw_values(), first_strides_arr,
-                                               r->parents.second->raw_values(), second_strides_arr,
+                cuda::binary_op_backward_strided('/', r->parents.first->raw_values(), ctx.first_strides,
+                                               r->parents.second->raw_values(), ctx.second_strides,
                                                r->parents.first->raw_grads(), r->parents.second->raw_grads(),
-                                               r->raw_grads(), shape_arr, r->total_count, dims);
+                                               r->raw_grads(), ctx.out_shape, r->total_count, ctx.ndim);
             }
         }
     };
