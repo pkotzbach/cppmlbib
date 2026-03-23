@@ -4,6 +4,7 @@
 - CUDA streams and asynchronous memory transfers
 - `CudaBuffer` abstraction
 - constant memory (`__constant__`) and improved cache utilization
+- GEMM upgrades: warp tiling
 
 ## Architectural Improvements
 - refactor stride calculation logic - isContinous check
@@ -11,6 +12,5 @@
 - no-grad mode
 - TODOs
 - add google benchmark maybe
-- common header for tests
 
-*Last Updated: March 22, 2026*
+*Last Updated: March 23, 2026*
