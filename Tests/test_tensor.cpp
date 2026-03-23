@@ -1,32 +1,11 @@
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
-#include "tensor.hpp"
+#include "test_common.hpp"
 #include <cuda_runtime.h>
-#include "cuda_debug.h"
 
-using ::testing::FloatNear;
-using ::testing::Pointwise;
-
-class TensorTest : public ::testing::TestWithParam<std::string> {
-protected:
-    bool expect_cuda = true;
-    void SetUp() override {
-#ifdef CUDA_TEST
-        if (GetParam() == "cuda") g_cuda_kernel_launches = 0;
-#endif
-    }
-    void TearDown() override {
-#ifdef CUDA_TEST
-        if (GetParam() == "cuda" && expect_cuda) {
-            EXPECT_GT(g_cuda_kernel_launches, 0);
-        }
-#endif
-    }
-};
+class TensorTest : public BaseDeviceTest {};
 
 TEST_P(TensorTest, ConstructionAndIndexing)
 {
-    expect_cuda = false;
+    expect_cuda_launch = false;
     std::string device = GetParam();
     Tensor_ptr t = Tensor::init({2, 3, 4}, false, device);
 
@@ -44,7 +23,7 @@ TEST_P(TensorTest, ConstructionAndIndexing)
 
 TEST_P(TensorTest, ArgmaxLastDim)
 {
-    expect_cuda = false;
+    expect_cuda_launch = false;
     std::string device = GetParam();
     Tensor_ptr input = Tensor::init({2, 3}, {0.1, 0.2, -0.1, 1, 1, 5}, device);
     Tensor_ptr result = input->argmax(1);
@@ -125,7 +104,7 @@ TEST_P(TensorTest, MultiplicationOperator)
 
 TEST_P(TensorTest, AssignmentOperator)
 {
-    expect_cuda = false;
+    expect_cuda_launch = false;
     std::string device = GetParam();
     Tensor_ptr a = Tensor::init({2, 2}, {1.0, 2.0, 3.0, 4.0}, device);
     Tensor_ptr b = a;  // operator=
@@ -179,7 +158,7 @@ TEST_P(TensorTest, SumOperation)
 
 TEST_P(TensorTest, SumAlongAxis0)
 {
-    expect_cuda = false;
+    expect_cuda_launch = false;
     std::string device = GetParam();
     Tensor_ptr t = Tensor::init({3, 2}, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0}, device);
 
@@ -199,7 +178,7 @@ TEST_P(TensorTest, SumAlongAxis0)
 
 TEST_P(TensorTest, SumAlongAxis1)
 {
-    expect_cuda = false;
+    expect_cuda_launch = false;
     std::string device = GetParam();
     Tensor_ptr t = Tensor::init({3, 2}, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0}, device);
 
@@ -236,7 +215,7 @@ TEST_P(TensorTest, MaxOperation)
 
 TEST_P(TensorTest, ReLUOperation)
 {
-    expect_cuda = false;
+    expect_cuda_launch = false;
     std::string device = GetParam();
     Tensor_ptr t = Tensor::init({3}, {1.0, -2.0, 0.5}, device);
 
@@ -276,7 +255,7 @@ TEST_P(TensorTest, SoftmaxOperation)
 
 TEST_P(TensorTest, SoftmaxOperationLargeNumbers)
 {
-    expect_cuda = false;
+    expect_cuda_launch = false;
     std::string device = GetParam();
 
     Tensor_ptr a = Tensor::init({1, 3}, {1000.0, 1000.0, 999.0}, device);
@@ -302,7 +281,7 @@ TEST_P(TensorTest, SoftmaxOperationLargeNumbers)
 
 TEST_P(TensorTest, ExpOperation)
 {
-    expect_cuda = false;
+    expect_cuda_launch = false;
     std::string device = GetParam();
     Tensor_ptr t = Tensor::init({2}, {0.0, 1.0}, device);
 
@@ -321,7 +300,7 @@ TEST_P(TensorTest, ExpOperation)
 
 TEST_P(TensorTest, ExpSmallValues)
 {
-    expect_cuda = false;
+    expect_cuda_launch = false;
     std::string device = GetParam();
     Tensor_ptr t = Tensor::init({3}, {0.0, 0.5, -0.5}, device);
 
@@ -358,7 +337,7 @@ TEST_P(TensorTest, ComplexExpression)
 
 TEST_P(TensorTest, Transpose)
 {
-    expect_cuda = false;
+    expect_cuda_launch = false;
     std::string device = GetParam();
     Tensor_ptr x = Tensor::init({3, 2}, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0}, device);
     Tensor_ptr xT = x->transpose();

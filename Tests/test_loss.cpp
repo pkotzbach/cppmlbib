@@ -1,20 +1,7 @@
-#include <gtest/gtest.h>
+#include "test_common.hpp"
 #include "loss.hpp"
-#include "cuda_debug.h"
 
-class LossTest : public ::testing::TestWithParam<std::string> {
-protected:
-    void SetUp() override {
-#ifdef CUDA_TEST
-        if (GetParam() == "cuda") g_cuda_kernel_launches = 0;
-#endif
-    }
-    void TearDown() override {
-#ifdef CUDA_TEST
-        if (GetParam() == "cuda") EXPECT_GT(g_cuda_kernel_launches, 0);
-#endif
-    }
-};
+class LossTest : public BaseDeviceTest {};
 
 TEST_P(LossTest, MSE) {
     std::string device = GetParam();

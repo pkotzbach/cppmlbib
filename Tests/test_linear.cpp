@@ -1,25 +1,7 @@
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
+#include "test_common.hpp"
 #include "linear.hpp"
-#include "tensor.hpp"
-#include "cuda_debug.h"
 
-using ::testing::FloatNear;
-using ::testing::Pointwise;
-
-class LinearTest : public ::testing::TestWithParam<std::string> {
-protected:
-    void SetUp() override {
-#ifdef CUDA_TEST
-        if (GetParam() == "cuda") g_cuda_kernel_launches = 0;
-#endif
-    }
-    void TearDown() override {
-#ifdef CUDA_TEST
-        if (GetParam() == "cuda") EXPECT_GT(g_cuda_kernel_launches, 0);
-#endif
-    }
-};
+class LinearTest : public BaseDeviceTest {};
 
 TEST_P(LinearTest, Forward) {
     std::string device = GetParam();

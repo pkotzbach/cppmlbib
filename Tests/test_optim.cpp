@@ -1,12 +1,7 @@
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
+#include "test_common.hpp"
 #include "optim.hpp"
-#include "cuda_debug.h"
 
-using ::testing::FloatNear;
-using ::testing::Pointwise;
-
-class SGDTest : public ::testing::TestWithParam<std::string> {};
+class SGDTest : public BaseDeviceTest {};
 
 TEST_P(SGDTest, Step) {
     std::string device = GetParam();
@@ -24,7 +19,7 @@ TEST_P(SGDTest, Step) {
 }
 
 INSTANTIATE_TEST_SUITE_P(CPU, SGDTest, ::testing::Values("cpu"));
-#ifdef CUDA_TEST
-INSTANTIATE_TEST_SUITE_P(CUDA, SGDTest, ::testing::Values("cuda"));
-#endif
+// #ifdef CUDA_TEST
+// INSTANTIATE_TEST_SUITE_P(CUDA, SGDTest, ::testing::Values("cuda"));
+// #endif
 

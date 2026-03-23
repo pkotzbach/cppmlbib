@@ -1,12 +1,6 @@
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
+#include "test_common.hpp"
 #include <cuda_runtime.h>
-#include "tensor.hpp"
 #include "cuda_ops.hpp"
-#include <vector>
-
-using ::testing::FloatNear;
-using ::testing::Pointwise;
 
 // TODO: make test that it breaks strides
 TEST(StorageCudaTest, MakeContinous) {

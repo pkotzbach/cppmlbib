@@ -1,27 +1,15 @@
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
-#include "tensor.hpp"
-#include "cuda_debug.h"
+#include "test_common.hpp"
 #include <tuple>
-#include <string>
-#include <vector>
-
-using ::testing::FloatNear;
-using ::testing::Pointwise;
 
 enum class Op { ADD, SUB, MUL, DIV };
 
 class BroadcastingTest : public ::testing::TestWithParam<std::tuple<std::string, Op>> {
 protected:
     void SetUp() override {
-#ifdef CUDA_TEST
-        if (std::get<0>(GetParam()) == "cuda") g_cuda_kernel_launches = 0;
-#endif
+        test_utils::cuda_reset(std::get<0>(GetParam()));
     }
     void TearDown() override {
-#ifdef CUDA_TEST
-        if (std::get<0>(GetParam()) == "cuda") EXPECT_GT(g_cuda_kernel_launches, 0);
-#endif
+        test_utils::cuda_check_launched(std::get<0>(GetParam()));
     }
 
     Tensor_ptr apply_op(Tensor_ptr a, Tensor_ptr b) {
