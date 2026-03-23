@@ -11,7 +11,6 @@ using ::testing::Pointwise;
 
 enum class Op { ADD, SUB, MUL, DIV };
 
-// Parameterizing by both Device (string) and Operator (Op)
 class BroadcastingTest : public ::testing::TestWithParam<std::tuple<std::string, Op>> {
 protected:
     void SetUp() override {
@@ -45,7 +44,7 @@ TEST_P(BroadcastingTest, Scalar)
     std::vector<float> a_vals = {1, 2, 3, 4};
     std::vector<float> b_vals = {10.0};
     Tensor_ptr a = Tensor::init({2, 2}, a_vals, device);
-    Tensor_ptr b = Tensor::init({1}, b_vals, device);   // scalar
+    Tensor_ptr b = Tensor::init({1}, b_vals, device);
 
     auto r = apply_op(a, b);
 
