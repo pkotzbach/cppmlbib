@@ -37,10 +37,10 @@ Storage::Storage(std::string i_device, std::vector<float> i_values, int i_size) 
 
 std::vector<float> Storage::cpu()
 {
-std::vector<float> result(size);
+    std::vector<float> result(size);
     if (device == "cuda") {
-                cudaMemcpy(result.data(), data.get(), size * sizeof(float), cudaMemcpyDeviceToHost);
-        } else {
+        cudaMemcpy(result.data(), data.get(), size * sizeof(float), cudaMemcpyDeviceToHost);
+    } else {
         std::memcpy(result.data(), data.get(), size * sizeof(float));
     }
     return result;
@@ -109,6 +109,8 @@ Tensor& Tensor::init_internal(std::vector<int> shape, std::vector<float> init_va
 
     values = Storage(this->device, std::move(init_values), total_count);
     grads = Storage(this->device, std::move(init_grads), total_count);
+
+    image = false;
 
     return *this;
 }
@@ -392,6 +394,7 @@ Tensor_ptr operator+(Tensor_ptr first, Tensor_ptr second) {
 
     result->backward_fn = [res = std::weak_ptr<Tensor>(result), ctx](){
         if(auto r = res.lock()){
+            // TODO: i dont really like that cpu is inline and cuda calls a function
             if (r->device == "cpu") {
                 for (int i = 0; i < r->total_count; ++i) {
                     r->parents.first->grad_set(i, ctx.first_strides_vec, ctx.out_shape_vec, r->parents.first->grad_get(i, ctx.first_strides_vec, ctx.out_shape_vec) + r->grad_get(i));
@@ -640,5 +643,50 @@ void Tensor::zero_grad() {
     }
     if (parents.first && parents.first.get() != this)   parents.first->zero_grad();
     if (parents.second && parents.second.get() != this) parents.second->zero_grad();
+}
+
+// TODO: could do faster? https://medium.com/@sundarramanp2000/different-implementations-of-the-ubiquitous-convolution-6a9269dbe77f
+Tensor_ptr Tensor::im2col(int kernel_size, int stride, int padding) {
+    // assert image shape 3
+    int batch = shape[0];
+    int channels = shape[1];
+    int height = shape[2];
+    int width = shape[3];
+
+    int out_h = (height - kernel_size + 2 * padding) / stride + 1;
+    int out_w = (width  - kernel_size + 2 * padding) / stride + 1;
+    Tensor_ptr result = Tensor::init({batch, out_h * out_w, kernel_size * kernel_size * channels}, true, device);
+
+    for (int b = 0; b < batch; ++b) {
+        for (int oy = 0; oy < out_h; ++oy) {
+            for (int ox = 0; ox < out_w; ++ox) {
+                int x = ox * stride - padding;
+                int y = oy * stride - padding;
+                int col = oy * out_w + ox;
+
+                for (int ky = 0; ky < kernel_size; ++ky) {
+                    for (int kx = 0; kx < kernel_size; ++kx) {
+                        for (int c = 0; c < channels; ++c) {
+                            int row = c * kernel_size * kernel_size + ky * kernel_size + kx;
+
+                            int in_y = y + ky;
+                            int in_x = x + kx;
+
+                            float val = 0;
+
+                            if (in_y >= 0 && in_y < height && in_x >= 0 && in_x < width)
+                                val = get({b, c, in_y, in_x});
+
+                            result->set({b, col, row}, val);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    result->set_is_image(true);
+    
+    return result;
 }
 

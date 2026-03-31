@@ -33,6 +33,21 @@ public:
 
 };
 
+class Convolution : public Component {
+private:
+    Tensor_ptr weights;
+    Tensor_ptr biases;
+
+public:
+    Convolution(int in_channels, int kernel_size, int out_channels, std::string device = "cpu"); 
+    ~Convolution() {}
+    Tensor_ptr forward(Tensor_ptr input) override;
+    std::vector<Tensor_ptr> params() { return {weights, biases}; }
+    Tensor_ptr get_weights() { return weights; }
+    Tensor_ptr get_biases() { return biases; }
+
+};
+
 class Softmax : public Component {
 public:
     Softmax() {};

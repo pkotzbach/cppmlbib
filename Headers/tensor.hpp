@@ -44,6 +44,7 @@ private:
     std::vector<int> shape;
     int total_count;
     std::string device;
+    bool image;
 
     Tensor& init_internal(std::vector<int> shape, std::vector<float> init_values, std::vector<float> init_grads, bool init_zero, std::string device);
 
@@ -70,6 +71,9 @@ public:
 
     int get_total_count() const {return total_count;}
     std::string get_device() const {return device;}
+
+    bool is_image() const {return image;}
+    void set_is_image(bool is) {image = is;}
 
     // storage
     std::vector<float> values_vec(int count, std::vector<int>& strides, std::vector<int>& shape);
