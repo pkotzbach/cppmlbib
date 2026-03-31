@@ -389,6 +389,45 @@ TEST_P(TensorTest, Matmul)
 }
 
 
+TEST_P(TensorTest, ViewOperation)
+{
+    expect_cuda_launch = false;
+    std::string device = GetParam();
+    Tensor_ptr t = Tensor::init({2, 3}, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0}, device);
+
+    auto viewed = t->view({3, 2});
+    EXPECT_EQ(viewed->get_shape(), std::vector<int>({3, 2}));
+    EXPECT_EQ(viewed->get_total_count(), 6);
+    
+    EXPECT_THAT(viewed->values_vec(),
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{1.0, 2.0, 3.0, 4.0, 5.0, 6.0}));
+
+    t->set({0, 0}, 10.0);
+    EXPECT_NEAR(viewed->get({0, 0}), 10.0, 1e-5);
+    
+    viewed->set({2, 1}, 20.0);
+    EXPECT_NEAR(t->get({1, 2}), 20.0, 1e-5);
+}
+
+TEST_P(TensorTest, ViewBackward)
+{
+    std::string device = GetParam();
+    Tensor_ptr x = Tensor::init({1, 2}, {1.0, 2.0}, device);
+    Tensor_ptr w = Tensor::init({2, 2}, {0.5, 0.1, 0.2, 0.3}, device);
+    
+    auto y = x->matmul(w);
+    auto viewed = y->view({2, 1});
+    auto result = viewed->sum();
+    
+    result->backward();
+    
+    EXPECT_THAT(x->grads_vec(),
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{0.6, 0.5}));
+}
+
+
 INSTANTIATE_TEST_SUITE_P(CPU, TensorTest, ::testing::Values("cpu"));
 #ifdef CUDA_TEST
 INSTANTIATE_TEST_SUITE_P(CUDA, TensorTest, ::testing::Values("cuda"));

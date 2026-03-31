@@ -119,6 +119,8 @@ public:
 
     //// transformation
     [[nodiscard]] Tensor_ptr transpose();
+    [[nodiscard]] Tensor_ptr view(std::vector<int> shape);
+    [[nodiscard]] Tensor_ptr im2col(int kernel_size, int stride, int padding);
 
     //// autograd
     void backward();

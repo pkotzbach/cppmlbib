@@ -588,6 +588,24 @@ Tensor_ptr Tensor::transpose()
     return result;
 }
 
+Tensor_ptr Tensor::view(std::vector<int> new_shape)
+{
+    int new_total_count = 1;
+    for (auto s : new_shape) new_total_count *= s;
+    if (new_total_count != total_count) throw std::invalid_argument("View shape must have same total count");
+
+    Tensor_ptr result = std::make_shared<Tensor>();
+    result->values = values;
+    result->grads = grads;
+    result->total_count = total_count;
+    result->shape = new_shape;
+    result->strides = stride::calc_strides(new_shape);;
+    result->device = device;
+    result->parents = std::pair{shared_from_this(), nullptr};
+    result->op = "view";
+    return result;
+}
+
 void Tensor::backward() {
     if (total_count != 1) throw std::invalid_argument("backward only possible on 1x1 tensor");
     std::unordered_set<Tensor_ptr> visited{};
