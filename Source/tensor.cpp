@@ -13,12 +13,6 @@
 #include <ranges>
 #include <algorithm>
 
-float sample_kaiming(float n) {
-    std::mt19937 gen(std::random_device{}());
-    std::normal_distribution<float> dist(0.0, std::sqrt(2/n));
-    return dist(gen);
-}
-
 Storage::Storage(std::string i_device, std::vector<float> i_values, int i_size) : device(std::move(i_device)), size(i_size)
 {
     int memory = size * sizeof(float);
@@ -98,8 +92,11 @@ Tensor& Tensor::init_internal(std::vector<int> shape, std::vector<float> init_va
         if (init_zero) {
             std::ranges::fill(init_values, 0.0f);
         } else {
+            // sample kaiming
+            std::mt19937 gen(std::random_device{}());
+            std::normal_distribution<float> dist(0.0, std::sqrt(2.0f/total_count));
             for (auto& v : init_values) {
-                v = sample_kaiming(total_count);
+                v = dist(gen);
             }
         }
     }
