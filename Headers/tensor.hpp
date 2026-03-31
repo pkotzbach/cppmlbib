@@ -54,6 +54,8 @@ public:
     Tensor() {}
     ~Tensor() {}
 
+    void print();
+
     //// getters setters
     const std::vector<int>& get_shape() const {return shape;}
     int get_shape(int idx) const {return shape[idx];}

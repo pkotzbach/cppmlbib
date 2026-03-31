@@ -8,6 +8,7 @@
 #include <string>
 #include <cstring>
 #include <cuda_runtime.h>
+#include <iostream>
 #include <format>
 #include <ranges>
 #include <algorithm>
@@ -36,12 +37,13 @@ Storage::Storage(std::string i_device, std::vector<float> i_values, int i_size) 
 
 std::vector<float> Storage::cpu()
 {
+std::vector<float> result(size);
     if (device == "cuda") {
-        std::vector<float> result(size);
-        cudaMemcpy(result.data(), data.get(), size * sizeof(float), cudaMemcpyDeviceToHost);
-        return result;
+                cudaMemcpy(result.data(), data.get(), size * sizeof(float), cudaMemcpyDeviceToHost);
+        } else {
+        std::memcpy(result.data(), data.get(), size * sizeof(float));
     }
-    return {};
+    return result;
 }
 
 void Storage::set(int idx, float val) {
@@ -137,6 +139,37 @@ Tensor_ptr Tensor::init(std::vector<int> shape, std::vector<float> values, std::
     t->init_internal(std::move(shape), std::move(values), {}, false, std::move(device));
     return t;
 }
+
+void Tensor::print()
+{
+    std::vector<float> cpu_values = values.cpu();
+
+    std::function<void(int, std::vector<int>&)> print_rec = [&](int dim, std::vector<int>& indices) {
+        if (dim == (int)shape.size()) {
+            std::cout << cpu_values[stride::strided_idx(indices, strides, shape)];
+            return;
+        }
+
+        std::cout << "[";
+        for (int i = 0; i < shape[dim]; ++i) {
+            indices[dim] = i;
+            print_rec(dim + 1, indices);
+            if (i < shape[dim] - 1) {
+                std::cout << (dim == (int)shape.size() - 1 ? ", " : ",\n" + std::string(dim + 1, ' '));
+            }
+        }
+        std::cout << "]";
+    };
+
+    std::vector<int> indices(shape.size(), 0);
+    print_rec(0, indices);
+    std::cout << " device='" << device << "', shape=(";
+    for (size_t i = 0; i < shape.size(); ++i) {
+        std::cout << shape[i] << (i == shape.size() - 1 ? "" : ", ");
+    }
+    std::cout << ")" << std::endl;
+}
+
 
 Tensor_ptr Tensor::relu() {
     auto result = Tensor::init(shape, true, device);
