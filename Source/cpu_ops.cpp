@@ -7,16 +7,18 @@
 #include <ranges>
 
 namespace cpu {
-
 std::vector<float> matmul(const std::vector<float> &A, const std::vector<float> &B, int K, int X, int Y)
+{
+    return matmul(A.data(), B.data(), K, X, Y);
+}
+
+std::vector<float> matmul(const float* A_ptr, const float* B_ptr, int K, int X, int Y)
 {
     std::vector<float> C(X * Y, 0.0f);
     constexpr int tile_size_X = 64;
     constexpr int tile_size_Y = 32;
     constexpr int tile_size_K = 32;
     
-    const float* __restrict__ A_ptr = A.data();
-    const float* __restrict__ B_ptr = B.data();
     float* __restrict__ C_ptr = C.data();
     constexpr int simd_step = 16; // AVX-512
 

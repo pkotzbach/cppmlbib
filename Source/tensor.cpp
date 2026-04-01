@@ -112,18 +112,35 @@ Tensor& Tensor::init_internal(std::vector<int> shape, std::vector<float> init_va
     return *this;
 }
 
+bool Tensor::is_continous(const std::vector<int>& strides, const std::vector<int>& shape) {
+    if (strides.empty() || shape.empty()) return true;
+    return std::ranges::equal(strides, stride::calc_strides(shape));
+}
+
 // returns continous values
 std::vector<float> Tensor::values_vec(int count, std::vector<int>& strides, std::vector<int>& shape)
 {
     std::vector<float> vec(count);
-    for (int i = 0; i < count; ++i) vec[i] = get(i, strides, shape);
-    return vec;
+    if (is_continous(strides, shape) && device == "cpu") {
+        std::memcpy(vec.data(), raw_values(), count * sizeof(float));
+        return vec;
+    }
+    else {
+        for (int i = 0; i < count; ++i) vec[i] = get(i, strides, shape);
+        return vec;
+    }
 }
 
 std::vector<float> Tensor::grads_vec() {
     std::vector<float> vec(total_count);
-    for (int i = 0; i < total_count; ++i) vec[i] = grad_get(i);
-    return vec;
+    if (is_continous() && device == "cpu") {
+        std::memcpy(vec.data(), raw_grads(), total_count * sizeof(float));
+        return vec;
+    }
+    else {
+        for (int i = 0; i < total_count; ++i) vec[i] = grad_get(i, strides, shape);
+        return vec;
+    }
 }
 
 
@@ -175,8 +192,17 @@ Tensor_ptr Tensor::relu() {
     result->parents = std::pair{shared_from_this(), nullptr};
     
     if (device == "cpu") {
-        for (int i = 0; i < total_count; ++i) {
-            result->set(i, get(i) > 0? get(i): 0);
+        if (is_continous()) {
+            float* result_raw = result->raw_values();
+            float* input_raw = raw_values();
+            for (int i = 0; i < total_count; ++i) {
+                result_raw[i] = std::max(input_raw[i], 0.0f);
+            }
+        }
+        else {
+            for (int i = 0; i < total_count; ++i) {
+            result->set(i, std::max(get(i), 0.0f));
+            }
         }
     } else if (device == "cuda") {
         cuda::relu(values.get(), result->values.get(), total_count);
@@ -499,7 +525,12 @@ Tensor_ptr Tensor::matmul(Tensor_ptr tensor) {
 
     std::vector<float> matmul_output;
     if (device == "cpu") {
-        matmul_output = cpu::matmul(values_vec(), tensor->values_vec(), shape[1], tensor->shape[1], shape[0]);
+        if (is_continous() && tensor->is_continous()) {
+            matmul_output = cpu::matmul(raw_values(), tensor->raw_values(), shape[1], tensor->shape[1], shape[0]);
+        }
+        else {
+            matmul_output = cpu::matmul(values_vec(), tensor->values_vec(), shape[1], tensor->shape[1], shape[0]);
+        }
     } else if (device == "cuda") {
         matmul_output = cuda::matmul(values_vec(), tensor->values_vec(), shape[1], tensor->shape[1], shape[0]);
     }

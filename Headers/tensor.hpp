@@ -75,6 +75,9 @@ public:
     bool is_image() const {return image;}
     void set_is_image(bool is) {image = is;}
 
+    bool is_continous(const std::vector<int>& strides, const std::vector<int>& shape);
+    bool is_continous() {return is_continous(strides, shape); }
+
     // storage
     std::vector<float> values_vec(int count, std::vector<int>& strides, std::vector<int>& shape);
     std::vector<float> values_vec() {return values_vec(total_count, strides, shape); }
