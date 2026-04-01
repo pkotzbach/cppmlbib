@@ -40,32 +40,6 @@ std::vector<float> Storage::cpu()
     return result;
 }
 
-void Storage::set(int idx, float val) {
-    if (device == "cpu") {
-        data[idx] = val;
-    } else if (device == "cuda") {
-        cudaMemcpy(data.get() + idx, &val, sizeof(float), cudaMemcpyHostToDevice);
-    }
-}
-
-float Storage::at(int idx) {
-    if (device == "cpu") {
-        return data[idx];
-    } else if (device == "cuda") {
-        float val;
-        cudaMemcpy(&val, data.get() + idx, sizeof(float), cudaMemcpyDeviceToHost);
-        return val;
-    }
-    return 0;
-}
-
-float& Storage::operator[](int idx)
-{
-    if (device != "cpu") {
-        throw std::runtime_error("operator[] not supported for CUDA storage");
-    }
-    return data[idx];
-}
 
 Tensor& Tensor::init_internal(std::vector<int> shape, std::vector<float> init_values, std::vector<float> init_grads, bool init_zero, std::string device) {
     if (shape.empty()) throw std::runtime_error("shape 0");

@@ -9,6 +9,7 @@
 #include <unordered_set>
 #include "globals.hpp"
 #include "stride.hpp"
+#include <cuda_runtime.h>
 
 class Tensor;
 struct BinaryOpContext;
@@ -23,10 +24,32 @@ struct Storage {
     Storage() {}
     Storage(std::string device, std::vector<float> values, int size);
 
-    float* get() { return data.get(); }
-    void set(int idx, float val);
-    float at(int idx);
-    float& operator[](int idx);
+    inline float* get() { return data.get(); }
+    inline void set(int idx, float val) {
+        if (device == "cpu") {
+            data[idx] = val;
+        } else if (device == "cuda") {
+            cudaMemcpy(data.get() + idx, &val, sizeof(float), cudaMemcpyHostToDevice);
+        }
+    }
+
+    inline float at(int idx) {
+        if (device == "cpu") {
+            return data[idx];
+        } else if (device == "cuda") {
+            float val;
+            cudaMemcpy(&val, data.get() + idx, sizeof(float), cudaMemcpyDeviceToHost);
+            return val;
+        }
+        return 0;
+    }
+
+    inline float& operator[](int idx) {
+        if (device != "cpu") {
+            throw std::runtime_error("operator[] not supported for CUDA storage");
+        }
+        return data[idx];
+    }
 
     std::vector<float> cpu();
 };
@@ -85,24 +108,24 @@ public:
     float* raw_values() { return values.get(); }
     float* raw_grads() { return grads.get(); }
 
-    void set(std::vector<int> indicies, float val) { values.set(stride::strided_idx(indicies, strides, shape), val); }
-    void set(int shape_idx, float val) { values.set(stride::strided_idx(shape_idx, strides, shape), val); }
-    void set(int shape_idx, const std::vector<int>& strides, const std::vector<int>& shape, float val) {
+    inline void set(std::vector<int> indicies, float val) { values.set(stride::strided_idx(indicies, strides, shape), val); }
+    inline void set(int shape_idx, float val) { values.set(stride::strided_idx(shape_idx, strides, shape), val); }
+    inline void set(int shape_idx, const std::vector<int>& strides, const std::vector<int>& shape, float val) {
         values.set(stride::strided_idx(shape_idx, strides, shape), val); }
 
-    float get(std::vector<int> indicies) { return values.at(stride::strided_idx(indicies, strides, shape)); }
-    float get(int shape_idx)              { return values.at(stride::strided_idx(shape_idx, strides, shape)); }
-    float get(int shape_idx, const std::vector<int>& strides, const std::vector<int>& shape) {
+    inline float get(std::vector<int> indicies) { return values.at(stride::strided_idx(indicies, strides, shape)); }
+    inline float get(int shape_idx)              { return values.at(stride::strided_idx(shape_idx, strides, shape)); }
+    inline float get(int shape_idx, const std::vector<int>& strides, const std::vector<int>& shape) {
         return values.at(stride::strided_idx(shape_idx, strides, shape)); }
 
-    void grad_set(std::vector<int> shape_idx, float val) { grads.set(stride::strided_idx(shape_idx, strides, shape), val); }
-    void grad_set(int shape_idx, float val)              { grads.set(stride::strided_idx(shape_idx, strides, shape), val); }
-    void grad_set(int shape_idx, std::vector<int> strides, std::vector<int> shape, float val) {
+    inline void grad_set(std::vector<int> shape_idx, float val) { grads.set(stride::strided_idx(shape_idx, strides, shape), val); }
+    inline void grad_set(int shape_idx, float val)              { grads.set(stride::strided_idx(shape_idx, strides, shape), val); }
+    inline void grad_set(int shape_idx, std::vector<int> strides, std::vector<int> shape, float val) {
         grads.set(stride::strided_idx(shape_idx, strides, shape), val); }
 
-    float grad_get(std::vector<int> shape_idx) { return grads.at(stride::strided_idx(shape_idx, strides, shape)); }
-    float grad_get(int shape_idx)              { return grads.at(stride::strided_idx(shape_idx, strides, shape)); }
-    float grad_get(int shape_idx, std::vector<int> strides, std::vector<int> shape) {
+    inline float grad_get(std::vector<int> shape_idx) { return grads.at(stride::strided_idx(shape_idx, strides, shape)); }
+    inline float grad_get(int shape_idx)              { return grads.at(stride::strided_idx(shape_idx, strides, shape)); }
+    inline float grad_get(int shape_idx, std::vector<int> strides, std::vector<int> shape) {
         return grads.at(stride::strided_idx(shape_idx, strides, shape)); }
 
     //// operators (grad)
