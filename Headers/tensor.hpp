@@ -79,6 +79,7 @@ public:
     ~Tensor() {}
 
     void print();
+    void print_shape();
 
     //// getters setters
     const std::vector<int>& get_shape() const {return shape;}

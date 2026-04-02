@@ -38,8 +38,13 @@ private:
     Tensor_ptr weights;
     Tensor_ptr biases;
 
+    int stride;
+    int kernel_size;
+    int padding;
+    int out_channels;
+
 public:
-    Convolution(int in_channels, int kernel_size, int out_channels, std::string device = "cpu"); 
+    Convolution(int in_channels, int out_channels, int kernel_size, int stride, int padding, std::string device = "cpu"); 
     ~Convolution() {}
     Tensor_ptr forward(Tensor_ptr input) override;
     std::vector<Tensor_ptr> params() { return {weights, biases}; }

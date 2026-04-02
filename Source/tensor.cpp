@@ -160,6 +160,14 @@ void Tensor::print()
     std::cout << ")" << std::endl;
 }
 
+void Tensor::print_shape()
+{
+    std::cout << "[";
+    for (int i = 0; i < shape.size(); ++i) {
+        std::cout << shape[i] << (i == shape.size() - 1 ? "" : ", ");
+    }
+    std::cout << "]" << std::endl;
+}
 
 Tensor_ptr Tensor::relu() {
     auto result = Tensor::init(shape, true, device);
@@ -500,13 +508,13 @@ Tensor_ptr Tensor::matmul(Tensor_ptr tensor) {
     std::vector<float> matmul_output;
     if (device == "cpu") {
         if (is_continous() && tensor->is_continous()) {
-            matmul_output = cpu::matmul(raw_values(), tensor->raw_values(), shape[1], tensor->shape[1], shape[0]);
+            matmul_output = std::move(cpu::matmul(raw_values(), tensor->raw_values(), shape[1], tensor->shape[1], shape[0]));
         }
         else {
-            matmul_output = cpu::matmul(values_vec(), tensor->values_vec(), shape[1], tensor->shape[1], shape[0]);
+            matmul_output = std::move(cpu::matmul(values_vec(), tensor->values_vec(), shape[1], tensor->shape[1], shape[0]));
         }
     } else if (device == "cuda") {
-        matmul_output = cuda::matmul(values_vec(), tensor->values_vec(), shape[1], tensor->shape[1], shape[0]);
+        matmul_output = std::move(cuda::matmul(values_vec(), tensor->values_vec(), shape[1], tensor->shape[1], shape[0]));
     }
     
     Tensor_ptr result = Tensor::init({shape[0], tensor->shape[1]}, matmul_output, device);
@@ -520,8 +528,8 @@ Tensor_ptr Tensor::matmul(Tensor_ptr tensor) {
                 Tensor_ptr secondT = r->parents.second->transpose();
                 std::vector<float> grad_first;
                 std::vector<float> grad_second;
-                grad_first = cpu::matmul(r->grads_vec(), secondT->values_vec(), r->shape[1], secondT->shape[1], r->shape[0]);
-                grad_second = cpu::matmul(firstT->values_vec(), r->grads_vec(), firstT->shape[1], r->shape[1], firstT->shape[0]);
+                grad_first = std::move(cpu::matmul(r->grads_vec(), secondT->values_vec(), r->shape[1], secondT->shape[1], r->shape[0]));
+                grad_second = std::move(cpu::matmul(firstT->values_vec(), r->grads_vec(), firstT->shape[1], r->shape[1], firstT->shape[0]));
                 for (int i = 0; i < r->parents.first->total_count; ++i) {
                     r->parents.first->grad_set(i, r->parents.first->grad_get(i) + grad_first[i]);
                 }
@@ -649,7 +657,7 @@ void Tensor::zero_grad() {
 
 // TODO: could do faster? https://medium.com/@sundarramanp2000/different-implementations-of-the-ubiquitous-convolution-6a9269dbe77f
 Tensor_ptr Tensor::im2col(int kernel_size, int stride, int padding) {
-    // assert image shape 3
+    if (shape.size() != 4) throw std::invalid_argument("im2col defined only for 4d tensors");
     int batch = shape[0];
     int channels = shape[1];
     int height = shape[2];
@@ -659,6 +667,7 @@ Tensor_ptr Tensor::im2col(int kernel_size, int stride, int padding) {
     int out_w = (width  - kernel_size + 2 * padding) / stride + 1;
     Tensor_ptr result = Tensor::init({batch, out_h * out_w, kernel_size * kernel_size * channels}, true, device);
 
+    #pragma omp parallel for collapse(3) num_threads(8)
     for (int b = 0; b < batch; ++b) {
         for (int oy = 0; oy < out_h; ++oy) {
             for (int ox = 0; ox < out_w; ++ox) {
@@ -687,8 +696,6 @@ Tensor_ptr Tensor::im2col(int kernel_size, int stride, int padding) {
         }
     }
 
-    result->set_is_image(true);
-    
     return result;
 }
 
