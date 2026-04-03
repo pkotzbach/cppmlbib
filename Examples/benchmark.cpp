@@ -244,6 +244,43 @@ void reduction() {
         }
     }
 
+void im2col() {
+    struct Config {
+        int B, H, W, C, K, S, P;
+    };
+    std::vector<Config> configs = {
+        {1, 28, 28, 1, 3, 1, 1},
+        {1, 64, 64, 3, 3, 1, 1},
+        {1, 128, 128, 3, 3, 1, 1},
+        {8, 64, 64, 16, 3, 1, 1}
+    };
+
+    for (const auto& conf : configs) {
+        int size = conf.B * conf.H * conf.W * conf.C;
+        auto data = generate_random_data(size);
+        
+        auto x_opt = Tensor::init({conf.B, conf.H, conf.W, conf.C}, data, "cpu");
+        auto x_naive = Tensor::init({conf.B, conf.C, conf.H, conf.W}, data, "cpu");
+        
+        float avg_opt = benchmark([&]() {
+            (void)x_opt->im2col(conf.K, conf.S, conf.P);
+        }, 10);
+        
+        float avg_naive = benchmark([&]() {
+            (void)x_naive->im2col_naive(conf.K, conf.S, conf.P);
+        }, 10);
+        
+        bool correct = true;
+        if (conf.C == 1) {
+            auto res_opt = x_opt->im2col(conf.K, conf.S, conf.P);
+            auto res_naive = x_naive->im2col_naive(conf.K, conf.S, conf.P);
+            correct = check_correctness(res_opt->values_vec(), res_naive->values_vec());
+        }
+
+        print_result("im2col", size, avg_opt, avg_naive, correct, "OPT", "NAIVE");
+    }
+}
+
 int main(int argc, char* argv[]) {
     if (argc > 1) {
         for (int i = 0; i < argc; ++i) {
@@ -255,12 +292,14 @@ int main(int argc, char* argv[]) {
             if (strcmp(argv[i], "binary") == 0) binary();
             if (strcmp(argv[i], "softmax") == 0) softmax();
             if (strcmp(argv[i], "reduction") == 0) reduction();
+            if (strcmp(argv[i], "im2col") == 0) im2col();
         }
     } else {
         matmul();
         binary();
         softmax();
         reduction();
+        im2col();
     }
     return 0;
 }

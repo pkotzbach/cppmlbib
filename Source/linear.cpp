@@ -25,19 +25,16 @@ Convolution::Convolution(int in_channels, int i_out_channels, int i_kernel_size,
 
 Tensor_ptr Convolution::forward(Tensor_ptr input) {
     if (input->get_shape().size() != 4) throw std::invalid_argument("Invalid input size");
-    int height = input->get_shape(2);
-    int width = input->get_shape(3);
-    int out_h = (height - kernel_size + 2 * padding) / stride + 1;
-    int out_w = (width  - kernel_size + 2 * padding) / stride + 1;
-
-    Tensor_ptr folded = input->im2col(kernel_size, stride, padding);
+    
+    Tensor_ptr folded = input->is_image()? input: input->im2col(kernel_size, stride, padding);
     int batches = folded->get_shape(0);
-    int columns = folded->get_shape(1); // = out_h * out_w
-    int kernel = folded->get_shape(2);
-    folded = folded->view({batches * columns, kernel});
+    int out_h = folded->get_shape(1);
+    int out_w = folded->get_shape(2);
+    int kernel = folded->get_shape(3);
+    folded = folded->view({batches * out_h * out_w, kernel});
 
     Tensor_ptr result = folded->matmul(weights) + biases;
-    // matmul_res shape = [batches * columns, out_channels]
-    result = result->view({batches, out_channels, out_h, out_w});
+    // matmul_res shape = [batches * out_h * out_w, out_channels]
+    result = result->view({batches, out_h, out_w, out_channels});
     return result;
 }

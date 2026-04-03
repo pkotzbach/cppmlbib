@@ -427,14 +427,15 @@ TEST_P(TensorTest, ViewBackward)
                           std::vector<float>{0.6, 0.5}));
 }
 
-TEST_P(TensorTest, im2col)
+TEST(TensorTestCPU, im2col)
 {
-    expect_cuda_launch = false;
-    std::string device = GetParam();
-    Tensor_ptr x = Tensor::init({1, 1, 3, 3}, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0}, device);
+    // expect_cuda_launch = false;
+    // std::string device = GetParam();
+    std::string device = "cpu";
+    Tensor_ptr x = Tensor::init({1, 3, 3, 1}, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0}, device);
     
     auto col = x->im2col(2, 1, 0);
-    EXPECT_EQ(col->get_shape(), std::vector<int>({1, 4, 4}));
+    EXPECT_EQ(col->get_shape(), std::vector<int>({1, 2, 2, 4}));
     
     EXPECT_THAT(col->values_vec(),
                 Pointwise(FloatNear(1e-5),

@@ -658,6 +658,67 @@ void Tensor::zero_grad() {
 // TODO: could do faster? https://medium.com/@sundarramanp2000/different-implementations-of-the-ubiquitous-convolution-6a9269dbe77f
 Tensor_ptr Tensor::im2col(int kernel_size, int stride, int padding) {
     if (shape.size() != 4) throw std::invalid_argument("im2col defined only for 4d tensors");
+    if (!is_continous()) throw std::invalid_argument("only for continous");
+    int batch = shape[0];
+    int height = shape[1];
+    int width = shape[2];
+    int channels = shape[3];
+
+    int out_h = (height - kernel_size + 2 * padding) / stride + 1;
+    int out_w = (width  - kernel_size + 2 * padding) / stride + 1;
+    int flatten_kernel = kernel_size * kernel_size * channels;
+    Tensor_ptr result = Tensor::init({batch, out_h, out_w, flatten_kernel}, true, device);
+
+    float* in_data  = raw_values();
+    float* res_data = result->raw_values();
+
+    int in_stride_b = height * width * channels;
+    int in_stride_h = width * channels;
+
+    int res_stride_b = out_h * out_w * flatten_kernel;
+    int res_stride_h = out_w * flatten_kernel;
+
+    int kernel_size2 = kernel_size * kernel_size;
+
+    // #pragma omp parallel for collapse(3)
+    for (int b = 0; b < batch; ++b) {
+        for (int oy = 0; oy < out_h; ++oy) {
+            for (int ox = 0; ox < out_w; ++ox) {
+                int x = ox * stride - padding;
+                int y = oy * stride - padding;
+
+                for (int c = 0; c < channels; ++c) {
+                    for (int ky = 0; ky < kernel_size; ++ky) {
+                        #pragma omp simd
+                        for (int kx = 0; kx < kernel_size; ++kx) {
+                            int row = c * kernel_size2 + ky * kernel_size + kx;
+
+                            int in_y = y + ky;
+                            int in_x = x + kx;
+
+                            float val = 0;
+
+                            if (in_y >= 0 && in_y < height && in_x >= 0 && in_x < width) {
+                                int in_idx = b * in_stride_b + in_y * in_stride_h + in_x * channels + c;
+                                val = in_data[in_idx];
+                            }
+
+                            int res_idx = b * res_stride_b + oy * res_stride_h + ox * flatten_kernel + row;
+                            res_data[res_idx] = val;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    result->image = true;
+
+    return result;
+}
+
+Tensor_ptr Tensor::im2col_naive(int kernel_size, int stride, int padding) {
+    if (shape.size() != 4) throw std::invalid_argument("im2col defined only for 4d tensors");
     int batch = shape[0];
     int channels = shape[1];
     int height = shape[2];
@@ -698,4 +759,3 @@ Tensor_ptr Tensor::im2col(int kernel_size, int stride, int padding) {
 
     return result;
 }
-
