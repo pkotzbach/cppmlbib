@@ -259,8 +259,8 @@ void im2col() {
         int size = conf.B * conf.H * conf.W * conf.C;
         auto data = generate_random_data(size);
         
-        auto x_opt = Tensor::init({conf.B, conf.H, conf.W, conf.C}, data, "cpu");
-        auto x_naive = Tensor::init({conf.B, conf.C, conf.H, conf.W}, data, "cpu");
+        auto x_opt = Tensor::init({conf.B, conf.H, conf.W, conf.C}, data, Device::CPU);
+        auto x_naive = Tensor::init({conf.B, conf.C, conf.H, conf.W}, data, Device::CPU);
         
         float avg_opt = benchmark([&]() {
             (void)x_opt->im2col(conf.K, conf.S, conf.P);

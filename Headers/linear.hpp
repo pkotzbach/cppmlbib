@@ -5,7 +5,7 @@
 
 class Component {
 protected:
-    std::string device;
+    Device device;
 public:
     virtual Tensor_ptr forward(Tensor_ptr input) {
         throw std::runtime_error("forward not implemented");
@@ -20,9 +20,9 @@ private:
     Tensor_ptr biases;
 
 public:
-    Linear(int in_size, int out_size, std::string device = "cpu") : in_size(in_size),
+    Linear(int in_size, int out_size, Device device = Device::CPU) : in_size(in_size),
                                                                     out_size(out_size), weights(Tensor::init({in_size, out_size}, false, device)), 
-                                                                    biases(Tensor::init({1, out_size}, false, device)) { this->device = std::move(device); }
+                                                                    biases(Tensor::init({1, out_size}, false, device)) { this->device = device; }
     ~Linear() {}
     Tensor_ptr forward(Tensor_ptr input) override;
     std::vector<Tensor_ptr> params() { return {weights, biases}; }
@@ -44,7 +44,7 @@ private:
     int out_channels;
 
 public:
-    Convolution(int in_channels, int out_channels, int kernel_size, int stride, int padding, std::string device = "cpu"); 
+    Convolution(int in_channels, int out_channels, int kernel_size, int stride, int padding, Device device = Device::CPU); 
     ~Convolution() {}
     Tensor_ptr forward(Tensor_ptr input) override;
     std::vector<Tensor_ptr> params() { return {weights, biases}; }

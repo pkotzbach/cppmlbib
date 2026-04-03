@@ -14,7 +14,7 @@ TEST(StorageCudaTest, MakeContinous) {
     
     std::vector<int> shape = {3, 2};
     std::vector<float> values = {1, 2, 3, 4, 5, 6};
-    Tensor_ptr x = Tensor::init(shape, values, "cuda");
+    Tensor_ptr x = Tensor::init(shape, values, Device::CUDA);
     auto xT = x->transpose();
     EXPECT_THAT(xT->values_vec(),
                 Pointwise(FloatNear(1e-4),

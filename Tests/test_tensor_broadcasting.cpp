@@ -3,7 +3,7 @@
 
 enum class Op { ADD, SUB, MUL, DIV };
 
-class BroadcastingTest : public ::testing::TestWithParam<std::tuple<std::string, Op>> {
+class BroadcastingTest : public ::testing::TestWithParam<std::tuple<Device, Op>> {
 protected:
     void SetUp() override {
         test_utils::cuda_reset(std::get<0>(GetParam()));
@@ -26,7 +26,7 @@ protected:
 
 TEST_P(BroadcastingTest, Scalar)
 {
-    std::string device = std::get<0>(GetParam());
+    Device device = std::get<0>(GetParam());
     Op op = std::get<1>(GetParam());
 
     std::vector<float> a_vals = {1, 2, 3, 4};
@@ -54,7 +54,7 @@ TEST_P(BroadcastingTest, Scalar)
 
 TEST_P(BroadcastingTest, RowVector)
 {
-    std::string device = std::get<0>(GetParam());
+    Device device = std::get<0>(GetParam());
     Op op = std::get<1>(GetParam());
 
     std::vector<float> a_vals = {1, 2, 3, 4, 5, 6};
@@ -85,7 +85,7 @@ TEST_P(BroadcastingTest, RowVector)
 
 TEST_P(BroadcastingTest, Column)
 {
-    std::string device = std::get<0>(GetParam());
+    Device device = std::get<0>(GetParam());
     Op op = std::get<1>(GetParam());
 
     std::vector<float> a_vals = {1, 2, 3, 4, 5, 6};
@@ -116,7 +116,7 @@ TEST_P(BroadcastingTest, Column)
 
 TEST_P(BroadcastingTest, HighDimBroadcast)
 {
-    std::string device = std::get<0>(GetParam());
+    Device device = std::get<0>(GetParam());
     Op op = std::get<1>(GetParam());
 
     std::vector<float> a_vals = {
@@ -152,7 +152,7 @@ TEST_P(BroadcastingTest, HighDimBroadcast)
 
 TEST_P(BroadcastingTest, BroadcastWithTranspose)
 {
-    std::string device = std::get<0>(GetParam());
+    Device device = std::get<0>(GetParam());
     Op op = std::get<1>(GetParam());
 
     std::vector<float> a_vals = {1, 2, 3, 4, 5, 6};
@@ -183,7 +183,7 @@ TEST_P(BroadcastingTest, BroadcastWithTranspose)
 }
 
 
-std::string PrintTestParamName(const ::testing::TestParamInfo<std::tuple<std::string, Op>>& info) {
+std::string PrintTestParamName(const ::testing::TestParamInfo<std::tuple<Device, Op>>& info) {
     Op op = std::get<1>(info.param);
     std::string op_str;
     switch (op) {
@@ -197,7 +197,7 @@ std::string PrintTestParamName(const ::testing::TestParamInfo<std::tuple<std::st
 
 INSTANTIATE_TEST_SUITE_P(CPU, BroadcastingTest, 
     ::testing::Combine(
-        ::testing::Values("cpu"),
+        ::testing::Values(Device::CPU),
         ::testing::Values(Op::ADD, Op::SUB, Op::MUL, Op::DIV)
     ),
     PrintTestParamName
@@ -206,7 +206,7 @@ INSTANTIATE_TEST_SUITE_P(CPU, BroadcastingTest,
 #ifdef CUDA_TEST
 INSTANTIATE_TEST_SUITE_P(CUDA, BroadcastingTest, 
     ::testing::Combine(
-        ::testing::Values("cuda"),
+        ::testing::Values(Device::CUDA),
         ::testing::Values(Op::ADD, Op::SUB, Op::MUL, Op::DIV)
     ),
     PrintTestParamName

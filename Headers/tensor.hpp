@@ -19,24 +19,24 @@ struct Storage {
     // TODO: should be aligned?
     std::shared_ptr<float[]> data;
     int size; // TODO: duplication of total_count
-    std::string device;
+    Device device;
 
     Storage() {}
-    Storage(std::string device, std::vector<float> values, int size);
+    Storage(Device device, std::vector<float> values, int size);
 
     inline float* get() { return data.get(); }
     inline void set(int idx, float val) {
-        if (device == "cpu") {
+        if (device == Device::CPU) {
             data[idx] = val;
-        } else if (device == "cuda") {
+        } else if (device == Device::CUDA) {
             cudaMemcpy(data.get() + idx, &val, sizeof(float), cudaMemcpyHostToDevice);
         }
     }
 
     inline float at(int idx) {
-        if (device == "cpu") {
+        if (device == Device::CPU) {
             return data[idx];
-        } else if (device == "cuda") {
+        } else if (device == Device::CUDA) {
             float val;
             cudaMemcpy(&val, data.get() + idx, sizeof(float), cudaMemcpyDeviceToHost);
             return val;
@@ -45,7 +45,7 @@ struct Storage {
     }
 
     inline float& operator[](int idx) {
-        if (device != "cpu") {
+        if (device != Device::CPU) {
             throw std::runtime_error("operator[] not supported for CUDA storage");
         }
         return data[idx];
@@ -66,14 +66,14 @@ private:
     std::vector<int> strides;
     std::vector<int> shape;
     int total_count;
-    std::string device;
+    Device device;
     bool image;
 
-    Tensor& init_internal(std::vector<int> shape, std::vector<float> init_values, std::vector<float> init_grads, bool init_zero, std::string device);
+    Tensor& init_internal(std::vector<int> shape, std::vector<float> init_values, std::vector<float> init_grads, bool init_zero, Device device);
 
 public:
-    static Tensor_ptr init(std::vector<int> shape, bool init_zero = false, std::string device = "cpu");
-    static Tensor_ptr init(std::vector<int> shape, std::vector<float> values, std::string device = "cpu");
+    static Tensor_ptr init(std::vector<int> shape, bool init_zero = false, Device device = Device::CPU);
+    static Tensor_ptr init(std::vector<int> shape, std::vector<float> values, Device device = Device::CPU);
 
     Tensor() {}
     ~Tensor() {}
@@ -94,7 +94,7 @@ public:
     void set_strides(std::vector<int> str) { strides = std::move(str); }
 
     int get_total_count() const {return total_count;}
-    std::string get_device() const {return device;}
+    Device get_device() const {return device;}
 
     bool is_image() const {return image;}
     void set_is_image(bool is) {image = is;}

@@ -12,15 +12,15 @@ using ::testing::Pointwise;
 
 namespace test_utils {
 
-inline void cuda_reset(const std::string& device) {
+inline void cuda_reset(Device device) {
 #ifdef CUDA_TEST
-    if (device == "cuda") g_cuda_kernel_launches = 0;
+    if (device == Device::CUDA) g_cuda_kernel_launches = 0;
 #endif
 }
 
-inline void cuda_check_launched(const std::string& device, bool expect_launch = true) {
+inline void cuda_check_launched(Device device, bool expect_launch = true) {
 #ifdef CUDA_TEST
-    if (device == "cuda" && expect_launch) {
+    if (device == Device::CUDA && expect_launch) {
         EXPECT_GT(g_cuda_kernel_launches, 0);
     }
 #endif
@@ -28,13 +28,13 @@ inline void cuda_check_launched(const std::string& device, bool expect_launch = 
 
 } // namespace test_utils
 
-class BaseDeviceTest : public ::testing::TestWithParam<std::string> {
+class BaseDeviceTest : public ::testing::TestWithParam<Device> {
 protected:
     bool expect_cuda_launch = true;
 
     void SetUp() override {
         test_utils::cuda_reset(GetParam());
-        if (GetParam() == "cpu") expect_cuda_launch = false;
+        if (GetParam() == Device::CPU) expect_cuda_launch = false;
     }
 
     void TearDown() override {

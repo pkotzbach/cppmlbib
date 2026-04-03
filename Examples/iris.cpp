@@ -26,7 +26,7 @@ int main()
         {"Iris-virginica", {0, 0, 1}}
     };
 
-    std::string device = "cuda";
+    Device device = Device::CUDA;
 
     int features = 4;
     int rows = csv.size();

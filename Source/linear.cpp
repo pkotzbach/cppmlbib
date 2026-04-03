@@ -12,11 +12,12 @@ Tensor_ptr Softmax::forward(Tensor_ptr input) {
     return input->softmax();
 }
 
-Convolution::Convolution(int in_channels, int i_out_channels, int i_kernel_size, int i_stride, int i_padding, std::string device) 
+Convolution::Convolution(int in_channels, int i_out_channels, int i_kernel_size, int i_stride, int i_padding, Device i_device) 
 {
-    weights = Tensor::init({i_kernel_size * i_kernel_size * in_channels, i_out_channels});
-    biases = Tensor::init({1, i_out_channels});
-
+    weights = Tensor::init({i_kernel_size * i_kernel_size * in_channels, i_out_channels}, false, device);
+    biases = Tensor::init({1, i_out_channels}, false, device);
+    
+    device = i_device;
     stride = i_stride;
     kernel_size = i_kernel_size;
     padding = i_padding;

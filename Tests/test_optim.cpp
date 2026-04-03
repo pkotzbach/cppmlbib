@@ -4,7 +4,8 @@
 class SGDTest : public BaseDeviceTest {};
 
 TEST_P(SGDTest, Step) {
-    std::string device = GetParam();
+    expect_cuda_launch = false;
+    Device device = GetParam();
     Tensor_ptr input = Tensor::init({3}, {0.1, 0.2, -0.1}, device);
     input->grad_set(0, 0.1);
     input->grad_set(1, -0.1);
@@ -18,8 +19,8 @@ TEST_P(SGDTest, Step) {
                       std::vector<float>({0.099, 0.201, -0.105})));
 }
 
-INSTANTIATE_TEST_SUITE_P(CPU, SGDTest, ::testing::Values("cpu"));
-// #ifdef CUDA_TEST
-// INSTANTIATE_TEST_SUITE_P(CUDA, SGDTest, ::testing::Values("cuda"));
-// #endif
+INSTANTIATE_TEST_SUITE_P(CPU, SGDTest, ::testing::Values(Device::CPU));
+#ifdef CUDA_TEST
+INSTANTIATE_TEST_SUITE_P(CUDA, SGDTest, ::testing::Values(Device::CUDA));
+#endif
 
