@@ -353,6 +353,7 @@ struct BinaryOpContext {
     std::array<int, MAX_DIMS> first_strides{};
     std::array<int, MAX_DIMS> second_strides{};
     int ndim;
+    bool casted;
 
     BinaryOpContext(const Tensor_ptr& first, const Tensor_ptr& second)
     {
@@ -367,23 +368,11 @@ struct BinaryOpContext {
         first_strides_vec = stride::broadcast_strides(first->get_shape(), first->get_strides(), ndim);
         second_strides_vec = stride::broadcast_strides(second->get_shape(), second->get_strides(), ndim);
 
+        casted = (first->get_shape() != out_shape_vec) || (second->get_shape() != out_shape_vec);
+
         std::ranges::copy(out_shape_vec, out_shape.begin());
         std::ranges::copy(first_strides_vec, first_strides.begin());
         std::ranges::copy(second_strides_vec, second_strides.begin());
-    }
-
-    template <typename CPU_Op>
-    void compute_forward(const Tensor_ptr& first, const Tensor_ptr& second, const Tensor_ptr& result, char cuda_op, CPU_Op cpu_op)
-    {
-        if (device == Device::CPU) {
-            for (int i = 0; i < result->get_total_count(); ++i) {
-                result->set(i, cpu_op(first->get(i, first_strides_vec, out_shape_vec), second->get(i, second_strides_vec, out_shape_vec)));
-            }
-        }
-        else if (device == Device::CUDA) {
-            cuda::binary_op_strided(cuda_op, first->raw_values(), first_strides, second->raw_values(), second_strides,
-                                    out_shape, result->get_total_count(), ndim, result->raw_values());
-        }
     }
 };
 
@@ -394,7 +383,24 @@ Tensor_ptr operator+(Tensor_ptr first, Tensor_ptr second) {
     result->parents = std::pair{first, second};
     result->op = "add";
 
-    ctx.compute_forward(first, second, result, '+', [](float a, float b){ return a + b; });
+    if (ctx.device == Device::CPU) {
+        float* result_raw = result->raw_values();
+        if (first->is_continous() && second->is_continous() && !ctx.casted) {
+            float* first_raw = first->raw_values();
+            float* second_raw = second->raw_values();
+            for (int i = 0; i < result->total_count; ++i) {
+                result_raw[i] = first_raw[i] + second_raw[i];
+            }
+        }
+        else {
+            for (int i = 0; i < result->total_count; ++i) {
+                result_raw[i] = first->get(i, ctx.first_strides_vec, ctx.out_shape_vec) + second->get(i, ctx.second_strides_vec, ctx.out_shape_vec);
+            }
+        }
+    } else if (ctx.device == Device::CUDA) {
+        cuda::binary_op_strided('+', first->raw_values(), ctx.first_strides, second->raw_values(), ctx.second_strides,
+                                ctx.out_shape, result->total_count, ctx.ndim, result->raw_values());
+    }
 
     result->backward_fn = [res = std::weak_ptr<Tensor>(result), ctx](){
         if(auto r = res.lock()){
@@ -423,7 +429,14 @@ Tensor_ptr operator-(Tensor_ptr first, Tensor_ptr second) {
     result->parents = std::pair{first, second};
     result->op = "sub";
 
-    ctx.compute_forward(first, second, result, '-', [](float a, float b){ return a - b; });
+    if (ctx.device == Device::CPU) {
+        for (int i = 0; i < result->total_count; ++i) {
+            result->set(i, first->get(i, ctx.first_strides_vec, ctx.out_shape_vec) - second->get(i, ctx.second_strides_vec, ctx.out_shape_vec));
+        }
+    } else if (ctx.device == Device::CUDA) {
+        cuda::binary_op_strided('-', first->raw_values(), ctx.first_strides, second->raw_values(), ctx.second_strides,
+                                ctx.out_shape, result->total_count, ctx.ndim, result->raw_values());
+    }
     
     result->backward_fn = [res = std::weak_ptr<Tensor>(result), ctx](){
         if(auto r = res.lock()){
@@ -450,7 +463,14 @@ Tensor_ptr operator*(Tensor_ptr first, Tensor_ptr second) {
     result->parents = std::pair{first, second};
     result->op = "mul";
 
-    ctx.compute_forward(first, second, result, '*', [](float a, float b){ return a * b; });
+    if (ctx.device == Device::CPU) {
+        for (int i = 0; i < result->total_count; ++i) {
+            result->set(i, first->get(i, ctx.first_strides_vec, ctx.out_shape_vec) * second->get(i, ctx.second_strides_vec, ctx.out_shape_vec));
+        }
+    } else if (ctx.device == Device::CUDA) {
+        cuda::binary_op_strided('*', first->raw_values(), ctx.first_strides, second->raw_values(), ctx.second_strides,
+                                ctx.out_shape, result->total_count, ctx.ndim, result->raw_values());
+    }
     
     result->backward_fn = [res = std::weak_ptr<Tensor>(result), ctx](){
         if(auto r = res.lock()){
@@ -477,7 +497,14 @@ Tensor_ptr operator/(Tensor_ptr first, Tensor_ptr second) {
     result->parents = std::pair{first, second};
     result->op = "div";
 
-    ctx.compute_forward(first, second, result, '/', [](float a, float b){ return a / b; });
+    if (ctx.device == Device::CPU) {
+        for (int i = 0; i < result->total_count; ++i) {
+            result->set(i, first->get(i, ctx.first_strides_vec, ctx.out_shape_vec) / second->get(i, ctx.second_strides_vec, ctx.out_shape_vec));
+        }
+    } else if (ctx.device == Device::CUDA) {
+        cuda::binary_op_strided('/', first->raw_values(), ctx.first_strides, second->raw_values(), ctx.second_strides,
+                                ctx.out_shape, result->total_count, ctx.ndim, result->raw_values());
+    }
 
     result->backward_fn = [res = std::weak_ptr<Tensor>(result), ctx](){
         if(auto r = res.lock()){
