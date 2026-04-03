@@ -385,16 +385,45 @@ Tensor_ptr operator+(Tensor_ptr first, Tensor_ptr second) {
 
     if (ctx.device == Device::CPU) {
         float* result_raw = result->raw_values();
-        if (first->is_continous() && second->is_continous() && !ctx.casted) {
+        bool handled = false;
+
+        if (first->is_continous() && second->is_continous()) {
             float* first_raw = first->raw_values();
             float* second_raw = second->raw_values();
-            for (int i = 0; i < result->total_count; ++i) {
-                result_raw[i] = first_raw[i] + second_raw[i];
+
+            if (!ctx.casted) {
+                for (int i = 0; i < result->total_count; ++i) {
+                    result_raw[i] = first_raw[i] + second_raw[i];
+                }
+                handled = true;
+            }
+            // specific target [N, C] + [1, C] for bias addition
+            else if (ctx.ndim == 2 &&
+                    ctx.first_strides_vec[0] == ctx.out_shape_vec[1] &&
+                    ctx.first_strides_vec[1] == 1 &&
+                    ctx.second_strides_vec[0] == 0 &&
+                    ctx.second_strides_vec[1] == 1) {
+
+                int N = ctx.out_shape_vec[0];
+                int C = ctx.out_shape_vec[1];
+
+                // #pragma omp parallel for
+                for (int n = 0; n < N; ++n) {
+                    // #pragma omp simd
+                    for (int c = 0; c < C; ++c) {
+                        result_raw[n * C + c] = first_raw[n * C + c] + second_raw[c];
+                    }
+                }
+                handled = true;
             }
         }
-        else {
+
+        // generic fallback
+        if (!handled) {
             for (int i = 0; i < result->total_count; ++i) {
-                result_raw[i] = first->get(i, ctx.first_strides_vec, ctx.out_shape_vec) + second->get(i, ctx.second_strides_vec, ctx.out_shape_vec);
+                result_raw[i] =
+                    first->get(i, ctx.first_strides_vec, ctx.out_shape_vec) +
+                    second->get(i, ctx.second_strides_vec, ctx.out_shape_vec);
             }
         }
     } else if (ctx.device == Device::CUDA) {
