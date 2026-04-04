@@ -388,6 +388,32 @@ TEST_P(TensorTest, Matmul)
                           std::vector<float>{10.0, 10.0, 20.1, 20.1, 0.0, 0.0}));
 }
 
+// TODO: for CUDA
+TEST(TensorTestCPU, MatmulNonContinous)
+{
+    Device device = Device::CPU;
+
+    Tensor_ptr a = Tensor::init({2, 3}, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0}, device);
+    Tensor_ptr b = Tensor::init({2, 3}, {7.0, 8.0, 9.0, 10.0, 11.0, 12.0}, device);
+    Tensor_ptr bT = b->transpose();
+
+    auto result = a->matmul(bT);
+    
+    EXPECT_EQ(result->get_shape(), std::vector<int>({2, 2}));
+    EXPECT_THAT(result->values_vec(),
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{50.0, 68.0, 122.0, 167.0}));
+
+    result->sum()->backward();
+    EXPECT_THAT(a->grads_vec(),
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{17.0, 19.0, 21.0, 17.0, 19.0, 21.0}));
+
+    EXPECT_THAT(b->grads_vec(),
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{5.0, 7.0, 9.0, 5.0, 7.0, 9.0}));
+}
+
 
 TEST_P(TensorTest, ViewOperation)
 {

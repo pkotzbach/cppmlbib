@@ -563,6 +563,8 @@ Tensor_ptr Tensor::matmul(Tensor_ptr tensor) {
     if (shape.size() != 2 || tensor->shape.size() != 2) throw std::invalid_argument("Matmul defined only for 2d tensors");
     if (shape[1] != tensor->shape[0]) throw std::invalid_argument("Invalid shapes for matmul");
     if (device != tensor->device) throw std::invalid_argument("different devices");
+    // TODO: fix
+    if (device == Device::CUDA && (!is_continous() || !tensor->is_continous())) throw std::invalid_argument("CUDA only for continous for now");
 
     std::vector<float> matmul_output;
     if (device == Device::CPU) {
@@ -589,11 +591,31 @@ Tensor_ptr Tensor::matmul(Tensor_ptr tensor) {
                 std::vector<float> grad_second;
                 grad_first = std::move(cpu::matmul(r->grads_vec(), secondT->values_vec(), r->shape[1], secondT->shape[1], r->shape[0]));
                 grad_second = std::move(cpu::matmul(firstT->values_vec(), r->grads_vec(), firstT->shape[1], r->shape[1], firstT->shape[0]));
-                for (int i = 0; i < r->parents.first->total_count; ++i) {
-                    r->parents.first->grad_set(i, r->parents.first->grad_get(i) + grad_first[i]);
+                
+                if (r->parents.first->is_continous()) {
+                    float* raw_grad = r->parents.first->raw_grads();
+                    int count = r->parents.first->total_count;
+                    for (int i = 0; i < count; ++i) {
+                        raw_grad[i] += grad_first[i];
+                    }
                 }
-                for (int i = 0; i < r->parents.second->total_count; ++i) {
-                    r->parents.second->grad_set(i, r->parents.second->grad_get(i) + grad_second[i]);
+                else {
+                    for (int i = 0; i < r->parents.first->total_count; ++i) {
+                        r->parents.first->grad_set(i, r->parents.first->grad_get(i) + grad_first[i]);
+                    }
+                }
+                
+                if (r->parents.second->is_continous()) {
+                    float* raw_grad = r->parents.second->raw_grads();
+                    int count = r->parents.second->total_count;
+                    for (int i = 0; i < count; ++i) {
+                        raw_grad[i] += grad_second[i];
+                    }
+                }
+                else {
+                    for (int i = 0; i < r->parents.second->total_count; ++i) {
+                        r->parents.second->grad_set(i, r->parents.second->grad_get(i) + grad_second[i]);
+                    }
                 }
             } else if (r->device == Device::CUDA) {
                 cuda::matmul_backward(r->parents.first->values.get(), r->parents.second->values.get(), 
