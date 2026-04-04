@@ -5,6 +5,7 @@
 #include <immintrin.h>
 #include <omp.h>
 #include <ranges>
+#include <cstdlib>
 
 namespace cpu {
 std::vector<float> matmul(const std::vector<float> &A, const std::vector<float> &B, int K, int X, int Y)
@@ -14,15 +15,20 @@ std::vector<float> matmul(const std::vector<float> &A, const std::vector<float> 
 
 std::vector<float> matmul(const float* A_ptr, const float* B_ptr, int K, int X, int Y)
 {
-    std::vector<float> C(X * Y, 0.0f);
+    size_t alignment = 64;
+    size_t memory = X * Y * sizeof(float);
+    size_t aligned_memory = ((memory + alignment - 1) / alignment) * alignment;
+    float* C_ptr = static_cast<float*>(std::aligned_alloc(alignment, aligned_memory));
+    if (!C_ptr) throw std::bad_alloc();
+    std::fill_n(C_ptr, X * Y, 0.0f);
+
     constexpr int tile_size_X = 64;
     constexpr int tile_size_Y = 32;
     constexpr int tile_size_K = 32;
     
-    float* __restrict__ C_ptr = C.data();
     constexpr int simd_step = 16; // AVX-512
 
-    #pragma omp parallel for shared(A_ptr, B_ptr, C_ptr) collapse(2) num_threads(8)
+    // #pragma omp parallel for shared(A_ptr, B_ptr, C_ptr) collapse(2)
     for (int tile_y = 0; tile_y < Y; tile_y += tile_size_Y) {
         for (int tile_x = 0; tile_x < X; tile_x += tile_size_X) {
             int end_y = std::min(tile_y + tile_size_Y, Y);
@@ -37,16 +43,16 @@ std::vector<float> matmul(const float* A_ptr, const float* B_ptr, int K, int X, 
 
                     #pragma GCC unroll 4
                     for (; x <= end_x - simd_step; x += simd_step) {
-                        __m512 c_vec = _mm512_loadu_ps(&C_ptr[y * X + x]);
+                        __m512 c_vec = _mm512_load_ps(&C_ptr[y * X + x]);
                         
                         #pragma GCC unroll 4
                         for (int k = tile_k; k < end_k; ++k) {
                             __m512 a_vec = _mm512_set1_ps(A_ptr[y * K + k]);
-                            __m512 b_vec = _mm512_loadu_ps(&B_ptr[k * X + x]);
+                            __m512 b_vec = _mm512_load_ps(&B_ptr[k * X + x]);
                             c_vec = _mm512_fmadd_ps(a_vec, b_vec, c_vec);
                         }
 
-                        _mm512_storeu_ps(&C_ptr[y * X + x], c_vec);
+                        _mm512_store_ps(&C_ptr[y * X + x], c_vec);
                     }
                     
                     // rest
@@ -62,6 +68,8 @@ std::vector<float> matmul(const float* A_ptr, const float* B_ptr, int K, int X, 
         }
     }
 
+    std::vector<float> C(C_ptr, C_ptr + X * Y);
+    std::free(C_ptr);
     return C;
 }
 

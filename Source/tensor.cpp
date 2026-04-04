@@ -7,19 +7,23 @@
 #include <random>
 #include <string>
 #include <cstring>
+#include <cstdlib>
 #include <cuda_runtime.h>
 #include <iostream>
 #include <format>
 #include <ranges>
 #include <algorithm>
 
-Storage::Storage(Device i_device, std::vector<float> i_values, int i_size) : device(i_device), size(i_size)
+Storage::Storage(Device i_device, std::vector<float> i_values, int i_size) : size(i_size), device(i_device)
 {
     int memory = size * sizeof(float);
     if (device == Device::CPU) {
-        // TODO: move?
-        data = std::shared_ptr<float[]>(new float[size], std::default_delete<float[]>());
-                std::memcpy(data.get(), i_values.data(), memory);
+        int alignment = 64; // AVX-512
+        int memory_aligned = ((memory + alignment - 1) / alignment) * alignment;
+        float* raw_ptr = static_cast<float*>(std::aligned_alloc(alignment, memory_aligned));
+        if (!raw_ptr) throw std::bad_alloc();
+        memcpy(raw_ptr, i_values.data(), memory);
+        data = std::shared_ptr<float[]>(raw_ptr, [](float* ptr){ std::free(ptr); });
     }
     else {
         float* raw_values = nullptr;
