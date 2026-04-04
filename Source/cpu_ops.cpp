@@ -87,18 +87,30 @@ std::vector<float> matmul_naive(const std::vector<float> &A, const std::vector<f
 
 
 void softmax(const std::vector<float>& input, float* output, int N, int C) {
+    softmax(input.data(), output, N, C);
+}
+
+void softmax(const float* __restrict__ input, float* __restrict__ output, int N, int C)
+{
     for (int i = 0; i < N; ++i) {
-        auto row_view = input | std::views::drop(i * C) | std::views::take(C);
-        float max_val = std::ranges::max(row_view);
+        const float* __restrict__ in_row  = input  + i * C;
+        float* __restrict__ out_row = output + i * C;
+
+        float max_val = in_row[0];
+        for (int j = 1; j < C; ++j) {
+            max_val = std::max(max_val, in_row[j]);
+        }
 
         float sum = 0.0f;
         for (int j = 0; j < C; ++j) {
-            output[i * C + j] = std::exp(input[i * C + j] - max_val);
-            sum += output[i * C + j];
+            float val = std::exp(in_row[j] - max_val);
+            out_row[j] = val;
+            sum += val;
         }
 
+        float inv_sum = 1.0f / sum;
         for (int j = 0; j < C; ++j) {
-            output[i * C + j] /= sum;
+            out_row[j] *= inv_sum;
         }
     }
 }

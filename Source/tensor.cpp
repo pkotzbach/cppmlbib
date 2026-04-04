@@ -639,7 +639,8 @@ Tensor_ptr Tensor::softmax() {
     result->op = "softmax";
 
     if (device == Device::CPU) {
-        cpu::softmax(values_vec(), result->values.get(), N, C);
+        if (is_continous()) cpu::softmax(raw_values(), result->values.get(), N, C);
+        else                cpu::softmax(values_vec(), result->values.get(), N, C);
     } else if (device == Device::CUDA) {
         cuda::make_continous(shared_from_this());
         cuda::softmax(values.get(), result->values.get(), N, C);
@@ -809,7 +810,7 @@ Tensor_ptr Tensor::im2col_naive(int kernel_size, int stride, int padding) {
     int out_w = (width  - kernel_size + 2 * padding) / stride + 1;
     Tensor_ptr result = Tensor::init({batch, out_h * out_w, kernel_size * kernel_size * channels}, true, device);
 
-    #pragma omp parallel for collapse(3) num_threads(8)
+    // #pragma omp parallel for collapse(3)
     for (int b = 0; b < batch; ++b) {
         for (int oy = 0; oy < out_h; ++oy) {
             for (int ox = 0; ox < out_w; ++ox) {
