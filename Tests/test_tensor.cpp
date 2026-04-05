@@ -366,7 +366,13 @@ TEST_P(TensorTest, Matmul)
 {
     Device device = GetParam();
 
+    // 4 8     2
+    // 6 12.1 -2
     Tensor_ptr a = Tensor::init({2, 3}, {4.0, 8.0, 2.0, 6.0, 12.1, -2}, device);
+    
+    // 2 2
+    // 1 3
+    // 1 0.4
     Tensor_ptr b = Tensor::init({3, 2}, {2.0, 2.0, 1.0, 3.0, 1.0, 0.4}, device);
 
     auto result = a->matmul(b);

@@ -73,6 +73,65 @@ std::vector<float> matmul(const float* A_ptr, const float* B_ptr, int K, int X, 
     return C;
 }
 
+// transpose B and matmul
+// [M, K] @ [N, K]^T
+std::vector<float> BT_matmul(const float* A_ptr, const float* B_ptr, int K, int M, int N)
+{
+    size_t alignment = 64;
+    size_t memory = M * N * sizeof(float);
+    size_t aligned_memory = ((memory + alignment - 1) / alignment) * alignment;
+    float* C_ptr = static_cast<float*>(std::aligned_alloc(alignment, aligned_memory));
+    if (!C_ptr) throw std::bad_alloc();
+    std::fill_n(C_ptr, M * N, 0.0f);
+
+    constexpr int tile_size_M = 32;
+    constexpr int tile_size_N = 32;
+    constexpr int tile_size_K = 64;
+    
+    constexpr int simd_step = 16; // AVX-512
+
+    // #pragma omp parallel for shared(A_ptr, B_ptr, C_ptr) collapse(2)
+    for (int start_m = 0; start_m < M; start_m += tile_size_M) {
+        for (int start_n = 0; start_n < N; start_n += tile_size_N) {
+            int end_M = std::min(start_m + tile_size_M, M);
+            int end_N = std::min(start_n + tile_size_N, N);
+
+            for (int start_k = 0; start_k < K; start_k += tile_size_K) {
+                int end_k = std::min(start_k + tile_size_K, K);
+
+                #pragma GCC unroll 4
+                 for (int m = start_m; m < end_M; ++m) {
+                    
+                    #pragma GCC unroll 4
+                    for (int n = start_n; n < end_N; ++n) {
+                        __m512 c_vec = _mm512_setzero_ps();
+                        
+                        int k = start_k;
+                        for (; k <= end_k - simd_step; k += simd_step) {
+                            __m512 a_vec = _mm512_load_ps(&A_ptr[m * K + k]);
+                            __m512 b_vec = _mm512_load_ps(&B_ptr[n * K + k]);
+                            c_vec = _mm512_fmadd_ps(a_vec, b_vec, c_vec);
+                        }
+                        float c_val = _mm512_reduce_add_ps(c_vec);
+
+                        // rest
+                        for (; k < end_k; ++k) {
+                                c_val += A_ptr[m * K + k] * B_ptr[n * K + k];
+                            }
+
+                        C_ptr[m * N + n] += c_val;
+                    }
+                    
+                }
+            }
+        }
+    }
+
+    std::vector<float> C(C_ptr, C_ptr + M * N);
+    std::free(C_ptr);
+    return C;
+}
+
 std::vector<float> matmul_naive(const std::vector<float> &A, const std::vector<float> &B, int K, int X, int Y)
 {
     std::vector<float> output(X * Y, 0.0);
