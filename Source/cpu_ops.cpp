@@ -8,18 +8,8 @@
 #include <cstdlib>
 
 namespace cpu {
-std::vector<float> matmul(const std::vector<float> &A, const std::vector<float> &B, int K, int X, int Y)
+void matmul(const float* A_ptr, const float* B_ptr, float* C_ptr, int K, int X, int Y)
 {
-    return matmul(A.data(), B.data(), K, X, Y);
-}
-
-std::vector<float> matmul(const float* A_ptr, const float* B_ptr, int K, int X, int Y)
-{
-    size_t alignment = 64;
-    size_t memory = X * Y * sizeof(float);
-    size_t aligned_memory = ((memory + alignment - 1) / alignment) * alignment;
-    float* C_ptr = static_cast<float*>(std::aligned_alloc(alignment, aligned_memory));
-    if (!C_ptr) throw std::bad_alloc();
     std::fill_n(C_ptr, X * Y, 0.0f);
 
     constexpr int tile_size_X = 64;
@@ -43,16 +33,16 @@ std::vector<float> matmul(const float* A_ptr, const float* B_ptr, int K, int X, 
 
                     #pragma GCC unroll 4
                     for (; x <= end_x - simd_step; x += simd_step) {
-                        __m512 c_vec = _mm512_load_ps(&C_ptr[y * X + x]);
+                        __m512 c_vec = _mm512_loadu_ps(&C_ptr[y * X + x]);
                         
                         #pragma GCC unroll 4
                         for (int k = tile_k; k < end_k; ++k) {
                             __m512 a_vec = _mm512_set1_ps(A_ptr[y * K + k]);
-                            __m512 b_vec = _mm512_load_ps(&B_ptr[k * X + x]);
+                            __m512 b_vec = _mm512_loadu_ps(&B_ptr[k * X + x]);
                             c_vec = _mm512_fmadd_ps(a_vec, b_vec, c_vec);
                         }
 
-                        _mm512_store_ps(&C_ptr[y * X + x], c_vec);
+                        _mm512_storeu_ps(&C_ptr[y * X + x], c_vec);
                     }
                     
                     // rest
@@ -67,21 +57,12 @@ std::vector<float> matmul(const float* A_ptr, const float* B_ptr, int K, int X, 
             }
         }
     }
-
-    std::vector<float> C(C_ptr, C_ptr + X * Y);
-    std::free(C_ptr);
-    return C;
 }
 
 // transpose B and matmul
 // [M, K] @ [N, K]^T
-std::vector<float> BT_matmul(const float* A_ptr, const float* B_ptr, int K, int M, int N)
+void BT_matmul(const float* A_ptr, const float* B_ptr, float* C_ptr, int K, int M, int N)
 {
-    size_t alignment = 64;
-    size_t memory = M * N * sizeof(float);
-    size_t aligned_memory = ((memory + alignment - 1) / alignment) * alignment;
-    float* C_ptr = static_cast<float*>(std::aligned_alloc(alignment, aligned_memory));
-    if (!C_ptr) throw std::bad_alloc();
     std::fill_n(C_ptr, M * N, 0.0f);
 
     constexpr int tile_size_M = 32;
@@ -135,20 +116,11 @@ std::vector<float> BT_matmul(const float* A_ptr, const float* B_ptr, int K, int 
             }
         }
     }
-
-    std::vector<float> C(C_ptr, C_ptr + M * N);
-    std::free(C_ptr);
-    return C;
 }
 
 // C = A^T @ B
-std::vector<float> AT_matmul(const float* A_ptr, const float* B_ptr, int K, int M, int N)
+void AT_matmul(const float* A_ptr, const float* B_ptr, float* C_ptr, int K, int M, int N)
 {
-    size_t alignment = 64;
-    size_t memory = M * N * sizeof(float);
-    size_t aligned_memory = ((memory + alignment - 1) / alignment) * alignment;
-    float* C_ptr = static_cast<float*>(std::aligned_alloc(alignment, aligned_memory));
-    if (!C_ptr) throw std::bad_alloc();
     std::fill_n(C_ptr, M * N, 0.0f);
 
     constexpr int tile_size_M = 32;
@@ -171,16 +143,16 @@ std::vector<float> AT_matmul(const float* A_ptr, const float* B_ptr, int K, int 
 
                     #pragma GCC unroll 4
                     for (; n <= end_n - simd_step; n += simd_step) {
-                        __m512 c_vec = _mm512_load_ps(&C_ptr[m * N + n]);
+                        __m512 c_vec = _mm512_loadu_ps(&C_ptr[m * N + n]);
                         
                         #pragma GCC unroll 4
                         for (int k = start_k; k < end_k; ++k) {
                             __m512 a_vec = _mm512_set1_ps(A_ptr[k * M + m]);
-                            __m512 b_vec = _mm512_load_ps(&B_ptr[k * N + n]);
+                            __m512 b_vec = _mm512_loadu_ps(&B_ptr[k * N + n]);
                             c_vec = _mm512_fmadd_ps(a_vec, b_vec, c_vec);
                         }
 
-                        _mm512_store_ps(&C_ptr[m * N + n], c_vec);
+                        _mm512_storeu_ps(&C_ptr[m * N + n], c_vec);
                     }
                     
                     // rest
@@ -195,28 +167,18 @@ std::vector<float> AT_matmul(const float* A_ptr, const float* B_ptr, int K, int 
             }
         }
     }
-
-    std::vector<float> C(C_ptr, C_ptr + M * N);
-    std::free(C_ptr);
-    return C;
 }
 
-std::vector<float> matmul_naive(const std::vector<float> &A, const std::vector<float> &B, int K, int X, int Y)
+void matmul_naive(const float* A_ptr, const float* B_ptr, float* C_ptr, int K, int X, int Y)
 {
-    std::vector<float> output(X * Y, 0.0);
+    std::fill_n(C_ptr, X * Y, 0.0f);
 
     for (int y = 0; y < Y; ++y)
         for (int x = 0; x < X; ++x)
             for (int k = 0; k < K; ++k)
-                output[y * X + x] += A[y * K + k] * B[k * X + x];
-
-    return output;
+                C_ptr[y * X + x] += A_ptr[y * K + k] * B_ptr[k * X + x];
 }
 
-
-void softmax(const std::vector<float>& input, float* output, int N, int C) {
-    softmax(input.data(), output, N, C);
-}
 
 void softmax(const float* __restrict__ input, float* __restrict__ output, int N, int C)
 {

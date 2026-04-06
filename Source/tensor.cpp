@@ -566,55 +566,91 @@ Tensor_ptr Tensor::matmul(Tensor_ptr tensor) {
     // TODO: fix
     if (device == Device::CUDA && (!is_continous() || !tensor->is_continous())) throw std::invalid_argument("CUDA only for continous for now");
 
-    std::vector<float> matmul_output;
-    if (device == Device::CPU) {
-        if (is_continous() && tensor->is_continous()) {
-            matmul_output = std::move(cpu::matmul(raw_values(), tensor->raw_values(), shape[1], tensor->shape[1], shape[0]));
-        }
-        else {
-            matmul_output = std::move(cpu::matmul(values_vec(), tensor->values_vec(), shape[1], tensor->shape[1], shape[0]));
-        }
-    } else if (device == Device::CUDA) {
-        matmul_output = std::move(cuda::matmul(values_vec(), tensor->values_vec(), shape[1], tensor->shape[1], shape[0]));
-    }
-    
-    Tensor_ptr result = Tensor::init({shape[0], tensor->shape[1]}, matmul_output, device);
+    Tensor_ptr result = Tensor::init({shape[0], tensor->shape[1]}, true, device);
     result->parents = std::pair{shared_from_this(), tensor};
     result->op = "matmul";
+    
+    if (device == Device::CPU) {
+        float* result_data = result->raw_values();
+        if (is_continous() && tensor->is_continous()) {
+            cpu::matmul(raw_values(), tensor->raw_values(), result_data, shape[1], tensor->shape[1], shape[0]);
+        }
+        else {
+            std::vector<float> v1 = values_vec();
+            std::vector<float> v2 = tensor->values_vec();
+            cpu::matmul(v1.data(), v2.data(), result_data, shape[1], tensor->shape[1], shape[0]);
+        }
+    } else if (device == Device::CUDA) {
+        // TODO: temporary so tests works
+        auto matmul_output = cuda::matmul(values_vec(), tensor->values_vec(), shape[1], tensor->shape[1], shape[0]);
+        for (int i = 0; i < matmul_output.size(); ++i)
+            result->set(i, matmul_output[i]);
+    }
     
     result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){
         if(auto r = res.lock()){
             if (r->device == Device::CPU) {
-                Tensor_ptr firstT = r->parents.first->transpose();
-                Tensor_ptr secondT = r->parents.second->transpose();
-                std::vector<float> grad_first;
-                std::vector<float> grad_second;
-                grad_first = std::move(cpu::matmul(r->grads_vec(), secondT->values_vec(), r->shape[1], secondT->shape[1], r->shape[0]));
-                grad_second = std::move(cpu::matmul(firstT->values_vec(), r->grads_vec(), firstT->shape[1], r->shape[1], firstT->shape[0]));
-                
-                if (r->parents.first->is_continous()) {
-                    float* raw_grad = r->parents.first->raw_grads();
-                    int count = r->parents.first->total_count;
-                    for (int i = 0; i < count; ++i) {
-                        raw_grad[i] += grad_first[i];
-                    }
-                }
-                else {
+                if (r->parents.first->is_continous() && r->parents.second->is_continous()) {
+                    float* grad_first = new float[r->parents.first->total_count];
+                    float* grad_second = new float[r->parents.second->total_count];
+                    cpu::BT_matmul(r->raw_grads(), r->parents.second->raw_values(), grad_first, r->shape[1], r->shape[0], r->parents.second->shape[0]);
+                    
+                    int m = r->parents.first->shape[0];
+                    int k = r->parents.first->shape[1];
+                    int n = r->shape[1];
+                    cpu::AT_matmul(r->parents.first->raw_values(), r->raw_grads(), grad_second, m, k, n);
+                    
+                    float* raw_grad_first = r->parents.first->raw_grads();
                     for (int i = 0; i < r->parents.first->total_count; ++i) {
-                        r->parents.first->grad_set(i, r->parents.first->grad_get(i) + grad_first[i]);
+                        raw_grad_first[i] += grad_first[i];
                     }
-                }
-                
-                if (r->parents.second->is_continous()) {
-                    float* raw_grad = r->parents.second->raw_grads();
-                    int count = r->parents.second->total_count;
-                    for (int i = 0; i < count; ++i) {
-                        raw_grad[i] += grad_second[i];
+                    
+                    float* raw_grad_second = r->parents.second->raw_grads();
+                    for (int i = 0; i < r->parents.second->total_count; ++i) {
+                        raw_grad_second[i] += grad_second[i];
                     }
+
+                    delete[] grad_first;
+                    delete[] grad_second;
                 }
                 else {
-                    for (int i = 0; i < r->parents.second->total_count; ++i) {
-                        r->parents.second->grad_set(i, r->parents.second->grad_get(i) + grad_second[i]);
+                    printf("slow...\n");
+                    // TODO: its ugly
+                    Tensor_ptr firstT = r->parents.first->transpose();
+
+                    std::vector<float> grad_first(r->parents.first->total_count);
+                    std::vector<float> g_vec = r->grads_vec();
+                    std::vector<float> p2_vec = r->parents.second->values_vec();
+                    cpu::BT_matmul(g_vec.data(), p2_vec.data(), grad_first.data(), r->shape[1], r->shape[0], r->parents.second->shape[0]);
+
+                    std::vector<float> grad_second(r->parents.second->total_count);
+                    std::vector<float> fT_vec = firstT->values_vec();
+                    cpu::matmul(fT_vec.data(), g_vec.data(), grad_second.data(), firstT->shape[1], r->shape[1], firstT->shape[0]);
+               
+                    if (r->parents.first->is_continous()) {
+                        float* raw_grad = r->parents.first->raw_grads();
+                        int count = r->parents.first->total_count;
+                        for (int i = 0; i < count; ++i) {
+                            raw_grad[i] += grad_first[i];
+                        }
+                    }
+                    else {
+                        for (int i = 0; i < r->parents.first->total_count; ++i) {
+                            r->parents.first->grad_set(i, r->parents.first->grad_get(i) + grad_first[i]);
+                        }
+                    }
+                    
+                    if (r->parents.second->is_continous()) {
+                        float* raw_grad = r->parents.second->raw_grads();
+                        int count = r->parents.second->total_count;
+                        for (int i = 0; i < count; ++i) {
+                            raw_grad[i] += grad_second[i];
+                        }
+                    }
+                    else {
+                        for (int i = 0; i < r->parents.second->total_count; ++i) {
+                            r->parents.second->grad_set(i, r->parents.second->grad_get(i) + grad_second[i]);
+                        }
                     }
                 }
             } else if (r->device == Device::CUDA) {
@@ -640,7 +676,10 @@ Tensor_ptr Tensor::softmax() {
 
     if (device == Device::CPU) {
         if (is_continous()) cpu::softmax(raw_values(), result->values.get(), N, C);
-        else                cpu::softmax(values_vec(), result->values.get(), N, C);
+        else {
+            std::vector<float> v = values_vec();
+            cpu::softmax(v.data(), result->values.get(), N, C);
+        }
     } else if (device == Device::CUDA) {
         cuda::make_continous(shared_from_this());
         cuda::softmax(values.get(), result->values.get(), N, C);

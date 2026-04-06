@@ -19,7 +19,8 @@ TEST(CpuOpsTest, BTMatmul)
     // 1 0.4
     Tensor_ptr b = Tensor::init({2, 3}, {2.0, 1.0, 1.0, 2.0, 3.0, 0.4}, Device::CPU);
 
-    auto result = cpu::BT_matmul(a->raw_values(), b->raw_values(), 3, 2, 2);
+    std::vector<float> result(4);
+    cpu::BT_matmul(a->raw_values(), b->raw_values(), result.data(), 3, 2, 2);
 
     EXPECT_THAT(result,
             Pointwise(FloatNear(1e-5),
@@ -44,7 +45,8 @@ TEST(CpuOpsTest, BTMatmul_256x256)
     Tensor_ptr a = Tensor::init({M, K}, a_vals, Device::CPU);
     Tensor_ptr b = Tensor::init({N, K}, b_vals, Device::CPU);
 
-    auto result = cpu::BT_matmul(a->raw_values(), b->raw_values(), K, M, N);
+    std::vector<float> result(M * N);
+    cpu::BT_matmul(a->raw_values(), b->raw_values(), result.data(), K, M, N);
 
     std::vector<float> expected(M * N, 0.0f);
 
@@ -69,7 +71,8 @@ TEST(CpuOpsTest, ATMatmul)
 {
     Tensor_ptr a = Tensor::init({3, 2}, {2.0, 2.0, 1.0, 3.0, 1.0, 0.4}, Device::CPU);
     Tensor_ptr b = Tensor::init({3, 2}, {4.0, 6.0, 8.0, 12.1, 2.0, -2.0}, Device::CPU);
-    auto result = cpu::AT_matmul(a->raw_values(), b->raw_values(), 3, 2, 2);
+    std::vector<float> result(4);
+    cpu::AT_matmul(a->raw_values(), b->raw_values(), result.data(), 3, 2, 2);
 
     EXPECT_THAT(result,
             Pointwise(FloatNear(1e-5),
@@ -91,7 +94,8 @@ TEST(CpuOpsTest, ATMatmul_256x256)
     for (int i = 0; i < K * N; ++i)
         b_vals[i] = static_cast<float>((i * 2) % 17 - 8);
 
-    auto result = cpu::AT_matmul(a_vals.data(), b_vals.data(), K, M, N);
+    std::vector<float> result(M * N);
+    cpu::AT_matmul(a_vals.data(), b_vals.data(), result.data(), K, M, N);
 
     std::vector<float> expected(M * N, 0.0f);
 
