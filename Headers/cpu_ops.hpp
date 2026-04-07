@@ -10,4 +10,6 @@ namespace cpu {
     void matmul_naive(const float* A_ptr, const float* B_ptr, float* C_ptr, int K, int X, int Y);
 
     void softmax(const float* __restrict__ input, float* __restrict__ output, int N, int C);
+
+    void im2col(const float* __restrict__ in_data, float* __restrict__ res_data, int batch, int height, int width, int out_h, int out_w, int channels, int kernel_size, int stride, int padding);
 }
