@@ -76,14 +76,15 @@ void matmul() {
             auto B = generate_random_data(n * n);
             
             auto gpu_res = cuda::matmul(A, B, n, n, n);
-            auto cpu_res = cpu::matmul(A, B, n, n, n);
+            std::vector<float> cpu_res(n * n);
+            cpu::matmul(A.data(), B.data(), cpu_res.data(), n, n, n);
             bool correct = check_correctness(gpu_res, cpu_res);
 
             float avg_gpu = benchmark([&]() {
                 cuda::matmul(A, B, n, n, n);
             }, 5);
             float avg_cpu = benchmark([&]() {
-                cpu::matmul(A, B, n, n, n);
+                cpu::matmul(A.data(), B.data(), cpu_res.data(), n, n, n);
             }, 1);
             long long ops = 2LL * n * n * n;
             print_result("Matmul", n, avg_gpu, avg_cpu, correct, "CUDA", "CPU", ops);
@@ -96,15 +97,17 @@ void matmul_cpu() {
             auto A = generate_random_data(n * n);
             auto B = generate_random_data(n * n);
             
-            auto opt_res = cpu::matmul(A, B, n, n, n);
-            auto naive_res = cpu::matmul_naive(A, B, n, n, n);
+            std::vector<float> opt_res(n * n);
+            std::vector<float> naive_res(n * n);
+            cpu::matmul(A.data(), B.data(), opt_res.data(), n, n, n);
+            cpu::matmul_naive(A.data(), B.data(), naive_res.data(), n, n, n);
             bool correct = check_correctness(opt_res, naive_res);
 
             float avg_opt = benchmark([&]() {
-                cpu::matmul(A, B, n, n, n);
+                cpu::matmul(A.data(), B.data(), opt_res.data(), n, n, n);
             }, 100);
             float avg_naive = benchmark([&]() {
-                cpu::matmul_naive(A, B, n, n, n);
+                cpu::matmul_naive(A.data(), B.data(), naive_res.data(), n, n, n);
             }, 100);
             long long ops = 2LL * n * n * n;
             print_result("Matmul (CPU)", n, avg_opt, avg_naive, correct, "OPT", "NAIVE", ops);
@@ -211,14 +214,14 @@ void softmax() {
         float gpu_res[size];
 
         cuda::softmax(input.data(), gpu_res, N, C);
-        cpu::softmax(input, cpu_res, N, C);
+        cpu::softmax(input.data(), cpu_res, N, C);
         bool correct = check_correctness(gpu_res, cpu_res, size);
 
         float avg_gpu = benchmark([&]() {
             cuda::softmax(input.data(), gpu_res, N, C);
         }, 10);
         float avg_cpu = benchmark([&]() {
-            cpu::softmax(input, cpu_res, N, C);
+            cpu::softmax(input.data(), cpu_res, N, C);
         }, 5);
         long long ops = 5LL * N * C;
         print_result("Softmax", N * C, avg_gpu, avg_cpu, correct, "CUDA", "CPU", ops);
