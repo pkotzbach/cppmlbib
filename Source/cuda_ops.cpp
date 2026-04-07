@@ -383,4 +383,10 @@ void softmax_backward(const float* output, float* grad_input, const float* grad_
     CUDA_CHECK(cudaDeviceSynchronize());
 }
 
+void transpose(float* matrix, float* matrixT, int N, int C) {
+    launch_transpose(matrix, matrixT, N, C);
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaDeviceSynchronize());
+}
+
 } // namespace cuda

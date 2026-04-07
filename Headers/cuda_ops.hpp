@@ -19,6 +19,8 @@ namespace cuda {
                                    std::array<int, MAX_DIMS> shape, int size, int dims);
     void softmax(const float* input, float* output, int N, int C);
 
+    void transpose(float* matrix, float* matrixT, int N, int C);
+
     float reduction(const ReductionOp op, const ::std::span<const float>& input);
     float full_reduction(const ReductionOp op, const ::std::span<const float>& input);
 

@@ -666,3 +666,19 @@ void launch_softmax_backward(const float* output, float* grad_input, const float
     int grid = N;
     softmax_backward_kernel<<<grid, block, shared_memory_bytes>>>(output, grad_input, grad_output, N, C);
 }
+
+__global__ void transpose_kernel(float* matrix, float* matrixT, int N, int C) {
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    if (idx < N * C) {
+        int n = idx / C;
+        int c = idx % C;
+
+        matrixT[c * N + n] = matrix[idx];
+    }
+}
+
+void launch_transpose(float* matrix, float* matrixT, int N, int C) {
+    constexpr int threads = 256;
+    int blocks = cuda::ceil_div(N * C, threads);
+    transpose_kernel<<<blocks, threads>>>(matrix, matrixT, N, C);
+}
