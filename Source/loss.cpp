@@ -5,8 +5,7 @@ Tensor_ptr MSELoss(Tensor_ptr input, Tensor_ptr target) {
     if (input->get_shape() != target->get_shape()) throw std::invalid_argument("input and target must have same shape");
     if (input->get_device() != target->get_device()) throw std::invalid_argument("input and target must have same device");
     if (input->get_shape().size() != 2) throw std::invalid_argument("invalid input size");
-    Tensor_ptr result = Tensor::init(input->get_shape(), true, input->get_device());
-    result = input - target;
+    Tensor_ptr result = input - target;
     result = result * result;
     result = result->sum();
 
