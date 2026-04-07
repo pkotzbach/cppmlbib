@@ -1,5 +1,4 @@
 #include "test_common.hpp"
-#include <cuda_runtime.h>
 #include "cpu_ops.hpp"
 
 TEST(CpuOpsTest, BTMatmul)

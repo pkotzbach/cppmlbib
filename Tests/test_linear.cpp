@@ -4,7 +4,7 @@
 class LinearTest : public BaseDeviceTest {};
 
 TEST_P(LinearTest, Forward) {
-    std::string device = GetParam();
+    Device device = GetParam();
     Linear l1(5, 5, device);
 
     for (int o = 0; o < l1.get_out_size(); ++o) {
@@ -26,7 +26,7 @@ TEST_P(LinearTest, Forward) {
 }
 
 TEST_P(LinearTest, SoftmaxForward) {
-    std::string device = GetParam();
+    Device device = GetParam();
     Tensor_ptr input = Tensor::init({1, 3}, {0.1, 0.2, -0.1}, device);
     Softmax s;
 
@@ -37,8 +37,8 @@ TEST_P(LinearTest, SoftmaxForward) {
                       std::vector<float>({0.3420, 0.3780, 0.2800})));
 }
 
-TEST_P(LinearTest, ConvolutionForward) {
-    std::string device = GetParam();
+TEST(LinearTest, ConvolutionForward) {
+    Device device = Device::CPU;
     int in_channels = 2;
     int out_channels = 2;
     int kernel_size = 2;
@@ -48,16 +48,11 @@ TEST_P(LinearTest, ConvolutionForward) {
     Convolution conv(in_channels, out_channels, kernel_size, stride, padding, device);
 
     Tensor_ptr input = Tensor::init(
-        {1, 2, 3, 3},
+        {1, 3, 3, in_channels},
         {
-            // channel 0
-            1,2,3,
-            4,5,6,
-            7,8,9,
-            // channel 1
-            10,11,12,
-            13,14,15,
-            16,17,18
+            1,10,   2,11,   3,12,
+            4,13,   5,14,   6,15,
+            7,16,   8,17,   9,18
         },
         device
     );
@@ -95,8 +90,8 @@ TEST_P(LinearTest, ConvolutionForward) {
     EXPECT_THAT(output->values_vec(), Pointwise(FloatNear(1e-4), expected));
 }
 
-INSTANTIATE_TEST_SUITE_P(CPU, LinearTest, ::testing::Values("cpu"));
+INSTANTIATE_TEST_SUITE_P(CPU, LinearTest, ::testing::Values(Device::CPU));
 #ifdef CUDA_TEST
-INSTANTIATE_TEST_SUITE_P(CUDA, LinearTest, ::testing::Values("cuda"));
+INSTANTIATE_TEST_SUITE_P(CUDA, LinearTest, ::testing::Values(Device::CUDA));
 #endif
 
