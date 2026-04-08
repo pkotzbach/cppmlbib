@@ -2,6 +2,7 @@
 ## CUDA Backend 
 - ops from cuda math lib
 - CUDA streams and asynchronous memory transfers
+- latency hiding
 - `CudaBuffer` abstraction
 - constant memory (`__constant__`) and improved cache utilization
 - GEMM upgrades: warp tiling
@@ -12,5 +13,3 @@
 - no-grad mode
 - TODOs
 - add google benchmark maybe
-
-*Last Updated: March 23, 2026*

@@ -6,7 +6,7 @@ A lightweight C++20 machine learning library featuring a custom autograd engine 
 
 - **Autograd Engine**: Computational graph supporting automatic differentiation and backpropagation.
 - **Tensors**: Multi-dimensional arrays with support for custom striding, broadcasting, and dual-device (CPU/CUDA) memory management.
-- **Layers & Ops**: Includes `Linear` layers, `Softmax`, `Argmax`, `MSE`, and `CrossEntropyLoss`.
+- **Layers & Ops**: Includes `Linear`, `Convolution` layers, `Softmax`, `Argmax`, `MSE`.
 - **Optimizers**: Basic `SGD` implementation with learning rate scheduling support.
 
 ## Performance
