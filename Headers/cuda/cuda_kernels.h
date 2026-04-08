@@ -20,6 +20,8 @@ int launch_reduction(const ReductionOp op, const float* input, float* output, in
 void launch_full_reduction(const ReductionOp op, const float* input, float* output, int size);
 
 void launch_transpose(float* matrix, float* matrixT, int N, int C);
+void launch_im2col(const float* __restrict__ in_data, float* __restrict__ res_data, int batches, int height, int width, int out_h, int out_w, 
+    int channels, int kernel_size, int stride, int padding);
 
 void launch_make_continous(const float* val, float* output, int count, const std::vector<int> &strides, const std::vector<int> &shape);
 

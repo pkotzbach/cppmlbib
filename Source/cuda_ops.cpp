@@ -301,6 +301,13 @@ void make_continous(Tensor_ptr tensor)
         tensor->set_strides(stride::calc_strides(tensor->get_shape()));
 }
 
+void im2col(const float *in_data, float *res_data, int batch, int height, int width, int out_h, int out_w, int channels, int kernel_size, int stride, int padding)
+{
+    launch_im2col(in_data, res_data, batch, height, width, out_h, out_w, channels, kernel_size, stride, padding);
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaDeviceSynchronize());
+}
+
 void relu(const float* input, float* output, int size) {
     launch_relu(input, output, size);
     CUDA_CHECK(cudaGetLastError());

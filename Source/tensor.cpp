@@ -776,7 +776,6 @@ void Tensor::zero_grad() {
     if (parents.second && parents.second.get() != this) parents.second->zero_grad();
 }
 
-// TODO: could do faster? https://medium.com/@sundarramanp2000/different-implementations-of-the-ubiquitous-convolution-6a9269dbe77f
 Tensor_ptr Tensor::im2col(int kernel_size, int stride, int padding) {
     if (shape.size() != 4) throw std::invalid_argument("im2col defined only for 4d tensors");
     if (!is_continous()) throw std::invalid_argument("only for continous");
@@ -789,6 +788,7 @@ Tensor_ptr Tensor::im2col(int kernel_size, int stride, int padding) {
 
     Tensor_ptr result = Tensor::init({batch, out_h, out_w, kernel_size * kernel_size * channels}, true, device);
     if (device == Device::CPU) cpu::im2col(raw_values(), result->raw_values(), batch, height, width, out_h, out_w, channels, kernel_size, stride, padding);
+    if (device == Device::CUDA) cuda::im2col(raw_values(), result->raw_values(), batch, height, width, out_h, out_w, channels, kernel_size, stride, padding);
     
     result->image = true;
 

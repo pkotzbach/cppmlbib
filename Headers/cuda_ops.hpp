@@ -25,6 +25,8 @@ namespace cuda {
     float full_reduction(const ReductionOp op, const ::std::span<const float>& input);
 
     void make_continous(Tensor_ptr tensor);
+    void im2col(const float* in_data, float* res_data, int batch, int height, int width, int out_h, int out_w, 
+                int channels, int kernel_size, int stride, int padding);
 
     void relu(const float* input, float* output, int size);
     void exp(const float* input, float* output, int size);

@@ -667,6 +667,9 @@ void launch_softmax_backward(const float* output, float* grad_input, const float
     softmax_backward_kernel<<<grid, block, shared_memory_bytes>>>(output, grad_input, grad_output, N, C);
 }
 
+// end backward kernels
+// -------
+
 __global__ void transpose_kernel(float* matrix, float* matrixT, int N, int C) {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
     if (idx < N * C) {
@@ -681,4 +684,61 @@ void launch_transpose(float* matrix, float* matrixT, int N, int C) {
     constexpr int threads = 256;
     int blocks = cuda::ceil_div(N * C, threads);
     transpose_kernel<<<blocks, threads>>>(matrix, matrixT, N, C);
+}
+
+__global__ void im2col(const float* __restrict__ in_data, float* __restrict__ res_data, int batches, int height, int width, int out_h, int out_w, int channels, int kernel_size, int stride, int padding) {
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    int total = batches * out_h * out_w;
+
+    if (idx >= total) return;
+
+    int ox = idx % out_w;
+    int oy = (idx / out_w) % out_h;
+    int b = idx / (out_w * out_h);
+
+    int flatten_kernel = kernel_size * kernel_size * channels;
+
+    int in_stride_b = height * width * channels;
+    int in_stride_h = width * channels;
+
+    int res_stride_b = out_h * out_w * flatten_kernel;
+    int res_stride_h = out_w * flatten_kernel;
+
+    int kernel_size2 = kernel_size * kernel_size;
+
+    int x = ox * stride - padding;
+    int y = oy * stride - padding;
+
+    for (int c = 0; c < channels; ++c) {
+        for (int ky = 0; ky < kernel_size; ++ky) {
+            for (int kx = 0; kx < kernel_size; ++kx) {
+                int row = c * kernel_size2 + ky * kernel_size + kx;
+
+                int in_y = y + ky;
+                int in_x = x + kx;
+
+                float val = 0;
+
+                if (in_y >= 0 && in_y < height && in_x >= 0 && in_x < width) {
+                    int in_idx = b * in_stride_b + in_y * in_stride_h + in_x * channels + c;
+                    val = in_data[in_idx];
+                }
+
+                int res_idx = b * res_stride_b + oy * res_stride_h + ox * flatten_kernel + row;
+                res_data[res_idx] = val;
+            }
+        }
+    }
+}
+
+void launch_im2col(const float* __restrict__ in_data, float* __restrict__ res_data, int batches, int height, int width, int out_h, int out_w, 
+    int channels, int kernel_size, int stride, int padding) {
+
+    #ifdef CUDA_TEST
+    g_cuda_kernel_launches++;
+    #endif
+    
+    constexpr int threads = 256;
+    int blocks = cuda::ceil_div(batches * out_h * out_w, threads);
+    im2col<<<blocks, threads>>>(in_data, res_data, batches, height, width, out_h, out_w, channels, kernel_size, stride, padding);
 }

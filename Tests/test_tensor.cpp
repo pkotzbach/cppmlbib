@@ -459,11 +459,10 @@ TEST_P(TensorTest, ViewBackward)
                           std::vector<float>{0.6, 0.5}));
 }
 
-TEST(TensorTestCPU, im2col)
+TEST_P(TensorTest, im2col)
 {
-    // expect_cuda_launch = false;
-    // std::string device = GetParam();
-    Device device = Device::CPU;
+    expect_cuda_launch = true;
+    Device device = GetParam();
     Tensor_ptr x = Tensor::init({1, 3, 3, 1}, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0}, device);
     
     auto col = x->im2col(2, 1, 0);
