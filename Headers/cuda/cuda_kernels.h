@@ -6,6 +6,7 @@
 void launch_matmul(const float* __restrict__ d_A, const float* __restrict__ d_B, float* __restrict__ d_C, int K, int X, int Y);
 void launch_matmul_tc(const float* __restrict__ d_A, const float* __restrict__ d_B, float* __restrict__ d_C, int K, int X, int Y);
 void launch_matmul_naive(const float* __restrict__ d_A, const float* __restrict__ d_B, float* __restrict__ d_C, int K, int X, int Y);
+void launch_matmul_nonvec(const float* __restrict__ d_A, const float* __restrict__ d_B, float* __restrict__ d_C, int K, int X, int Y);
 
 void launch_binary_op(const char op, const float* input_A, const float* input_B, float* output, int size);
 void launch_binary_op_strided(const char op, const float* input_A, std::array<int, MAX_DIMS> strides_A,

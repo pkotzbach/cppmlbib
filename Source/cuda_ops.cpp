@@ -43,11 +43,11 @@ std::vector<float> matmul(const std::vector<float>& matrix_A, const std::vector<
         CUDA_CHECK(cudaMemcpy(d_matrix_A, matrix_A.data(), matrix_A_bytes, cudaMemcpyHostToDevice));
         CUDA_CHECK(cudaMemcpy(d_matrix_B, matrix_B.data(), matrix_B_bytes, cudaMemcpyHostToDevice));
 
-        // TODO: fix it
-        if (K % 4 == 0 && X % 4 == 0 && X >= 64 && Y >= 64) {
+        // TODO: shouldnt be hardcoded
+        if (K % 4 == 0 && X % 4 == 0 && X >= 64 && Y >= 64 && K >= 8) {
             launch_matmul(d_matrix_A, d_matrix_B, d_output, K, X, Y);
         } else {
-            launch_matmul_naive(d_matrix_A, d_matrix_B, d_output, K, X, Y);
+            launch_matmul_nonvec(d_matrix_A, d_matrix_B, d_output, K, X, Y);
         }
 
         CUDA_CHECK(cudaGetLastError());

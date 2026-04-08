@@ -115,7 +115,7 @@ void matmul_cpu() {
     }
 
 void matmul_opt() {
-        int sizes[] = {128, 256, 1024, 2000, 2048, 4096};
+        int sizes[] = {97, 1657, 128, 256, 1024, 2048, 4096};
         for (int n : sizes) {
             auto A = generate_random_data(n * n);
             auto B = generate_random_data(n * n);
