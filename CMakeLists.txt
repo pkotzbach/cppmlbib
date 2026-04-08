@@ -65,7 +65,9 @@ target_link_libraries(common_objs PUBLIC
 )
 
 target_compile_options(common_objs PRIVATE
-    $<$<COMPILE_LANGUAGE:CXX>:-g -Wall -mavx512f -O3>
+# $<$<COMPILE_LANGUAGE:CXX>:-g -Wall -mavx512f>
+# $<$<COMPILE_LANGUAGE:CUDA>:>
+    $<$<COMPILE_LANGUAGE:CXX>:-Wall -mavx512f -O3>
     $<$<COMPILE_LANGUAGE:CUDA>:-O3>
 )
 
@@ -86,7 +88,7 @@ target_include_directories(debug PRIVATE
 )
 
 target_link_libraries(debug PRIVATE
-    CUDA::cudart CUDA::cublas OpenMP::OpenMP_CXX
+    CUDA::cudart CUDA::cublas OpenMP::OpenMP_CXX -pg
 )
 
 set_target_properties(debug PROPERTIES
@@ -162,6 +164,27 @@ set_target_properties(benchmark PROPERTIES
 )
 
 target_link_libraries(benchmark PRIVATE
+    CUDA::cudart
+    CUDA::cublas
+    OpenMP::OpenMP_CXX)
+
+
+# MNIST
+add_executable(mnist
+    $<TARGET_OBJECTS:common_objs>
+    ${EX_DIR}/mnist.cpp
+)
+
+target_include_directories(mnist PRIVATE
+    ${HEADER_DIR}
+    ${CUDA_HEADER_DIR}
+)
+
+set_target_properties(mnist PROPERTIES
+    CUDA_SEPARABLE_COMPILATION ON
+)
+
+target_link_libraries(mnist PRIVATE
     CUDA::cudart
     CUDA::cublas
     OpenMP::OpenMP_CXX)
