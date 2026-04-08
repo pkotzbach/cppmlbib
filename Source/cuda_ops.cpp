@@ -27,138 +27,46 @@
 // TODO: copied code
 namespace cuda {
 
-std::vector<float> matmul(const std::vector<float>& matrix_A, const std::vector<float>& matrix_B, int K, int X, int Y) {
-        float* d_matrix_A;
-        float* d_matrix_B;
-        float* d_output;
-        std::vector<float> output(X*Y);
-
-        size_t matrix_A_bytes = Y * K * sizeof(float);
-        size_t matrix_B_bytes = X * K * sizeof(float);
-        size_t output_bytes = Y * X * sizeof(float);
-
-        CUDA_CHECK(cudaMalloc(&d_matrix_A, matrix_A_bytes));
-        CUDA_CHECK(cudaMalloc(&d_matrix_B, matrix_B_bytes));
-        CUDA_CHECK(cudaMalloc(&d_output, output_bytes));
-        CUDA_CHECK(cudaMemcpy(d_matrix_A, matrix_A.data(), matrix_A_bytes, cudaMemcpyHostToDevice));
-        CUDA_CHECK(cudaMemcpy(d_matrix_B, matrix_B.data(), matrix_B_bytes, cudaMemcpyHostToDevice));
-
+void matmul(const float* matrix_A, const float* matrix_B, float* output, int K, int X, int Y) {
         // TODO: shouldnt be hardcoded
         if (K % 4 == 0 && X % 4 == 0 && X >= 64 && Y >= 64 && K >= 8) {
-            launch_matmul(d_matrix_A, d_matrix_B, d_output, K, X, Y);
+            launch_matmul(matrix_A, matrix_B, output, K, X, Y);
         } else {
-            launch_matmul_nonvec(d_matrix_A, d_matrix_B, d_output, K, X, Y);
+            launch_matmul_nonvec(matrix_A, matrix_B, output, K, X, Y);
         }
 
         CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaDeviceSynchronize());
-
-        CUDA_CHECK(cudaMemcpy(output.data(), d_output, output_bytes, cudaMemcpyDeviceToHost));
-
-        CUDA_CHECK(cudaFree(d_matrix_A));
-        CUDA_CHECK(cudaFree(d_matrix_B));
-        CUDA_CHECK(cudaFree(d_output));
-        
-        return output;
 }
 
-std::vector<float> matmul_tc(const std::vector<float>& matrix_A, const std::vector<float>& matrix_B, int K, int X, int Y) {
-        float* d_matrix_A;
-        float* d_matrix_B;
-        float* d_output;
-        std::vector<float> output(X*Y);
-
-        size_t matrix_A_bytes = Y * K * sizeof(float);
-        size_t matrix_B_bytes = X * K * sizeof(float);
-        size_t output_bytes = Y * X * sizeof(float);
-
-        CUDA_CHECK(cudaMalloc(&d_matrix_A, matrix_A_bytes));
-        CUDA_CHECK(cudaMalloc(&d_matrix_B, matrix_B_bytes));
-        CUDA_CHECK(cudaMalloc(&d_output, output_bytes));
-        CUDA_CHECK(cudaMemcpy(d_matrix_A, matrix_A.data(), matrix_A_bytes, cudaMemcpyHostToDevice));
-        CUDA_CHECK(cudaMemcpy(d_matrix_B, matrix_B.data(), matrix_B_bytes, cudaMemcpyHostToDevice));
-
-        launch_matmul_tc(d_matrix_A, d_matrix_B, d_output, K, X, Y);
+void matmul_tc(const float* matrix_A, const float* matrix_B, float* output, int K, int X, int Y) {
+        launch_matmul_tc(matrix_A, matrix_B, output, K, X, Y);
 
         CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaDeviceSynchronize());
-
-        CUDA_CHECK(cudaMemcpy(output.data(), d_output, output_bytes, cudaMemcpyDeviceToHost));
-
-        CUDA_CHECK(cudaFree(d_matrix_A));
-        CUDA_CHECK(cudaFree(d_matrix_B));
-        CUDA_CHECK(cudaFree(d_output));
-        
-        return output;
 }
 
-std::vector<float> matmul_naive(const std::vector<float>& matrix_A, const std::vector<float>& matrix_B, int K, int X, int Y) {
-        float* d_matrix_A;
-        float* d_matrix_B;
-        float* d_output;
-        std::vector<float> output(X*Y);
-
-        size_t matrix_A_bytes = Y * K * sizeof(float);
-        size_t matrix_B_bytes = X * K * sizeof(float);
-        size_t output_bytes = Y * X * sizeof(float);
-
-        CUDA_CHECK(cudaMalloc(&d_matrix_A, matrix_A_bytes));
-        CUDA_CHECK(cudaMalloc(&d_matrix_B, matrix_B_bytes));
-        CUDA_CHECK(cudaMalloc(&d_output, output_bytes));
-        CUDA_CHECK(cudaMemcpy(d_matrix_A, matrix_A.data(), matrix_A_bytes, cudaMemcpyHostToDevice));
-        CUDA_CHECK(cudaMemcpy(d_matrix_B, matrix_B.data(), matrix_B_bytes, cudaMemcpyHostToDevice));
-
-        launch_matmul_naive(d_matrix_A, d_matrix_B, d_output, K, X, Y);
+void matmul_naive(const float* matrix_A, const float* matrix_B, float* output, int K, int X, int Y) {
+        launch_matmul_naive(matrix_A, matrix_B, output, K, X, Y);
 
         CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaDeviceSynchronize());
-
-        CUDA_CHECK(cudaMemcpy(output.data(), d_output, output_bytes, cudaMemcpyDeviceToHost));
-
-        CUDA_CHECK(cudaFree(d_matrix_A));
-        CUDA_CHECK(cudaFree(d_matrix_B));
-        CUDA_CHECK(cudaFree(d_output));
-        
-        return output;
 }
 
-std::vector<float> matmul_cublas(const std::vector<float>& matrix_A, const std::vector<float>& matrix_B, int K, int X, int Y) {
+void matmul_cublas(const float* matrix_A, const float* matrix_B, float* output, int K, int X, int Y) {
         static cublasHandle_t handle = nullptr;
         if (handle == nullptr) {
                 CUBLAS_CHECK(cublasCreate(&handle));
                 CUBLAS_CHECK(cublasSetMathMode(handle, CUBLAS_PEDANTIC_MATH));
         }
 
-        float* d_matrix_A;
-        float* d_matrix_B;
-        float* d_output;
-        std::vector<float> output(X*Y);
-
-        size_t matrix_A_bytes = Y * K * sizeof(float);
-        size_t matrix_B_bytes = X * K * sizeof(float);
-        size_t output_bytes = Y * X * sizeof(float);
-
-        CUDA_CHECK(cudaMalloc(&d_matrix_A, matrix_A_bytes));
-        CUDA_CHECK(cudaMalloc(&d_matrix_B, matrix_B_bytes));
-        CUDA_CHECK(cudaMalloc(&d_output, output_bytes));
-        CUDA_CHECK(cudaMemcpy(d_matrix_A, matrix_A.data(), matrix_A_bytes, cudaMemcpyHostToDevice));
-        CUDA_CHECK(cudaMemcpy(d_matrix_B, matrix_B.data(), matrix_B_bytes, cudaMemcpyHostToDevice));
-
         float alpha = 1.0f;
         float beta = 0.0f;
 
         // C = alpha * A * B + beta * C
-        CUBLAS_CHECK(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, X, Y, K, &alpha, d_matrix_B, X, d_matrix_A, K, &beta, d_output, X));
+        CUBLAS_CHECK(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, X, Y, K, &alpha, matrix_B, X, matrix_A, K, &beta, output, X));
 
         CUDA_CHECK(cudaDeviceSynchronize());
-
-        CUDA_CHECK(cudaMemcpy(output.data(), d_output, output_bytes, cudaMemcpyDeviceToHost));
-
-        CUDA_CHECK(cudaFree(d_matrix_A));
-        CUDA_CHECK(cudaFree(d_matrix_B));
-        CUDA_CHECK(cudaFree(d_output));
-        
-        return output;
 }
 
 std::vector<float> binary_op(const char op, const std::vector<float>& matrix_A, const std::vector<float>& matrix_B, int size) {

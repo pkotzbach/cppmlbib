@@ -1,5 +1,6 @@
 #include "test_common.hpp"
 #include "cuda_ops.hpp"
+#include <cuda_runtime.h>
 
 TEST(CudaOpsTest, Transpose)
 {
@@ -47,7 +48,22 @@ TEST(CudaOpsTest, Matmul_311x283_283x227)
         }
     }
 
-    std::vector<float> result = cuda::matmul(a, b, K, X, Y);
+    float *d_a, *d_b, *d_c;
+    cudaMalloc(&d_a, Y * K * sizeof(float));
+    cudaMalloc(&d_b, K * X * sizeof(float));
+    cudaMalloc(&d_c, Y * X * sizeof(float));
+
+    cudaMemcpy(d_a, a.data(), Y * K * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_b, b.data(), K * X * sizeof(float), cudaMemcpyHostToDevice);
+
+    cuda::matmul(d_a, d_b, d_c, K, X, Y);
+
+    std::vector<float> result(Y * X);
+    cudaMemcpy(result.data(), d_c, Y * X * sizeof(float), cudaMemcpyDeviceToHost);
 
     EXPECT_THAT(result, Pointwise(FloatNear(1e-3), expected));
+
+    cudaFree(d_a);
+    cudaFree(d_b);
+    cudaFree(d_c);
 }

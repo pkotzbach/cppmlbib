@@ -75,19 +75,35 @@ void matmul() {
             auto A = generate_random_data(n * n);
             auto B = generate_random_data(n * n);
             
-            auto gpu_res = cuda::matmul(A, B, n, n, n);
+            float *d_A, *d_B, *d_out;
+            cudaMalloc(&d_A, n * n * sizeof(float));
+            cudaMalloc(&d_B, n * n * sizeof(float));
+            cudaMalloc(&d_out, n * n * sizeof(float));
+            
+            cudaMemcpy(d_A, A.data(), n * n * sizeof(float), cudaMemcpyHostToDevice);
+            cudaMemcpy(d_B, B.data(), n * n * sizeof(float), cudaMemcpyHostToDevice);
+
+            cuda::matmul(d_A, d_B, d_out, n, n, n);
+            
+            std::vector<float> gpu_res(n * n);
+            cudaMemcpy(gpu_res.data(), d_out, n * n * sizeof(float), cudaMemcpyDeviceToHost);
+
             std::vector<float> cpu_res(n * n);
             cpu::matmul(A.data(), B.data(), cpu_res.data(), n, n, n);
             bool correct = check_correctness(gpu_res, cpu_res);
 
             float avg_gpu = benchmark([&]() {
-                cuda::matmul(A, B, n, n, n);
+                cuda::matmul(d_A, d_B, d_out, n, n, n);
             }, 5);
             float avg_cpu = benchmark([&]() {
                 cpu::matmul(A.data(), B.data(), cpu_res.data(), n, n, n);
             }, 1);
             long long ops = 2LL * n * n * n;
             print_result("Matmul", n, avg_gpu, avg_cpu, correct, "CUDA", "CPU", ops);
+
+            cudaFree(d_A);
+            cudaFree(d_B);
+            cudaFree(d_out);
         }
     }
 
@@ -120,18 +136,38 @@ void matmul_opt() {
             auto A = generate_random_data(n * n);
             auto B = generate_random_data(n * n);
             
-            auto opt_res = cuda::matmul(A, B, n, n, n);
-            auto naive_res = cuda::matmul_naive(A, B, n, n, n);
+            float *d_A, *d_B, *d_out_opt, *d_out_naive;
+            cudaMalloc(&d_A, n * n * sizeof(float));
+            cudaMalloc(&d_B, n * n * sizeof(float));
+            cudaMalloc(&d_out_opt, n * n * sizeof(float));
+            cudaMalloc(&d_out_naive, n * n * sizeof(float));
+            
+            cudaMemcpy(d_A, A.data(), n * n * sizeof(float), cudaMemcpyHostToDevice);
+            cudaMemcpy(d_B, B.data(), n * n * sizeof(float), cudaMemcpyHostToDevice);
+
+            cuda::matmul(d_A, d_B, d_out_opt, n, n, n);
+            cuda::matmul_naive(d_A, d_B, d_out_naive, n, n, n);
+            
+            std::vector<float> opt_res(n * n);
+            std::vector<float> naive_res(n * n);
+            cudaMemcpy(opt_res.data(), d_out_opt, n * n * sizeof(float), cudaMemcpyDeviceToHost);
+            cudaMemcpy(naive_res.data(), d_out_naive, n * n * sizeof(float), cudaMemcpyDeviceToHost);
+            
             bool correct = check_correctness(opt_res, naive_res);
 
             float avg_opt = benchmark([&]() {
-                cuda::matmul(A, B, n, n, n);
+                cuda::matmul(d_A, d_B, d_out_opt, n, n, n);
             }, 10);
             float avg_naive = benchmark([&]() {
-                cuda::matmul_naive(A, B, n, n, n);
+                cuda::matmul_naive(d_A, d_B, d_out_naive, n, n, n);
             }, 10);
             long long ops = 2LL * n * n * n;
             print_result("Matmul (CUDA)", n, avg_opt, avg_naive, correct, "OPT", "NAIVE", ops);
+
+            cudaFree(d_A);
+            cudaFree(d_B);
+            cudaFree(d_out_opt);
+            cudaFree(d_out_naive);
         }
     }
 
@@ -141,18 +177,38 @@ void matmul_vs_cublas() {
             auto A = generate_random_data(n * n);
             auto B = generate_random_data(n * n);
             
-            auto opt_res = cuda::matmul(A, B, n, n, n);
-            auto cublas_res = cuda::matmul_cublas(A, B, n, n, n);
+            float *d_A, *d_B, *d_out_opt, *d_out_cublas;
+            cudaMalloc(&d_A, n * n * sizeof(float));
+            cudaMalloc(&d_B, n * n * sizeof(float));
+            cudaMalloc(&d_out_opt, n * n * sizeof(float));
+            cudaMalloc(&d_out_cublas, n * n * sizeof(float));
+            
+            cudaMemcpy(d_A, A.data(), n * n * sizeof(float), cudaMemcpyHostToDevice);
+            cudaMemcpy(d_B, B.data(), n * n * sizeof(float), cudaMemcpyHostToDevice);
+
+            cuda::matmul(d_A, d_B, d_out_opt, n, n, n);
+            cuda::matmul_cublas(d_A, d_B, d_out_cublas, n, n, n);
+            
+            std::vector<float> opt_res(n * n);
+            std::vector<float> cublas_res(n * n);
+            cudaMemcpy(opt_res.data(), d_out_opt, n * n * sizeof(float), cudaMemcpyDeviceToHost);
+            cudaMemcpy(cublas_res.data(), d_out_cublas, n * n * sizeof(float), cudaMemcpyDeviceToHost);
+            
             bool correct = check_correctness(opt_res, cublas_res, 1e-2);
 
             float avg_opt = benchmark([&]() {
-                cuda::matmul(A, B, n, n, n);
+                cuda::matmul(d_A, d_B, d_out_opt, n, n, n);
             }, 10);
             float avg_cublas = benchmark([&]() {
-                cuda::matmul_cublas(A, B, n, n, n);
+                cuda::matmul_cublas(d_A, d_B, d_out_cublas, n, n, n);
             }, 10);
             long long ops = 2LL * n * n * n;
             print_result("Matmul (vs cuBLAS)", n, avg_opt, avg_cublas, correct, "OPT", "cuBLAS", ops);
+
+            cudaFree(d_A);
+            cudaFree(d_B);
+            cudaFree(d_out_opt);
+            cudaFree(d_out_cublas);
         }
     }
 
@@ -162,21 +218,39 @@ void matmul_tc() {
         auto A = generate_random_data(n * n);
         auto B = generate_random_data(n * n);
         
-        auto wmma_res = cuda::matmul_tc(A, B, n, n, n);
-        auto opt_res = cuda::matmul(A, B, n, n, n);
-        auto cublas_res = cuda::matmul_cublas(A, B, n, n, n);
+        float *d_A, *d_B, *d_out_wmma, *d_out_opt;
+        cudaMalloc(&d_A, n * n * sizeof(float));
+        cudaMalloc(&d_B, n * n * sizeof(float));
+        cudaMalloc(&d_out_wmma, n * n * sizeof(float));
+        cudaMalloc(&d_out_opt, n * n * sizeof(float));
+        
+        cudaMemcpy(d_A, A.data(), n * n * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_B, B.data(), n * n * sizeof(float), cudaMemcpyHostToDevice);
+
+        cuda::matmul_tc(d_A, d_B, d_out_wmma, n, n, n);
+        cuda::matmul(d_A, d_B, d_out_opt, n, n, n);
+        
+        std::vector<float> wmma_res(n * n);
+        std::vector<float> opt_res(n * n);
+        cudaMemcpy(wmma_res.data(), d_out_wmma, n * n * sizeof(float), cudaMemcpyDeviceToHost);
+        cudaMemcpy(opt_res.data(), d_out_opt, n * n * sizeof(float), cudaMemcpyDeviceToHost);
         
         bool correct = check_correctness(wmma_res, opt_res, 5e-1);
 
         float avg_wmma = benchmark([&]() {
-            cuda::matmul_tc(A, B, n, n, n);
+            cuda::matmul_tc(d_A, d_B, d_out_wmma, n, n, n);
         }, 10);
         float avg_opt = benchmark([&]() {
-            cuda::matmul(A, B, n, n, n);
+            cuda::matmul(d_A, d_B, d_out_opt, n, n, n);
         }, 10);
 
         long long ops = 2LL * n * n * n;
         print_result("Matmul WMMA", n, avg_wmma, avg_opt, correct, "WMMA", "OPT", ops);
+
+        cudaFree(d_A);
+        cudaFree(d_B);
+        cudaFree(d_out_wmma);
+        cudaFree(d_out_opt);
     }
 }
 
@@ -210,28 +284,44 @@ void softmax() {
         int C = 256; 
         int size = N * C;
         auto input = generate_random_data(size);
-        float cpu_res[size];
-        float gpu_res[size];
+        std::vector<float> cpu_res(size);
+        std::vector<float> gpu_res(size);
 
-        cuda::softmax(input.data(), gpu_res, N, C);
-        cpu::softmax(input.data(), cpu_res, N, C);
-        bool correct = check_correctness(gpu_res, cpu_res, size);
+        float *d_input, *d_output;
+        cudaMalloc(&d_input, size * sizeof(float));
+        cudaMalloc(&d_output, size * sizeof(float));
+
+        cudaMemcpy(d_input, input.data(), size * sizeof(float), cudaMemcpyHostToDevice);
+
+        cuda::softmax(d_input, d_output, N, C);
+        cudaMemcpy(gpu_res.data(), d_output, size * sizeof(float), cudaMemcpyDeviceToHost);
+        
+        cpu::softmax(input.data(), cpu_res.data(), N, C);
+        bool correct = check_correctness(gpu_res, cpu_res);
 
         float avg_gpu = benchmark([&]() {
-            cuda::softmax(input.data(), gpu_res, N, C);
+            cuda::softmax(d_input, d_output, N, C);
         }, 10);
         float avg_cpu = benchmark([&]() {
-            cpu::softmax(input.data(), cpu_res, N, C);
+            cpu::softmax(input.data(), cpu_res.data(), N, C);
         }, 5);
         long long ops = 5LL * N * C;
         print_result("Softmax", N * C, avg_gpu, avg_cpu, correct, "CUDA", "CPU", ops);
+
+        cudaFree(d_input);
+        cudaFree(d_output);
 }
 
 void reduction() {
         int sizes[] = {1000000, 10000000};
         for (int n : sizes) {
             auto input = generate_random_data(n);
-            std::span<const float> span(input);
+            
+            float *d_input;
+            cudaMalloc(&d_input, n * sizeof(float));
+            cudaMemcpy(d_input, input.data(), n * sizeof(float), cudaMemcpyHostToDevice);
+            
+            std::span<const float> span(d_input, n);
             
             auto gpu_res = cuda::reduction(ReductionOp::MAX, span);
             auto cpu_res = *std::max_element(input.begin(), input.end());
@@ -244,6 +334,8 @@ void reduction() {
                 *std::max_element(input.begin(), input.end());
             }, 5);
             print_result("Reduction (MAX)", n, avg_gpu, avg_cpu, correct, "CUDA", "CPU", (long long)n);
+
+            cudaFree(d_input);
         }
     }
 

@@ -5,10 +5,10 @@
 #include "tensor.hpp"
 
 namespace cuda {
-    ::std::vector<float> matmul(const ::std::vector<float>& matrix_A, const ::std::vector<float>& matrix_B, int K, int X, int Y);
-    ::std::vector<float> matmul_tc(const ::std::vector<float>& matrix_A, const ::std::vector<float>& matrix_B, int K, int X, int Y);
-    ::std::vector<float> matmul_naive(const ::std::vector<float>& matrix_A, const ::std::vector<float>& matrix_B, int K, int X, int Y);
-    ::std::vector<float> matmul_cublas(const ::std::vector<float>& matrix_A, const ::std::vector<float>& matrix_B, int K, int X, int Y);
+    void matmul(const float* matrix_A, const float* matrix_B, float* output, int K, int X, int Y);
+    void matmul_tc(const float* matrix_A, const float* matrix_B, float* output, int K, int X, int Y);
+    void matmul_naive(const float* matrix_A, const float* matrix_B, float* output, int K, int X, int Y);
+    void matmul_cublas(const float* matrix_A, const float* matrix_B, float* output, int K, int X, int Y);
     ::std::vector<float> binary_op(const char op, const ::std::vector<float>& matrix_A, const ::std::vector<float>& matrix_B, int size);
     void binary_op_strided(const char op, const float* input_A, std::array<int, MAX_DIMS> strides_A,
                               const float* input_B, std::array<int, MAX_DIMS> strides_B, std::array<int, MAX_DIMS> shape,

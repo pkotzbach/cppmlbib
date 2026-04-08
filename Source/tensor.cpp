@@ -581,10 +581,9 @@ Tensor_ptr Tensor::matmul(Tensor_ptr tensor) {
             cpu::matmul(v1.data(), v2.data(), result_data, shape[1], tensor->shape[1], shape[0]);
         }
     } else if (device == Device::CUDA) {
-        // TODO: temporary so tests works
-        auto matmul_output = cuda::matmul(values_vec(), tensor->values_vec(), shape[1], tensor->shape[1], shape[0]);
-        for (int i = 0; i < matmul_output.size(); ++i)
-            result->set(i, matmul_output[i]);
+        if (!is_continous()) cuda::make_continous(shared_from_this());
+        if (!tensor->is_continous()) cuda::make_continous(tensor);
+        cuda::matmul(raw_values(), tensor->raw_values(), result->raw_values(), shape[1], tensor->shape[1], shape[0]);
     }
     
     result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){
