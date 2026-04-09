@@ -541,3 +541,20 @@ void launch_im2col(const float* __restrict__ in_data, float* __restrict__ res_da
     int blocks = cuda::ceil_div(batches * out_h * out_w, threads);
     im2col<<<blocks, threads>>>(in_data, res_data, batches, height, width, out_h, out_w, channels, kernel_size, stride, padding);
 }
+
+__global__ void sgd_step(float* __restrict__ values, const float* __restrict grads, float lr, int total_count) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < total_count) {
+        values[idx] = values[idx] - lr * grads[idx];
+    }
+}
+
+void launch_sgd_step(float* __restrict__ values, const float* __restrict grads, float lr, int total_count) {
+    #ifdef CUDA_TEST
+    g_cuda_kernel_launches++;
+    #endif
+    
+    constexpr int threads = 256;
+    int blocks = cuda::ceil_div(total_count, threads);
+    sgd_step<<<blocks, threads>>>(values, grads, lr, total_count);
+}

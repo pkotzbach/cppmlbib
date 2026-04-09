@@ -1,5 +1,6 @@
 #include "optim.hpp"
 #include <stdio.h>
+#include "cuda_kernels.h"
 
 void Optimizer::zero_grad() {
     for (auto tensor : parameters) {
@@ -8,7 +9,7 @@ void Optimizer::zero_grad() {
         }
     }
 }
-Optimizer::Optimizer(std::vector<std::vector<Tensor_ptr>> params, float lr) : lr(lr) {
+Optimizer::Optimizer(std::vector<std::vector<Tensor_ptr>> params, float lr, Device device) : lr(lr), device(device) {
     // flatten
     size_t total_size = 0;
     for (auto& vec : params) {
@@ -23,8 +24,16 @@ Optimizer::Optimizer(std::vector<std::vector<Tensor_ptr>> params, float lr) : lr
 
 void SGD::step() {
     for (Tensor_ptr tensor : parameters) {
-        for (int i = 0; i < tensor->get_total_count(); ++i) {
-            tensor->set(i, tensor->get(i) - lr * tensor->grad_get(i));
+        float* values = tensor->raw_values();
+        const float* grads = tensor->raw_grads();
+        if (device == Device::CPU) {
+            for (int i = 0; i < tensor->get_total_count(); ++i) {
+                values[i] -= lr * grads[i];
+            }
+        }
+        else if (device == Device::CUDA) {
+            // cuda::sgd_step(values, grads, lr, tensor->get_total_count());
+            cuda::sgd_step(values, grads, lr, tensor->get_total_count());
         }
     }
 }

@@ -6,10 +6,11 @@ class Optimizer {
 protected:
     std::vector<Tensor_ptr> parameters;
     float lr;
+    Device device;
 
 public:
-    Optimizer(std::vector<std::vector<Tensor_ptr>> params, float lr);
-    Optimizer(std::vector<Tensor_ptr> params, float lr) : parameters(std::move(params)), lr(lr) {};
+    Optimizer(std::vector<std::vector<Tensor_ptr>> params, float lr, Device device);
+    Optimizer(std::vector<Tensor_ptr> params, float lr, Device device) : parameters(std::move(params)), lr(lr), device(device) {};
 
     virtual void step() = 0;
     void zero_grad();
@@ -17,7 +18,7 @@ public:
 
 class SGD : public Optimizer {
 public:
-    SGD(std::vector<std::vector<Tensor_ptr>> params, float lr) : Optimizer{params, lr} {}
-    SGD(std::vector<Tensor_ptr> params, float lr) : Optimizer{params, lr} {}
+    SGD(std::vector<std::vector<Tensor_ptr>> params, float lr, Device device) : Optimizer{params, lr, device} {}
+    SGD(std::vector<Tensor_ptr> params, float lr, Device device) : Optimizer{params, lr, device} {}
     void step() override;
 };

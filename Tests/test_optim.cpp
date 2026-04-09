@@ -4,14 +4,13 @@
 class SGDTest : public BaseDeviceTest {};
 
 TEST_P(SGDTest, Step) {
-    expect_cuda_launch = false;
     Device device = GetParam();
     Tensor_ptr input = Tensor::init({3}, {0.1, 0.2, -0.1}, device);
     input->grad_set(0, 0.1);
     input->grad_set(1, -0.1);
     input->grad_set(2, 0.5);
 
-    SGD optim({input}, 0.01);
+    SGD optim({input}, 0.01, device);
     optim.step();
 
     EXPECT_THAT(input->values_vec(),

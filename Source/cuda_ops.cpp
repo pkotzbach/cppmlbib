@@ -274,4 +274,10 @@ void transpose(float* matrix, float* matrixT, int N, int C) {
     CUDA_CHECK(cudaDeviceSynchronize());
 }
 
+void sgd_step(float* values, const float* grads, float lr, int total_count) {
+    launch_sgd_step(values, grads, lr, total_count);
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaDeviceSynchronize());
+}
+
 } // namespace cuda

@@ -80,7 +80,7 @@ int main()
     Convolution c2(32, 16, kernel_size, stride, padding, device);
     Linear l3(400, 128, device);
     Linear l4(128, 10, device);
-    SGD optim({c1.params(), c2.params(), l3.params(), l4.params()}, 0.01);
+    SGD optim({c1.params(), c2.params(), l3.params(), l4.params()}, 0.01, device);
 
     // train
     printf("TRAIN\n");

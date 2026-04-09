@@ -20,6 +20,7 @@ namespace cuda {
     void softmax(const float* input, float* output, int N, int C);
 
     void transpose(float* matrix, float* matrixT, int N, int C);
+    void sgd_step(float* values, const float* grads, float lr, int total_count);
 
     float reduction(const ReductionOp op, const float* input, int size);
     float full_reduction(const ReductionOp op, const float* input, int size);

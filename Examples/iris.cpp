@@ -74,7 +74,7 @@ int main()
     // model
     Linear l1(4, 16, device);
     Linear l2(16, 3, device);
-    SGD optim({l1.params(), l2.params()}, 0.01);
+    SGD optim({l1.params(), l2.params()}, 0.01, device);
 
     // train
     printf("TRAIN\n");
