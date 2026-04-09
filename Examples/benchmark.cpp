@@ -260,7 +260,19 @@ void binary() {
             auto A = generate_random_data(n);
             auto B = generate_random_data(n);
             
-            auto gpu_res = cuda::binary_op('+', A, B, n);
+            float *d_A, *d_B, *d_out;
+            cudaMalloc(&d_A, n * sizeof(float));
+            cudaMalloc(&d_B, n * sizeof(float));
+            cudaMalloc(&d_out, n * sizeof(float));
+            
+            cudaMemcpy(d_A, A.data(), n * sizeof(float), cudaMemcpyHostToDevice);
+            cudaMemcpy(d_B, B.data(), n * sizeof(float), cudaMemcpyHostToDevice);
+
+            cuda::binary_op('+', d_A, d_B, d_out, n);
+            
+            std::vector<float> gpu_res(n);
+            cudaMemcpy(gpu_res.data(), d_out, n * sizeof(float), cudaMemcpyDeviceToHost);
+
             std::vector<float> cpu_res(n);
             for (int i = 0; i < n; ++i) {
                 cpu_res[i] = A[i] + B[i];
@@ -268,7 +280,7 @@ void binary() {
             bool correct = check_correctness(gpu_res, cpu_res);
 
             float avg_gpu = benchmark([&]() {
-                cuda::binary_op('+', A, B, n);
+                cuda::binary_op('+', d_A, d_B, d_out, n);
             }, 10);
             float avg_cpu = benchmark([&]() {
                 for (int i = 0; i < n; ++i) {
@@ -276,6 +288,10 @@ void binary() {
                 }
             }, 5);
             print_result("Binary Op (+)", n, avg_gpu, avg_cpu, correct, "CUDA", "CPU", (long long)n);
+
+            cudaFree(d_A);
+            cudaFree(d_B);
+            cudaFree(d_out);
         }
 }
 
@@ -321,14 +337,12 @@ void reduction() {
             cudaMalloc(&d_input, n * sizeof(float));
             cudaMemcpy(d_input, input.data(), n * sizeof(float), cudaMemcpyHostToDevice);
             
-            std::span<const float> span(d_input, n);
-            
-            auto gpu_res = cuda::reduction(ReductionOp::MAX, span);
+            auto gpu_res = cuda::reduction(ReductionOp::MAX, d_input, n);
             auto cpu_res = *std::max_element(input.begin(), input.end());
             bool correct = check_correctness(gpu_res, cpu_res);
 
             float avg_gpu = benchmark([&]() {
-                cuda::reduction(ReductionOp::MAX, span);
+                cuda::reduction(ReductionOp::MAX, d_input, n);
             }, 10);
             float avg_cpu = benchmark([&]() {
                 *std::max_element(input.begin(), input.end());

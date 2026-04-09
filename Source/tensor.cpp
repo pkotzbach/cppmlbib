@@ -248,7 +248,7 @@ Tensor_ptr Tensor::max() {
             if (values.at(i) > max_val) max_val = values.at(i);
         }
     } else if (device == Device::CUDA) {
-        max_val = cuda::reduction(ReductionOp::MAX, std::span<float>(values.get(), total_count));
+        max_val = cuda::reduction(ReductionOp::MAX, raw_values(), total_count);
     }
 
     result->values.set(0, max_val);
@@ -267,7 +267,7 @@ Tensor_ptr Tensor::sum() {
             result->values.set(0, result->values.at(0) + get(i));
         }
     } else if (device == Device::CUDA) {
-        result->values.set(0, cuda::reduction(ReductionOp::SUM, std::span<float>(values.get(), total_count)));
+        result->values.set(0, cuda::reduction(ReductionOp::SUM, raw_values(), total_count));
     }
 
     result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){

@@ -9,7 +9,7 @@ namespace cuda {
     void matmul_tc(const float* matrix_A, const float* matrix_B, float* output, int K, int X, int Y);
     void matmul_naive(const float* matrix_A, const float* matrix_B, float* output, int K, int X, int Y);
     void matmul_cublas(const float* matrix_A, const float* matrix_B, float* output, int K, int X, int Y);
-    ::std::vector<float> binary_op(const char op, const ::std::vector<float>& matrix_A, const ::std::vector<float>& matrix_B, int size);
+    void binary_op(const char op, const float* matrix_A, const float* matrix_B, float* output, int size);
     void binary_op_strided(const char op, const float* input_A, std::array<int, MAX_DIMS> strides_A,
                               const float* input_B, std::array<int, MAX_DIMS> strides_B, std::array<int, MAX_DIMS> shape,
                               int size, int dims, float* output);
@@ -21,8 +21,8 @@ namespace cuda {
 
     void transpose(float* matrix, float* matrixT, int N, int C);
 
-    float reduction(const ReductionOp op, const ::std::span<const float>& input);
-    float full_reduction(const ReductionOp op, const ::std::span<const float>& input);
+    float reduction(const ReductionOp op, const float* input, int size);
+    float full_reduction(const ReductionOp op, const float* input, int size);
 
     void make_continous(Tensor_ptr tensor);
     void im2col(const float* in_data, float* res_data, int batch, int height, int width, int out_h, int out_w, 

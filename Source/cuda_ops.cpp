@@ -69,32 +69,11 @@ void matmul_cublas(const float* matrix_A, const float* matrix_B, float* output, 
         CUDA_CHECK(cudaDeviceSynchronize());
 }
 
-std::vector<float> binary_op(const char op, const std::vector<float>& matrix_A, const std::vector<float>& matrix_B, int size) {
-        float* d_matrix_A;
-        float* d_matrix_B;
-        float* d_output;
-        std::vector<float> output(size);
-
-        size_t size_bytes = sizeof(float) * size;
-
-        CUDA_CHECK(cudaMalloc(&d_matrix_A, size_bytes));
-        CUDA_CHECK(cudaMalloc(&d_matrix_B, size_bytes));
-        CUDA_CHECK(cudaMalloc(&d_output, size_bytes));
-        CUDA_CHECK(cudaMemcpy(d_matrix_A, matrix_A.data(), size_bytes, cudaMemcpyHostToDevice));
-        CUDA_CHECK(cudaMemcpy(d_matrix_B, matrix_B.data(), size_bytes, cudaMemcpyHostToDevice));
-
-        launch_binary_op(op, d_matrix_A, d_matrix_B, d_output, size);
+void binary_op(const char op, const float* matrix_A, const float* matrix_B, float* output, int size) {
+        launch_binary_op(op, matrix_A, matrix_B, output, size);
 
         CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaDeviceSynchronize());
-
-        CUDA_CHECK(cudaMemcpy(output.data(), d_output, size_bytes, cudaMemcpyDeviceToHost));
-
-        CUDA_CHECK(cudaFree(d_matrix_A));
-        CUDA_CHECK(cudaFree(d_matrix_B));
-        CUDA_CHECK(cudaFree(d_output));
-        
-        return output;
 }
 
 void binary_op_strided(const char op, const float* d_matrix_A, std::array<int, MAX_DIMS> strides_A, 
@@ -128,17 +107,15 @@ void softmax(const float* d_input, float* d_output, int N, int C) {
         CUDA_CHECK(cudaDeviceSynchronize());
 }
 
-float reduction(const ReductionOp op, const std::span<const float>& input) {
+float reduction(const ReductionOp op, const float* input, int size) {
         float* d_input;
         float* d_output;
-        int size = input.size();
         
         size_t size_bytes = sizeof(float) * size;
         
-        // input.data() is already a device pointer when called from Tensor on CUDA
         CUDA_CHECK(cudaMalloc(&d_input, size_bytes));
         CUDA_CHECK(cudaMalloc(&d_output, size_bytes));
-        CUDA_CHECK(cudaMemcpy(d_input, input.data(), size_bytes, cudaMemcpyDeviceToDevice));
+        CUDA_CHECK(cudaMemcpy(d_input, input, size_bytes, cudaMemcpyDeviceToDevice));
         
         while(size > 1) {
                 size = launch_reduction(op, d_input, d_output, size);
@@ -157,18 +134,12 @@ float reduction(const ReductionOp op, const std::span<const float>& input) {
         return output;
 }
 
-float full_reduction(const ReductionOp op, const std::span<const float>& input) {
-        float* d_input;
+float full_reduction(const ReductionOp op, const float* input, int size) {
         float* d_output;
-        int size = input.size();
         
-        size_t size_bytes = sizeof(float) * size;
-        
-        CUDA_CHECK(cudaMalloc(&d_input, size_bytes));
         CUDA_CHECK(cudaMalloc(&d_output, sizeof(float))); // only one result
-        CUDA_CHECK(cudaMemcpy(d_input, input.data(), size_bytes, cudaMemcpyDeviceToDevice));
         
-        launch_full_reduction(op, d_input, d_output, size);
+        launch_full_reduction(op, input, d_output, size);
         
         CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaDeviceSynchronize());
@@ -176,7 +147,6 @@ float full_reduction(const ReductionOp op, const std::span<const float>& input) 
         float output;
         CUDA_CHECK(cudaMemcpy(&output, d_output, sizeof(float), cudaMemcpyDeviceToHost));
 
-        CUDA_CHECK(cudaFree(d_input));
         CUDA_CHECK(cudaFree(d_output));
         
         return output;
