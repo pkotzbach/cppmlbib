@@ -4,8 +4,14 @@
 
 void Optimizer::zero_grad() {
     for (auto tensor : parameters) {
-        for (int i = 0; i < tensor->get_total_count(); ++i) {
-            tensor->grad_set(i, 0);
+        float* grads = tensor->raw_grads();
+        if (device == Device::CPU) {
+            for (int i = 0; i < tensor->get_total_count(); ++i) {
+                grads[i] = 0;
+            }
+        }
+        else if (device == Device::CUDA) {
+            cuda::zero_grad(tensor->raw_grads(), tensor->get_total_count());
         }
     }
 }

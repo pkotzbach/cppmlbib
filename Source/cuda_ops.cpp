@@ -280,4 +280,8 @@ void sgd_step(float* values, const float* grads, float lr, int total_count) {
     CUDA_CHECK(cudaDeviceSynchronize());
 }
 
+void zero_grad(float* grads, int total_count) {
+    CUDA_CHECK(cudaMemset(grads, 0, total_count * sizeof(float)));
+}
+
 } // namespace cuda
