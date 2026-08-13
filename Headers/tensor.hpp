@@ -73,7 +73,7 @@ private:
 
 public:
     static Tensor_ptr init(std::vector<int> shape, bool init_zero = false, Device device = Device::CPU);
-    static Tensor_ptr init(std::vector<int> shape, std::vector<float> values, Device device = Device::CPU);
+    static Tensor_ptr init(std::vector<int> shape, const std::vector<float>& values, Device device = Device::CPU);
 
     Tensor() {}
     ~Tensor() {}
@@ -109,6 +109,7 @@ public:
     float* raw_values() { return values.get(); }
     float* raw_grads() { return grads.get(); }
 
+    void set(std::vector<float> values);
     inline void set(std::vector<int> indicies, float val) { values.set(stride::strided_idx(indicies, strides, shape), val); }
     inline void set(int shape_idx, float val) { values.set(stride::strided_idx(shape_idx, strides, shape), val); }
     inline void set(int shape_idx, const std::vector<int>& strides, const std::vector<int>& shape, float val) {

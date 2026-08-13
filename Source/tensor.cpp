@@ -120,6 +120,18 @@ std::vector<float> Tensor::grads_vec() {
     }
 }
 
+void Tensor::set(std::vector<float> new_values)
+{
+    if (new_values.size() != total_count) throw std::invalid_argument("wrong size of values");
+
+    float* new_values_ptr = new_values.data();
+    if (device == Device::CPU) {
+        memcpy(values.get(), new_values_ptr, total_count * sizeof(float));
+    }
+    else if (device == Device::CUDA) {
+        cudaMemcpy(values.get(), new_values_ptr, total_count * sizeof(float), cudaMemcpyDeviceToHost);
+    }
+}
 
 Tensor_ptr Tensor::init(std::vector<int> shape, bool init_zero, Device device) {
     auto t = std::make_shared<Tensor>();
@@ -127,7 +139,7 @@ Tensor_ptr Tensor::init(std::vector<int> shape, bool init_zero, Device device) {
     return t;
 }
 
-Tensor_ptr Tensor::init(std::vector<int> shape, std::vector<float> values, Device device) {
+Tensor_ptr Tensor::init(std::vector<int> shape, const std::vector<float>& values, Device device) {
     auto t = std::make_shared<Tensor>();
     t->init_internal(std::move(shape), std::move(values), {}, false, device);
     return t;
