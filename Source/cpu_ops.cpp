@@ -10,8 +10,6 @@
 namespace cpu {
 void matmul(const float* A_ptr, const float* B_ptr, float* C_ptr, int K, int X, int Y)
 {
-    std::fill_n(C_ptr, X * Y, 0.0f);
-
     constexpr int tile_size_X = 64;
     constexpr int tile_size_Y = 32;
     constexpr int tile_size_K = 32;
@@ -33,7 +31,13 @@ void matmul(const float* A_ptr, const float* B_ptr, float* C_ptr, int K, int X, 
 
                     #pragma GCC unroll 4
                     for (; x <= end_x - simd_step; x += simd_step) {
-                        __m512 c_vec = _mm512_loadu_ps(&C_ptr[y * X + x]);
+                        __m512 c_vec;
+
+                        if (tile_k == 0) {
+                            c_vec = _mm512_setzero_ps();
+                        } else {
+                            c_vec = _mm512_loadu_ps(&C_ptr[y * X + x]);
+                        }
                         
                         #pragma GCC unroll 4
                         for (int k = tile_k; k < end_k; ++k) {
@@ -47,7 +51,13 @@ void matmul(const float* A_ptr, const float* B_ptr, float* C_ptr, int K, int X, 
                     
                     // rest
                     for (; x < end_x; ++x) {
-                        float sum = C_ptr[y * X + x];
+                        float sum;
+
+                        if (tile_k == 0) {
+                            sum = 0;
+                        } else {
+                            sum = C_ptr[y * X + x];
+                        }
                         for (int k = tile_k; k < end_k; ++k) {
                             sum += A_ptr[y * K + k] * B_ptr[k * X + x];
                         }
@@ -63,8 +73,6 @@ void matmul(const float* A_ptr, const float* B_ptr, float* C_ptr, int K, int X, 
 // [M, K] @ [N, K]^T
 void BT_matmul(const float* A_ptr, const float* B_ptr, float* C_ptr, int K, int M, int N)
 {
-    std::fill_n(C_ptr, M * N, 0.0f);
-
     constexpr int tile_size_M = 32;
     constexpr int tile_size_N = 64;
     constexpr int tile_size_K = 32;
@@ -93,8 +101,14 @@ void BT_matmul(const float* A_ptr, const float* B_ptr, float* C_ptr, int K, int 
 
                     #pragma GCC unroll 4
                     for (; n <= end_N - simd_step; n += simd_step) {
-                        __m512 c_vec = _mm512_loadu_ps(&C_ptr[m * N + n]);
-                        
+                        __m512 c_vec;
+
+                        if (start_k == 0) {
+                            c_vec = _mm512_setzero_ps();
+                        } else {
+                            c_vec = _mm512_loadu_ps(&C_ptr[m * N + n]);
+                        }
+
                         for (int k = start_k; k < end_k; ++k) {
                             __m512 a_vec = _mm512_set1_ps(A_ptr[m * K + k]);
                             __m512 b_vec = _mm512_load_ps(&B_tile[k - start_k][n - start_n]);
@@ -106,7 +120,14 @@ void BT_matmul(const float* A_ptr, const float* B_ptr, float* C_ptr, int K, int 
                     }
                     
                     for (; n < end_N; ++n) {
-                        float sum = C_ptr[m * N + n];
+                        float sum;
+                        if (start_k == 0) {
+                            sum = 0;
+                        }
+                        else {
+                            sum = C_ptr[m * N + n];
+                        }
+                        
                         for (int k = start_k; k < end_k; ++k) {
                             sum += A_ptr[m * K + k] * B_tile[k - start_k][n - start_n];
                         }
@@ -121,8 +142,6 @@ void BT_matmul(const float* A_ptr, const float* B_ptr, float* C_ptr, int K, int 
 // C = A^T @ B
 void AT_matmul(const float* A_ptr, const float* B_ptr, float* C_ptr, int K, int M, int N)
 {
-    std::fill_n(C_ptr, M * N, 0.0f);
-
     constexpr int tile_size_M = 32;
     constexpr int tile_size_N = 64;
     constexpr int tile_size_K = 32;
@@ -143,7 +162,13 @@ void AT_matmul(const float* A_ptr, const float* B_ptr, float* C_ptr, int K, int 
 
                     #pragma GCC unroll 4
                     for (; n <= end_n - simd_step; n += simd_step) {
-                        __m512 c_vec = _mm512_loadu_ps(&C_ptr[m * N + n]);
+                        __m512 c_vec;
+
+                        if (start_k == 0) {
+                            c_vec = _mm512_setzero_ps();
+                        } else {
+                            c_vec = _mm512_loadu_ps(&C_ptr[m * N + n]);
+                        }
                         
                         #pragma GCC unroll 4
                         for (int k = start_k; k < end_k; ++k) {
@@ -157,7 +182,13 @@ void AT_matmul(const float* A_ptr, const float* B_ptr, float* C_ptr, int K, int 
                     
                     // rest
                     for (; n < end_n; ++n) {
-                        float sum = C_ptr[m * N + n];
+                        float sum;
+                        if (start_k == 0) {
+                            sum = 0;
+                        }
+                        else {
+                            sum = C_ptr[m * N + n];
+                        }
                         for (int k = start_k; k < end_k; ++k) {
                             sum += A_ptr[k * M + m] * B_ptr[k * N + n];
                         }
@@ -171,6 +202,7 @@ void AT_matmul(const float* A_ptr, const float* B_ptr, float* C_ptr, int K, int 
 
 void matmul_naive(const float* A_ptr, const float* B_ptr, float* C_ptr, int K, int X, int Y)
 {
+    printf("using naive..."); // TODO: warnings
     std::fill_n(C_ptr, X * Y, 0.0f);
 
     for (int y = 0; y < Y; ++y)
