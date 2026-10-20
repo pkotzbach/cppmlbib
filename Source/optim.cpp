@@ -38,7 +38,6 @@ void SGD::step() {
             }
         }
         else if (device == Device::CUDA) {
-            // cuda::sgd_step(values, grads, lr, tensor->get_total_count());
             cuda::sgd_step(values, grads, lr, tensor->get_total_count());
         }
     }

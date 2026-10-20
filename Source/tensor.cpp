@@ -67,9 +67,7 @@ Tensor& Tensor::init_internal(std::vector<int> shape, std::vector<float> init_va
 
     if (init_values.empty()) { 
         init_values.resize(total_count);
-        if (init_zero) {
-            std::ranges::fill(init_values, 0.0f);
-        } else {
+        if (!init_zero) {
             // sample kaiming
             std::mt19937 gen(std::random_device{}());
             std::normal_distribution<float> dist(0.0, std::sqrt(2.0f/total_count));
@@ -466,17 +464,25 @@ Tensor_ptr operator+(Tensor_ptr first, Tensor_ptr second) {
 
     result->backward_fn = [res = std::weak_ptr<Tensor>(result), ctx](){
         if(auto r = res.lock()){
+            Tensor_ptr first = r->parents.first;
+            Tensor_ptr second = r->parents.second;
+
             // TODO: i dont really like that cpu is inline and cuda calls a function
             if (r->device == Device::CPU) {
-                for (int i = 0; i < r->total_count; ++i) {
-                    if (r->parents.first->have_grad())  r->parents.first->grad_set(i, ctx.first_strides_vec, ctx.out_shape_vec, r->parents.first->grad_get(i, ctx.first_strides_vec, ctx.out_shape_vec) + r->grad_get(i));
-                    if (r->parents.second->have_grad()) r->parents.second->grad_set(i, ctx.second_strides_vec, ctx.out_shape_vec, r->parents.second->grad_get(i, ctx.second_strides_vec, ctx.out_shape_vec) + r->grad_get(i));
+                if (first->have_grad()) {
+                    for (int i = 0; i < r->total_count; ++i) 
+                        first->grad_set(i, ctx.first_strides_vec, ctx.out_shape_vec, first->grad_get(i, ctx.first_strides_vec, ctx.out_shape_vec) + r->grad_get(i));
+                }
+
+                if (second->have_grad()) {
+                    for (int i = 0; i < r->total_count; ++i) 
+                        second->grad_set(i, ctx.second_strides_vec, ctx.out_shape_vec, second->grad_get(i, ctx.second_strides_vec, ctx.out_shape_vec) + r->grad_get(i));
                 }
             } else if (r->device == Device::CUDA) {
-                cuda::binary_op_backward_strided('+', r->parents.first->raw_values(), ctx.first_strides,
-                                               r->parents.second->raw_values(), ctx.second_strides,
-                                               r->parents.first->raw_grads(), r->parents.second->raw_grads(),
-                                               r->raw_grads(), r->parents.first->have_grad(), r->parents.second->have_grad(), ctx.out_shape, r->total_count, ctx.ndim);
+                cuda::binary_op_backward_strided('+', first->raw_values(), ctx.first_strides,
+                                               second->raw_values(), ctx.second_strides,
+                                               first->raw_grads(), second->raw_grads(),
+                                               r->raw_grads(), first->have_grad(), second->have_grad(), ctx.out_shape, r->total_count, ctx.ndim);
             }
         }
     };
