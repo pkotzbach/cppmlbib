@@ -45,10 +45,11 @@ std::vector<float> Storage::cpu()
 }
 
 
-Tensor& Tensor::init_internal(std::vector<int> shape, std::vector<float> init_values, std::vector<float> init_grads, bool init_zero, Device device) {
+Tensor& Tensor::init_internal(std::vector<int> shape, std::vector<float> init_values, std::vector<float> init_grads, bool init_zero, Device device, bool grad) {
     if (shape.empty()) throw std::runtime_error("shape 0");
     this->shape = std::move(shape);
     this->device = device;
+    this->grad = grad;
 
     // calc total_count TODO: remove?
     total_count = this->shape[0];
@@ -77,12 +78,15 @@ Tensor& Tensor::init_internal(std::vector<int> shape, std::vector<float> init_va
             }
         }
     }
-    if (init_grads.empty()) {
-        init_grads.assign(total_count, 0);
-    }    
-
     values = Storage(this->device, std::move(init_values), total_count);
-    grads = Storage(this->device, std::move(init_grads), total_count);
+    
+    if (grad) {
+        if (init_grads.empty()) {
+            init_grads.assign(total_count, 0);
+        }    
+
+        grads = Storage(this->device, std::move(init_grads), total_count);
+    }
 
     image = false;
 
@@ -109,6 +113,11 @@ std::vector<float> Tensor::values_vec(int count, std::vector<int>& strides, std:
 }
 
 std::vector<float> Tensor::grads_vec() {
+    if (!grad) {
+        int a = 3;
+        throw std::invalid_argument("no grad!");
+    }
+
     std::vector<float> vec(total_count);
     if (is_continous() && device == Device::CPU) {
         std::memcpy(vec.data(), raw_grads(), total_count * sizeof(float));
@@ -133,15 +142,15 @@ void Tensor::set(std::vector<float> new_values)
     }
 }
 
-Tensor_ptr Tensor::init(std::vector<int> shape, bool init_zero, Device device) {
+Tensor_ptr Tensor::init(std::vector<int> shape, bool init_zero, Device device, bool grad) {
     auto t = std::make_shared<Tensor>();
-    t->init_internal(std::move(shape), {}, {}, init_zero, device);
+    t->init_internal(std::move(shape), {}, {}, init_zero, device, grad);
     return t;
 }
 
-Tensor_ptr Tensor::init(std::vector<int> shape, const std::vector<float>& values, Device device) {
+Tensor_ptr Tensor::init(std::vector<int> shape, const std::vector<float>& values, Device device, bool grad) {
     auto t = std::make_shared<Tensor>();
-    t->init_internal(std::move(shape), std::move(values), {}, false, device);
+    t->init_internal(std::move(shape), std::move(values), {}, false, device, grad);
     return t;
 }
 
@@ -207,12 +216,14 @@ Tensor_ptr Tensor::relu() {
     
     result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){
         if(auto r = res.lock()){
-            if (r->device == Device::CPU) {
-                for (int i = 0; i < r->total_count; ++i) {
-                    r->parents.first->grad_set(i, r->parents.first->grad_get(i) + (r->get(i) > 0 ? 1 : 0) * r->grad_get(i));
+            if (r->parents.first->have_grad()) {
+                if (r->device == Device::CPU) {
+                    for (int i = 0; i < r->total_count; ++i) {
+                        r->parents.first->grad_set(i, r->parents.first->grad_get(i) + (r->get(i) > 0 ? 1 : 0) * r->grad_get(i));
+                    }
+                } else if (r->device == Device::CUDA) {
+                    cuda::relu_backward(r->parents.first->values.get(), r->parents.first->grads.get(), r->grads.get(), r->total_count);
                 }
-            } else if (r->device == Device::CUDA) {
-                cuda::relu_backward(r->parents.first->values.get(), r->parents.first->grads.get(), r->grads.get(), r->total_count);
             }
         }
     };
@@ -284,12 +295,14 @@ Tensor_ptr Tensor::sum() {
 
     result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){
         if(auto r = res.lock()){
-            if (r->device == Device::CPU) {
-                for (int i = 0; i < r->parents.first->total_count; ++i) {
-                    r->parents.first->grad_set(i, r->parents.first->grad_get(i) + r->grads.at(0));
+            if (r->parents.first->have_grad()) {
+                if (r->device == Device::CPU) {
+                    for (int i = 0; i < r->parents.first->total_count; ++i) {
+                        r->parents.first->grad_set(i, r->parents.first->grad_get(i) + r->grads.at(0));
+                    }
+                } else if (r->device == Device::CUDA) {
+                    cuda::sum_backward(r->parents.first->grads.get(), r->grads.get(), r->parents.first->total_count);
                 }
-            } else if (r->device == Device::CUDA) {
-                cuda::sum_backward(r->parents.first->grads.get(), r->grads.get(), r->parents.first->total_count);
             }
         }
     };
@@ -313,14 +326,16 @@ Tensor_ptr Tensor::sum(int axis) {
 
     result->backward_fn = [res = std::weak_ptr<Tensor>(result), N, C, axis](){
         if (auto r = res.lock()){
-            if (r->device == Device::CPU) {
-                for (int n = 0; n < N; ++n) {
-                    for (int c = 0; c < C; ++c) {
-                        r->parents.first->grad_set(n * C + c, r->parents.first->grad_get(n * C + c) + r->grad_get(axis == 0? c: n));
+            if (r->parents.first->have_grad()) {
+                if (r->device == Device::CPU) {
+                    for (int n = 0; n < N; ++n) {
+                        for (int c = 0; c < C; ++c) {
+                            r->parents.first->grad_set(n * C + c, r->parents.first->grad_get(n * C + c) + r->grad_get(axis == 0? c: n));
+                        }
                     }
+                } else if (r->device == Device::CUDA) {
+                    cuda::sum_axis_backward(r->parents.first->grads.get(), r->grads.get(), N, C, axis);
                 }
-            } else if (r->device == Device::CUDA) {
-                cuda::sum_axis_backward(r->parents.first->grads.get(), r->grads.get(), N, C, axis);
             }
         }
     };
@@ -343,12 +358,14 @@ Tensor_ptr Tensor::exp() {
 
     result->backward_fn = [res = std::weak_ptr<Tensor>(result)](){
         if(auto r = res.lock()){
-            if (r->device == Device::CPU) {
-                for (int i = 0; i < r->total_count; ++i) {
-                    r->parents.first->grad_set(i, r->parents.first->grad_get(i) + r->grad_get(i) * r->get(i));
+            if (r->parents.first->have_grad()) {
+                if (r->device == Device::CPU) {
+                    for (int i = 0; i < r->total_count; ++i) {
+                        r->parents.first->grad_set(i, r->parents.first->grad_get(i) + r->grad_get(i) * r->get(i));
+                    }
+                } else if (r->device == Device::CUDA) {
+                    cuda::exp_backward(r->values.get(), r->parents.first->grads.get(), r->grads.get(), r->total_count);
                 }
-            } else if (r->device == Device::CUDA) {
-                cuda::exp_backward(r->values.get(), r->parents.first->grads.get(), r->grads.get(), r->total_count);
             }
         }
     };
@@ -452,14 +469,14 @@ Tensor_ptr operator+(Tensor_ptr first, Tensor_ptr second) {
             // TODO: i dont really like that cpu is inline and cuda calls a function
             if (r->device == Device::CPU) {
                 for (int i = 0; i < r->total_count; ++i) {
-                    r->parents.first->grad_set(i, ctx.first_strides_vec, ctx.out_shape_vec, r->parents.first->grad_get(i, ctx.first_strides_vec, ctx.out_shape_vec) + r->grad_get(i));
-                    r->parents.second->grad_set(i, ctx.second_strides_vec, ctx.out_shape_vec, r->parents.second->grad_get(i, ctx.second_strides_vec, ctx.out_shape_vec) + r->grad_get(i));
+                    if (r->parents.first->have_grad())  r->parents.first->grad_set(i, ctx.first_strides_vec, ctx.out_shape_vec, r->parents.first->grad_get(i, ctx.first_strides_vec, ctx.out_shape_vec) + r->grad_get(i));
+                    if (r->parents.second->have_grad()) r->parents.second->grad_set(i, ctx.second_strides_vec, ctx.out_shape_vec, r->parents.second->grad_get(i, ctx.second_strides_vec, ctx.out_shape_vec) + r->grad_get(i));
                 }
             } else if (r->device == Device::CUDA) {
                 cuda::binary_op_backward_strided('+', r->parents.first->raw_values(), ctx.first_strides,
                                                r->parents.second->raw_values(), ctx.second_strides,
                                                r->parents.first->raw_grads(), r->parents.second->raw_grads(),
-                                               r->raw_grads(), ctx.out_shape, r->total_count, ctx.ndim);
+                                               r->raw_grads(), r->parents.first->have_grad(), r->parents.second->have_grad(), ctx.out_shape, r->total_count, ctx.ndim);
             }
         }
     };
@@ -487,14 +504,14 @@ Tensor_ptr operator-(Tensor_ptr first, Tensor_ptr second) {
         if(auto r = res.lock()){
             if (r->device == Device::CPU) {
                 for (int i = 0; i < r->total_count; ++i) {
-                    r->parents.first->grad_set(i, ctx.first_strides_vec, ctx.out_shape_vec, r->parents.first->grad_get(i, ctx.first_strides_vec, ctx.out_shape_vec) + r->grad_get(i));
-                    r->parents.second->grad_set(i, ctx.second_strides_vec, ctx.out_shape_vec, r->parents.second->grad_get(i, ctx.second_strides_vec, ctx.out_shape_vec) - r->grad_get(i));
+                    if (r->parents.first->have_grad())  r->parents.first->grad_set(i, ctx.first_strides_vec, ctx.out_shape_vec, r->parents.first->grad_get(i, ctx.first_strides_vec, ctx.out_shape_vec) + r->grad_get(i));
+                    if (r->parents.second->have_grad()) r->parents.second->grad_set(i, ctx.second_strides_vec, ctx.out_shape_vec, r->parents.second->grad_get(i, ctx.second_strides_vec, ctx.out_shape_vec) - r->grad_get(i));
                 }
             } else if (r->device == Device::CUDA) {
                 cuda::binary_op_backward_strided('-', r->parents.first->raw_values(), ctx.first_strides,
                                                r->parents.second->raw_values(), ctx.second_strides,
                                                r->parents.first->raw_grads(), r->parents.second->raw_grads(),
-                                               r->raw_grads(), ctx.out_shape, r->total_count, ctx.ndim);
+                                               r->raw_grads(), r->parents.first->have_grad(), r->parents.second->have_grad(), ctx.out_shape, r->total_count, ctx.ndim);
             }
         }
     };
@@ -521,14 +538,14 @@ Tensor_ptr operator*(Tensor_ptr first, Tensor_ptr second) {
         if(auto r = res.lock()){
             if (r->device == Device::CPU) {
                 for (int i = 0; i < r->total_count; ++i) {
-                    r->parents.first->grad_set(i, ctx.first_strides_vec, ctx.out_shape_vec, r->parents.first->grad_get(i, ctx.first_strides_vec, ctx.out_shape_vec) + r->grad_get(i) * r->parents.second->get(i, ctx.second_strides_vec, ctx.out_shape_vec));
-                    r->parents.second->grad_set(i, ctx.second_strides_vec, ctx.out_shape_vec, r->parents.second->grad_get(i, ctx.second_strides_vec, ctx.out_shape_vec) + r->grad_get(i) * r->parents.first->get(i, ctx.first_strides_vec, ctx.out_shape_vec));
+                    if (r->parents.first->have_grad())  r->parents.first->grad_set(i, ctx.first_strides_vec, ctx.out_shape_vec, r->parents.first->grad_get(i, ctx.first_strides_vec, ctx.out_shape_vec) + r->grad_get(i) * r->parents.second->get(i, ctx.second_strides_vec, ctx.out_shape_vec));
+                    if (r->parents.second->have_grad()) r->parents.second->grad_set(i, ctx.second_strides_vec, ctx.out_shape_vec, r->parents.second->grad_get(i, ctx.second_strides_vec, ctx.out_shape_vec) + r->grad_get(i) * r->parents.first->get(i, ctx.first_strides_vec, ctx.out_shape_vec));
                 }
             } else if (r->device == Device::CUDA) {
                 cuda::binary_op_backward_strided('*', r->parents.first->raw_values(), ctx.first_strides,
                                                r->parents.second->raw_values(), ctx.second_strides,
                                                r->parents.first->raw_grads(), r->parents.second->raw_grads(),
-                                               r->raw_grads(), ctx.out_shape, r->total_count, ctx.ndim);
+                                               r->raw_grads(), r->parents.first->have_grad(), r->parents.second->have_grad(), ctx.out_shape, r->total_count, ctx.ndim);
             }
         }
     };
@@ -556,15 +573,15 @@ Tensor_ptr operator/(Tensor_ptr first, Tensor_ptr second) {
             if (r->device == Device::CPU) {
                 for (int i = 0; i < r->total_count; ++i) {
                     float s_val = r->parents.second->get(i, ctx.second_strides_vec, ctx.out_shape_vec);
-                    r->parents.first->grad_set(i, ctx.first_strides_vec, ctx.out_shape_vec, r->parents.first->grad_get(i, ctx.first_strides_vec, ctx.out_shape_vec) + r->grad_get(i) * (1.0f / s_val));
-                    r->parents.second->grad_set(i, ctx.second_strides_vec, ctx.out_shape_vec, r->parents.second->grad_get(i, ctx.second_strides_vec, ctx.out_shape_vec) + r->grad_get(i) * 
+                    if (r->parents.first->have_grad()) r->parents.first->grad_set(i, ctx.first_strides_vec, ctx.out_shape_vec, r->parents.first->grad_get(i, ctx.first_strides_vec, ctx.out_shape_vec) + r->grad_get(i) * (1.0f / s_val));
+                    if (r->parents.second->have_grad()) r->parents.second->grad_set(i, ctx.second_strides_vec, ctx.out_shape_vec, r->parents.second->grad_get(i, ctx.second_strides_vec, ctx.out_shape_vec) + r->grad_get(i) * 
                         -(r->parents.first->get(i, ctx.first_strides_vec, ctx.out_shape_vec) / (s_val * s_val)));
                 }
             } else if (r->device == Device::CUDA) {
                 cuda::binary_op_backward_strided('/', r->parents.first->raw_values(), ctx.first_strides,
                                                r->parents.second->raw_values(), ctx.second_strides,
                                                r->parents.first->raw_grads(), r->parents.second->raw_grads(),
-                                               r->raw_grads(), ctx.out_shape, r->total_count, ctx.ndim);
+                                               r->raw_grads(), r->parents.first->have_grad(), r->parents.second->have_grad(), ctx.out_shape, r->total_count, ctx.ndim);
             }
         }
     };
@@ -602,65 +619,72 @@ Tensor_ptr Tensor::matmul(Tensor_ptr tensor) {
         if(auto r = res.lock()){
             if (r->device == Device::CPU) {
                 if (r->parents.first->is_continous() && r->parents.second->is_continous()) {
-                    float* grad_first = new float[r->parents.first->total_count];
-                    float* grad_second = new float[r->parents.second->total_count];
-                    cpu::BT_matmul(r->raw_grads(), r->parents.second->raw_values(), grad_first, r->shape[1], r->shape[0], r->parents.second->shape[0]);
-                    
-                    int m = r->parents.first->shape[0];
-                    int k = r->parents.first->shape[1];
-                    int n = r->shape[1];
-                    cpu::AT_matmul(r->parents.first->raw_values(), r->raw_grads(), grad_second, m, k, n);
-                    
-                    float* raw_grad_first = r->parents.first->raw_grads();
-                    for (int i = 0; i < r->parents.first->total_count; ++i) {
-                        raw_grad_first[i] += grad_first[i];
+                    if (r->parents.first->have_grad()) {
+                        float* grad_first = new float[r->parents.first->total_count];
+                        cpu::BT_matmul(r->raw_grads(), r->parents.second->raw_values(), grad_first, r->shape[1], r->shape[0], r->parents.second->shape[0]);
+                        float* raw_grad_first = r->parents.first->raw_grads();
+                        for (int i = 0; i < r->parents.first->total_count; ++i) {
+                            raw_grad_first[i] += grad_first[i];
+                        }
+                        delete[] grad_first;
                     }
                     
-                    float* raw_grad_second = r->parents.second->raw_grads();
-                    for (int i = 0; i < r->parents.second->total_count; ++i) {
-                        raw_grad_second[i] += grad_second[i];
+                    if (r->parents.second->have_grad()) {
+                        float* grad_second = new float[r->parents.second->total_count];
+                        int m = r->parents.first->shape[0];
+                        int k = r->parents.first->shape[1];
+                        int n = r->shape[1];
+                        cpu::AT_matmul(r->parents.first->raw_values(), r->raw_grads(), grad_second, m, k, n);
+                        
+                        float* raw_grad_second = r->parents.second->raw_grads();
+                        for (int i = 0; i < r->parents.second->total_count; ++i) {
+                            raw_grad_second[i] += grad_second[i];
+                        }
+                        delete[] grad_second;
                     }
-
-                    delete[] grad_first;
-                    delete[] grad_second;
                 }
                 else {
                     printf("slow...\n");
                     // TODO: its ugly
                     Tensor_ptr firstT = r->parents.first->transpose();
 
-                    std::vector<float> grad_first(r->parents.first->total_count);
                     std::vector<float> g_vec = r->grads_vec();
-                    std::vector<float> p2_vec = r->parents.second->values_vec();
-                    cpu::BT_matmul(g_vec.data(), p2_vec.data(), grad_first.data(), r->shape[1], r->shape[0], r->parents.second->shape[0]);
-
-                    std::vector<float> grad_second(r->parents.second->total_count);
-                    std::vector<float> fT_vec = firstT->values_vec();
-                    cpu::matmul(fT_vec.data(), g_vec.data(), grad_second.data(), firstT->shape[1], r->shape[1], firstT->shape[0]);
-               
-                    if (r->parents.first->is_continous()) {
-                        float* raw_grad = r->parents.first->raw_grads();
-                        int count = r->parents.first->total_count;
-                        for (int i = 0; i < count; ++i) {
-                            raw_grad[i] += grad_first[i];
-                        }
-                    }
-                    else {
-                        for (int i = 0; i < r->parents.first->total_count; ++i) {
-                            r->parents.first->grad_set(i, r->parents.first->grad_get(i) + grad_first[i]);
-                        }
-                    }
                     
-                    if (r->parents.second->is_continous()) {
-                        float* raw_grad = r->parents.second->raw_grads();
-                        int count = r->parents.second->total_count;
-                        for (int i = 0; i < count; ++i) {
-                            raw_grad[i] += grad_second[i];
+                    if (r->parents.first->have_grad()) {
+                        std::vector<float> p2_vec = r->parents.second->values_vec();
+                        std::vector<float> grad_first(r->parents.first->total_count);
+                        cpu::BT_matmul(g_vec.data(), p2_vec.data(), grad_first.data(), r->shape[1], r->shape[0], r->parents.second->shape[0]);
+
+                        if (r->parents.first->is_continous()) {
+                            float* raw_grad = r->parents.first->raw_grads();
+                            int count = r->parents.first->total_count;
+                            for (int i = 0; i < count; ++i) {
+                                raw_grad[i] += grad_first[i];
+                            }
+                        }
+                        else {
+                            for (int i = 0; i < r->parents.first->total_count; ++i) {
+                                r->parents.first->grad_set(i, r->parents.first->grad_get(i) + grad_first[i]);
+                            }
                         }
                     }
-                    else {
-                        for (int i = 0; i < r->parents.second->total_count; ++i) {
-                            r->parents.second->grad_set(i, r->parents.second->grad_get(i) + grad_second[i]);
+                        
+                    if (r->parents.second->have_grad()) {
+                        std::vector<float> grad_second(r->parents.second->total_count);
+                        std::vector<float> fT_vec = firstT->values_vec();
+                        cpu::matmul(fT_vec.data(), g_vec.data(), grad_second.data(), firstT->shape[1], r->shape[1], firstT->shape[0]);
+
+                        if (r->parents.second->is_continous()) {
+                            float* raw_grad = r->parents.second->raw_grads();
+                            int count = r->parents.second->total_count;
+                            for (int i = 0; i < count; ++i) {
+                                raw_grad[i] += grad_second[i];
+                            }
+                        }
+                        else {
+                            for (int i = 0; i < r->parents.second->total_count; ++i) {
+                                r->parents.second->grad_set(i, r->parents.second->grad_get(i) + grad_second[i]);
+                            }
                         }
                     }
                 }
@@ -698,18 +722,20 @@ Tensor_ptr Tensor::softmax() {
 
     result->backward_fn = [res = std::weak_ptr<Tensor>(result), N, C](){
         if(auto r = res.lock()){
-            if (r->device == Device::CPU) {
-                for (int n = 0; n < N; ++n) {
-                    float sum = 0.0;
-                    for (int c = 0; c < C; ++c) {
-                        sum += r->grad_get({n, c}) * r->get({n, c});
+            if (r->parents.first->have_grad()) {
+                if (r->device == Device::CPU) {
+                    for (int n = 0; n < N; ++n) {
+                        float sum = 0.0;
+                        for (int c = 0; c < C; ++c) {
+                            sum += r->grad_get({n, c}) * r->get({n, c});
+                        }
+                        for (int c1 = 0; c1 < C; ++c1) {
+                            r->parents.first->grad_set({n, c1}, r->parents.first->grad_get({n, c1}) + r->get({n, c1}) * (r->grad_get({n, c1}) - sum));
+                        }
                     }
-                    for (int c1 = 0; c1 < C; ++c1) {
-                        r->parents.first->grad_set({n, c1}, r->parents.first->grad_get({n, c1}) + r->get({n, c1}) * (r->grad_get({n, c1}) - sum));
-                    }
+                } else if (r->device == Device::CUDA) {
+                    cuda::softmax_backward(r->values.get(), r->parents.first->grads.get(), r->grads.get(), N, C);
                 }
-            } else if (r->device == Device::CUDA) {
-                cuda::softmax_backward(r->values.get(), r->parents.first->grads.get(), r->grads.get(), N, C);
             }
         }
     };
@@ -722,6 +748,7 @@ Tensor_ptr Tensor::transpose()
     Tensor_ptr result = std::make_shared<Tensor>();
     result->values = values;
     result->grads = grads;
+    result->grad = grad;
     result->total_count = total_count;
     result->shape = shape;
     result->strides = strides;
@@ -742,6 +769,7 @@ Tensor_ptr Tensor::view(std::vector<int> new_shape)
     Tensor_ptr result = std::make_shared<Tensor>();
     result->values = values;
     result->grads = grads;
+    result->grad = grad;
     result->total_count = total_count;
     result->shape = new_shape;
     result->strides = stride::calc_strides(new_shape);;
@@ -778,11 +806,15 @@ void Tensor::toposort(const Tensor_ptr& t, std::unordered_set<Tensor_ptr>& visit
 }
 
 void Tensor::zero_grad() {
-    if (device == Device::CPU) {
-        for (int i = 0; i < total_count; ++i) grad_set(i, 0);
-    } else if (device == Device::CUDA) {
-        cudaMemset(grads.get(), 0, total_count * sizeof(float));
+    
+    if (have_grad()) {
+        if (device == Device::CPU) {
+            for (int i = 0; i < total_count; ++i) grad_set(i, 0);
+        } else if (device == Device::CUDA) {
+            cudaMemset(grads.get(), 0, total_count * sizeof(float));
+        }
     }
+
     if (parents.first && parents.first.get() != this)   parents.first->zero_grad();
     if (parents.second && parents.second.get() != this) parents.second->zero_grad();
 }

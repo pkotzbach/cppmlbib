@@ -88,9 +88,9 @@ void binary_op_strided(const char op, const float* d_matrix_A, std::array<int, M
 
 void binary_op_backward_strided(const char op, const float* input_A, std::array<int, MAX_DIMS> strides_A,
                                    const float* input_B, std::array<int, MAX_DIMS> strides_B,
-                                   float* grad_A, float* grad_B, const float* grad_output,
+                                   float* grad_A, float* grad_B, const float* grad_output, bool has_grad_A, bool has_grad_B,
                                    std::array<int, MAX_DIMS> shape, int size, int dims) {
-    launch_binary_op_backward_strided(op, input_A, strides_A, input_B, strides_B, grad_A, grad_B, grad_output, shape, size, dims);
+    launch_binary_op_backward_strided(op, input_A, strides_A, input_B, strides_B, grad_A, grad_B, grad_output, has_grad_A, has_grad_B, shape, size, dims);
 
     CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaDeviceSynchronize());

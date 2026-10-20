@@ -15,7 +15,7 @@ namespace cuda {
                               int size, int dims, float* output);
     void binary_op_backward_strided(const char op, const float* input_A, std::array<int, MAX_DIMS> strides_A,
                                    const float* input_B, std::array<int, MAX_DIMS> strides_B,
-                                   float* grad_A, float* grad_B, const float* grad_output,
+                                   float* grad_A, float* grad_B, const float* grad_output, bool has_grad_A, bool has_grad_B,
                                    std::array<int, MAX_DIMS> shape, int size, int dims);
     void softmax(const float* input, float* output, int N, int C);
 

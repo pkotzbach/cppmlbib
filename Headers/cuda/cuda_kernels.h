@@ -14,7 +14,7 @@ void launch_binary_op_strided(const char op, const float* input_A, std::array<in
                               float* output, int size, int dims);
 void launch_binary_op_backward_strided(const char op, const float* input_A, std::array<int, MAX_DIMS> strides_A,
                                       const float* input_B, std::array<int, MAX_DIMS> strides_B,
-                                      float* grad_A, float* grad_B, const float* grad_output,
+                                      float* grad_A, float* grad_B, const float* grad_output, bool has_grad_A, bool has_grad_B,
                                       std::array<int, MAX_DIMS> shape, int size, int dims);
 void launch_softmax2(const float* input_A, float* output, int N, int C);
 int launch_reduction(const ReductionOp op, const float* input, float* output, int size);

@@ -111,7 +111,8 @@ void launch_binary_op_strided(const char op, const float* input_A, std::array<in
 }
 
 template <char Op>
-__global__ void binary_op_backward_strided_kernel(const float* input_A, const float* input_B, float* grad_A, float* grad_B, const float* grad_output, BinaryOpMeta meta) {
+__global__ void binary_op_backward_strided_kernel(const float* input_A, const float* input_B, float* grad_A, float* grad_B,
+     const float* grad_output, BinaryOpMeta meta, bool has_grad_A, bool has_grad_B) {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
     if (idx < meta.size) {
         int idx_a = strided_idx_device(idx, meta.strides_A, meta.shape, meta.dims);
@@ -120,24 +121,24 @@ __global__ void binary_op_backward_strided_kernel(const float* input_A, const fl
         float g_out = grad_output[idx];
         
         if constexpr (Op == '+') {
-            atomicAdd(&grad_A[idx_a], g_out);
-            atomicAdd(&grad_B[idx_b], g_out);
+            if (has_grad_A) atomicAdd(&grad_A[idx_a], g_out);
+            if (has_grad_B) atomicAdd(&grad_B[idx_b], g_out);
         } else if constexpr (Op == '-') {
-            atomicAdd(&grad_A[idx_a], g_out);
-            atomicAdd(&grad_B[idx_b], -g_out);
+            if (has_grad_A) atomicAdd(&grad_A[idx_a], g_out);
+            if (has_grad_B) atomicAdd(&grad_B[idx_b], -g_out);
         } else if constexpr (Op == '*') {
-            atomicAdd(&grad_A[idx_a], g_out * input_B[idx_b]);
-            atomicAdd(&grad_B[idx_b], g_out * input_A[idx_a]);
+            if (has_grad_A) atomicAdd(&grad_A[idx_a], g_out * input_B[idx_b]);
+            if (has_grad_B) atomicAdd(&grad_B[idx_b], g_out * input_A[idx_a]);
         } else if constexpr (Op == '/') {
-            atomicAdd(&grad_A[idx_a], g_out / input_B[idx_b]);
-            atomicAdd(&grad_B[idx_b], -g_out * input_A[idx_a] / (input_B[idx_b] * input_B[idx_b]));
+            if (has_grad_A) atomicAdd(&grad_A[idx_a], g_out / input_B[idx_b]);
+            if (has_grad_B) atomicAdd(&grad_B[idx_b], -g_out * input_A[idx_a] / (input_B[idx_b] * input_B[idx_b]));
         }
     }
 }
 
 void launch_binary_op_backward_strided(const char op, const float* input_A, std::array<int, MAX_DIMS> strides_A,
                                       const float* input_B, std::array<int, MAX_DIMS> strides_B,
-                                      float* grad_A, float* grad_B, const float* grad_output,
+                                      float* grad_A, float* grad_B, const float* grad_output, bool has_grad_A, bool has_grad_B,
                                       std::array<int, MAX_DIMS> shape, int size, int dims) {
 #ifdef CUDA_TEST
     g_cuda_kernel_launches++;
@@ -155,10 +156,10 @@ void launch_binary_op_backward_strided(const char op, const float* input_A, std:
     }
 
     switch (op) {
-        case '+': binary_op_backward_strided_kernel<'+'><<<blocks, threads>>>(input_A, input_B, grad_A, grad_B, grad_output, meta); break;
-        case '-': binary_op_backward_strided_kernel<'-'><<<blocks, threads>>>(input_A, input_B, grad_A, grad_B, grad_output, meta); break;
-        case '*': binary_op_backward_strided_kernel<'*'><<<blocks, threads>>>(input_A, input_B, grad_A, grad_B, grad_output, meta); break;
-        case '/': binary_op_backward_strided_kernel<'/'><<<blocks, threads>>>(input_A, input_B, grad_A, grad_B, grad_output, meta); break;
+        case '+': binary_op_backward_strided_kernel<'+'><<<blocks, threads>>>(input_A, input_B, grad_A, grad_B, grad_output, meta, has_grad_A, has_grad_B); break;
+        case '-': binary_op_backward_strided_kernel<'-'><<<blocks, threads>>>(input_A, input_B, grad_A, grad_B, grad_output, meta, has_grad_A, has_grad_B); break;
+        case '*': binary_op_backward_strided_kernel<'*'><<<blocks, threads>>>(input_A, input_B, grad_A, grad_B, grad_output, meta, has_grad_A, has_grad_B); break;
+        case '/': binary_op_backward_strided_kernel<'/'><<<blocks, threads>>>(input_A, input_B, grad_A, grad_B, grad_output, meta, has_grad_A, has_grad_B); break;
         default: throw std::invalid_argument("Unknown op");
     }
 }

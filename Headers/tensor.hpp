@@ -56,6 +56,7 @@ struct Storage {
 
 class Tensor : public std::enable_shared_from_this<Tensor> {
 private:
+    // TODO: Storage should be pointer?
     Storage values;
     Storage grads;
 
@@ -67,13 +68,20 @@ private:
     std::vector<int> shape;
     int total_count;
     Device device;
-    bool image;
+    bool grad = true;
+    bool image = false;
 
-    Tensor& init_internal(std::vector<int> shape, std::vector<float> init_values, std::vector<float> init_grads, bool init_zero, Device device);
+    Tensor& init_internal(std::vector<int> shape, std::vector<float> init_values, std::vector<float> init_grads, bool init_zero, Device device, bool grad);
 
 public:
-    static Tensor_ptr init(std::vector<int> shape, bool init_zero = false, Device device = Device::CPU);
-    static Tensor_ptr init(std::vector<int> shape, const std::vector<float>& values, Device device = Device::CPU);
+    static Tensor_ptr init(std::vector<int> shape, bool init_zero = false, Device device = Device::CPU, bool grad = true);
+    static Tensor_ptr init(std::vector<int> shape, const std::vector<float>& values, Device device = Device::CPU, bool grad = true);
+    static Tensor_ptr init_nograd(std::vector<int> shape, bool init_zero = false, Device device = Device::CPU) { 
+        return init(shape, init_zero, device, false); 
+    }
+    static Tensor_ptr init_nograd(std::vector<int> shape, const std::vector<float>& values, Device device = Device::CPU) { 
+        return init(shape, values, device, false); 
+    }
 
     Tensor() {}
     ~Tensor() {}
@@ -101,13 +109,20 @@ public:
 
     bool is_continous(const std::vector<int>& strides, const std::vector<int>& shape);
     bool is_continous() {return is_continous(strides, shape); }
+    bool have_grad() {return grad; }
 
     // storage
     std::vector<float> values_vec(int count, std::vector<int>& strides, std::vector<int>& shape);
     std::vector<float> values_vec() {return values_vec(total_count, strides, shape); }
     std::vector<float> grads_vec();
     float* raw_values() { return values.get(); }
-    float* raw_grads() { return grads.get(); }
+    float* raw_grads() { 
+        // if (!grad) {
+        //     int a = 5;
+        //     throw std::invalid_argument("no grad!"); 
+        // }
+        return grads.get(); 
+    }
 
     void set(std::vector<float> values);
     inline void set(std::vector<int> indicies, float val) { values.set(stride::strided_idx(indicies, strides, shape), val); }

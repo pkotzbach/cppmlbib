@@ -33,6 +33,29 @@ TEST_P(TensorTest, ArgmaxLastDim)
                           std::vector<float>{1.0, 2.0}));
 }
 
+TEST_P(TensorTest, NoGrad)
+{
+    Device device = GetParam();
+    Tensor_ptr a = Tensor::init({2, 2}, {1.0, 2.0, 3.0, 4.0}, device, false);
+    Tensor_ptr b = Tensor::init({2, 2}, {5.0, 6.0, 7.0, 8.0}, device);
+
+    auto result = a + b;
+
+    EXPECT_THAT(result->values_vec(),
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{6.0, 8.0, 10.0, 12.0}));
+
+    result->sum()->backward();
+
+    EXPECT_FALSE(a->have_grad());
+    EXPECT_THROW(a->grads_vec(), std::invalid_argument);
+
+    EXPECT_TRUE(b->have_grad());
+    EXPECT_THAT(b->grads_vec(),
+                Pointwise(FloatNear(1e-5),
+                          std::vector<float>{1, 1, 1, 1}));
+}
+
 TEST_P(TensorTest, AdditionOperator)
 {
     Device device = GetParam();
